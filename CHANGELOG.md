@@ -2,6 +2,46 @@
 
 所有重要的项目变更都会记录在此文件中。
 
+## [v6.0.0] - 2026-05-21
+
+### 容器化与部署
+
+- 新增 Dockerfile 多阶段构建，优化镜像体积和构建速度
+- 新增后端 Dockerfile，使用 node:20-alpine 基础镜像，非 root 用户运行
+- 新增前端 Dockerfile，使用 Nginx 提供静态文件服务
+- 新增健康检查支持，后端使用 HTTP 健康检查端点
+- 新增 OCI 元数据标签到镜像
+
+### 一键部署
+
+- 新增 `deploy.ps1` Windows 一键部署脚本
+- 新增 `deploy.sh` Linux/Mac 一键部署脚本
+- 支持自定义镜像仓库、命名空间、端口、版本
+- 自动检测 Docker 环境、端口可用性、生成 JWT 密钥
+- 自动生成 docker-compose.deploy.yml 部署配置
+
+### 镜像仓库
+
+- 新增 `docker-build-push.ps1` Windows 构建推送脚本
+- 新增 `docker-build-push.sh` Linux/Mac 构建推送脚本
+- 镜像推送到阿里云容器镜像仓库
+- 后端镜像地址: `registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-backend-latest`
+- 前端镜像地址: `registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-frontend-latest`
+
+### CI/CD
+
+- 新增 GitHub Actions 自动化构建和推送工作流
+- 支持 push 到 main/master 分支自动触发构建
+- 支持打 tag 自动构建并推送对应版本镜像
+
+### 文档更新
+
+- 新增 `DEPLOY.md` 快速部署指南
+- 新增 `docker/README.md` 镜像仓库使用说明
+- 更新 `README.md` 快速开始部分，新增一键脚本和阿里云镜像部署说明
+- 更新 `docker-compose.yml` 支持本地构建模式
+- 优化 `.dockerignore` 减少构建上下文大小
+
 ## [v5.3.0] - 2026-05-20
 
 ### 清理与优化

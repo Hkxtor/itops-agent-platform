@@ -1,35 +1,52 @@
-# 构建阶段
+# ITOps Agent Platform - Frontend
+# Multi-stage build optimized for production and public registry distribution
+# Build: docker build -f docker/Dockerfile.frontend -t itops-frontend:latest .
+
+# ============================================================
+# Stage 1: Builder
+# ============================================================
 FROM node:20-alpine AS builder
 
-# 设置工作目录
 WORKDIR /app
 
-# 设置 npm 使用国内镜像源
-RUN npm config set registry https://registry.npmmirror.com
+# Copy package files first for better layer caching
+COPY frontend/package.json frontend/package-lock.json ./
 
-# 先只复制 package 文件，利用 Docker 缓存
-COPY frontend/package.json ./
+# Install dependencies
+RUN npm ci
 
-# 安装依赖
-RUN npm install
-
-# 复制前端源代码
+# Copy source code
 COPY frontend/ ./
 
-# 构建前端项目
+# Build frontend project
 RUN npm run build
 
-# 生产阶段 - 使用 nginx 提供静态文件
+# ============================================================
+# Stage 2: Production (Nginx)
+# ============================================================
 FROM nginx:alpine
 
-# 复制 nginx 配置文件
+# Labels for public registry
+LABEL maintainer="谭策 <huawei_network@foxmail.com>" \
+      org.opencontainers.image.title="ITOps Agent Platform Frontend" \
+      org.opencontainers.image.description="Enterprise IT Operations Multi-Agent Automation Platform - Web UI" \
+      org.opencontainers.image.source="https://github.com/your-org/ITOpsAgent" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="谭策" \
+      org.opencontainers.image.url="https://www.zjzwfw.cloud/ITOpsAgentinfo"
+
+# Copy nginx configuration
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
-# 从构建阶段复制编译好的静态文件
+# Copy built static files from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# 暴露端口
+# Expose HTTP port
 EXPOSE 80
 
-# 启动 nginx
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+
+# Start nginx in foreground mode
 CMD ["nginx", "-g", "daemon off;"]

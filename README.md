@@ -37,7 +37,7 @@ graph TB
 - **AI Copilot** — 自然语言对话式运维助手，自动感知系统状态
 - **多模型支持** — 同时支持豆包（Doubao）和 OpenAI 双 API
 - **企业级安全** — AES-256-GCM 敏感数据加密、JWT 认证、速率限制、审计日志
-- **Docker 一键部署** — 前后端容器化，5 分钟上线
+- **Docker 一键部署** — 前后端容器化，5 分钟上线，支持阿里云镜像仓库
 
 ## 技术栈
 
@@ -54,19 +54,42 @@ graph TB
 
 ## 快速开始
 
-### Docker 部署（推荐）
+### 方式一：一键脚本部署（推荐）
 
 ```bash
-# 1. 配置环境变量（可选）
+# Windows
+.\deploy.ps1
+
+# Linux/Mac
+chmod +x deploy.sh && ./deploy.sh
+```
+
+脚本会自动拉取阿里云镜像、生成配置、启动服务并验证健康状态。
+
+### 方式二：Docker Compose 部署
+
+```bash
+# 1. 配置环境变量
 cp .env.example .env
 
-# 2. 构建并启动
+# 2. 构建并启动（本地源码构建）
 docker-compose up -d --build
 
 # 3. 访问
 # 前端: http://localhost:8080
 # 后端: http://localhost:3001
 # 健康: http://localhost:3001/health
+```
+
+### 方式三：手动拉取阿里云镜像部署
+
+```bash
+# 拉取镜像
+docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-backend-latest
+docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-frontend-latest
+
+# 启动服务
+docker-compose up -d
 ```
 
 也可使用简化版：

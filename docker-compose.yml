@@ -1,13 +1,21 @@
+# ============================================================
+# ITOps Agent Platform - Docker Compose (Production)
+# ============================================================
+# Enterprise IT Operations Multi-Agent Automation Platform
+# Author: 谭策
+# License: MIT
+# Website: https://www.zjzwfw.cloud/ITOpsAgentinfo
+# ============================================================
+
 services:
   backend:
+    # For local build
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
-      # 添加构建参数，方便调试
-      args:
-        - NODE_ENV=production
+    # For using pre-built images from registry (uncomment and replace with your registry):
+    # image: your-username/itops-backend:latest
     container_name: itops-backend
-    # 使用 host 网络模式有时候更简单，但为了更好的隔离使用 bridge
     networks:
       - itops-network
     ports:
@@ -17,7 +25,7 @@ services:
       - PORT=3001
       - HOST=0.0.0.0
       - DATABASE_PATH=/app/data/app.db
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
       - DOUBAO_API_KEY=${DOUBAO_API_KEY:-}
       - DOUBAO_API_BASE=${DOUBAO_API_BASE:-https://ark.cn-beijing.volces.com/api/v3}
       - DOUBAO_MODEL=${DOUBAO_MODEL:-doubao-4o}
@@ -27,7 +35,7 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:80,http://localhost:3000,http://localhost:8080,http://itops-frontend,http://frontend,http://localhost:5173}
     volumes:
       - app-data:/app/data
-    # 资源限制，防止容器占用过多资源
+    # Resource limits
     deploy:
       resources:
         limits:
@@ -42,12 +50,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 30s
 
   frontend:
+    # For local build
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
+    # For using pre-built images from registry (uncomment and replace with your registry):
+    # image: your-username/itops-frontend:latest
     container_name: itops-frontend
     networks:
       - itops-network
@@ -56,7 +67,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    # 资源限制
+    # Resource limits
     deploy:
       resources:
         limits:
@@ -66,16 +77,17 @@ services:
           cpus: '0.25'
           memory: 128M
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
-# 定义自定义网络
 networks:
   itops-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
 
-# 数据卷
 volumes:
   app-data:
     driver: local
