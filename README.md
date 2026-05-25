@@ -2,6 +2,11 @@
 
 企业级 IT 运维多 Agent 自动化平台 — 基于大语言模型的智能运维解决方案。
 
+[![CI](https://github.com/qinshihu/itops-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/qinshihu/itops-agent-platform/actions/workflows/ci.yml)
+[![Release](https://github.com/qinshihu/itops-agent-platform/actions/workflows/release.yml/badge.svg)](https://github.com/qinshihu/itops-agent-platform/actions/workflows/release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/qinshihu/itops-agent-platform?include_prereleases&sort=semver)](https://github.com/qinshihu/itops-agent-platform/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 🌐 **项目官网**: <https://www.zjzwfw.cloud/ITOpsAgentinfo>
 
 <img width="1920" height="1080" alt="0cpuy-fbfi3" src="文档引用图片\0 (3).gif" />
@@ -314,6 +319,18 @@ cd frontend && npm install && npm run dev
 - 邮件模板 XSS 防护（HTML 转义）
 - Graceful Shutdown（优雅关闭，30s 超时保护）
 - 非 root 用户容器运行 + 最小权限文件权限
+
+## 🚀 CI/CD 自动化
+
+本项目配置了完整的 GitHub Actions CI/CD 流水线：
+
+| 流水线 | 触发条件 | 功能 |
+|--------|---------|------|
+| [CI](.github/workflows/ci.yml) | Push/PR 到 main | Lint + TypeScript 检查 + 测试 + Docker 构建验证 |
+| [Release](.github/workflows/release.yml) | 推送 tag (`v*`) 或手动 | 构建 Docker 镜像 → 推送阿里云 → 自动创建 GitHub Release |
+| [Mirror](.github/workflows/mirror.yml) | Push 到 main 或手动 | 自动同步代码到 Gitee/Gitcode |
+
+> 📖 详细配置指南：[docs/CICD_SETUP.md](docs/CICD_SETUP.md)
 
 ## 作者
 

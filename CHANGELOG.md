@@ -47,6 +47,11 @@
 - docker-compose.yml 添加日志大小限制（backend 50MB, frontend 15MB）
 - docker-compose.yml 默认使用阿里云远程镜像（无需本地构建）
 - .env.example 新增 ADMIN_INITIAL_PASSWORD 字段说明
+- GitHub Actions CI/CD 完整流水线：
+  - `ci.yml`：Push/PR 自动触发 Lint + TypeScript 检查 + 测试 + Docker 构建验证
+  - `release.yml`：推送 tag 自动构建 Docker 镜像并推送至阿里云，自动生成 GitHub Release
+  - `mirror.yml`：Push 到 main 自动同步代码到 Gitee/Gitcode
+  - 详见 [docs/CICD_SETUP.md](docs/CICD_SETUP.md)
 
 ### 代码质量
 - 前后端 TypeScript 编译零错误通过
