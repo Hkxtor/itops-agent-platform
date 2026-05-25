@@ -170,8 +170,8 @@ docker-compose up -d
 - operator / operator123
 - viewer / viewer123
 
-### 2. 配置HTTPS
-建议在生产环境使用HTTPS：
+### 2. 配置 HTTPS
+建议在生产环境使用 HTTPS：
 
 ```nginx
 # 在 docker/nginx.conf 中添加SSL配置
@@ -193,6 +193,42 @@ server {
 
 ### 4. 定期备份
 设置定时任务定期备份数据库。
+
+### 5. Webhook 签名验证（生产环境必须）
+
+> ⚠️ **严重**：如果不启用 Webhook 签名验证，任何知道 Webhook URL 的人都可以向系统发送伪造告警，可能导致恶意工作流触发、虚假告警恢复或拒绝服务攻击。
+
+#### 5.1 环境变量配置
+
+在 `.env` 文件中添加：
+
+```env
+# Webhook 签名验证（生产环境必须启用）
+WEBHOOK_VERIFY_ENABLED=true
+WEBHOOK_SECRET=<使用 openssl rand -hex 32 生成>
+```
+
+#### 5.2 告警源配置
+
+每个接入的告警源（Zabbix、Prometheus、Grafana 等）都必须配置相同的 Secret，并在发送请求时计算 HMAC-SHA256 签名，添加到对应的 Header：
+
+| 告警源 | Header 名称 |
+|--------|-------------|
+| Zabbix | `X-Webhook-Signature-zabbix` |
+| Prometheus | `X-Webhook-Signature-prometheus` |
+| Grafana | `X-Webhook-Signature-grafana` |
+| 阿里云 | `X-Webhook-Signature-aliyun` |
+| 腾讯云 | `X-Webhook-Signature-tencent` |
+| 通用 | `X-Webhook-Signature-generic` |
+
+#### 5.3 HTTPS 要求
+
+所有 Webhook 请求必须通过 HTTPS 传输，否则签名和数据可能被中间人截获。
+
+#### 5.4 更多信息
+
+详细的 Webhook 安全配置指南请参考：
+- [Zabbix Webhook 安全配置](./ZABBIX_CONFIG.md#-webhook-安全配置)
 
 ## 📊 监控和日志
 

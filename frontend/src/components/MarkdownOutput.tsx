@@ -1,7 +1,7 @@
 import React from 'react';
 import MarkdownIt from 'markdown-it';
 import { clsx } from 'clsx';
-import DOMPurify from 'dompurify';
+import { sanitizeHTML } from '../lib/xss';
 
 interface MarkdownOutputProps {
   content: string;
@@ -32,11 +32,7 @@ const MarkdownOutput: React.FC<MarkdownOutputProps> = ({ content, className }) =
     if (!content) return null;
     
     const html = md.render(content);
-    const sanitized = DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'span', 'div', 'sup', 'sub', 'del', 'mark', 'abbr'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel', 'class', 'id', 'type', 'start', 'reversed', 'align', 'colspan', 'rowspan', 'width', 'height'],
-      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
-    });
+    const sanitized = sanitizeHTML(html);
     
     return (
       <div

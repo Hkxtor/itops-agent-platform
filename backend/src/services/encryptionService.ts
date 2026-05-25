@@ -60,8 +60,7 @@ export function decrypt(encryptedString: string): string {
   try {
     const parts = encryptedString.split(':');
     if (parts.length !== 3) {
-      // 如果格式不正确，可能是旧的未加密数据，直接返回
-      return encryptedString;
+      throw new Error('Invalid encrypted data format');
     }
     
     const iv = Buffer.from(parts[0], 'base64');
@@ -152,18 +151,23 @@ function encryptWithKey(plaintext: string, key: Buffer): string {
 function decryptWithKey(encryptedString: string, key: Buffer): string {
   const parts = encryptedString.split(':');
   if (parts.length !== 3) {
-    return encryptedString;
+    throw new Error('Invalid encrypted data format');
   }
   
-  const iv = Buffer.from(parts[0], 'base64');
-  const authTag = Buffer.from(parts[1], 'base64');
-  const encryptedData = Buffer.from(parts[2], 'base64');
-  
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-  
-  let decrypted = decipher.update(encryptedData);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  
-  return decrypted.toString('utf8');
+  try {
+    const iv = Buffer.from(parts[0], 'base64');
+    const authTag = Buffer.from(parts[1], 'base64');
+    const encryptedData = Buffer.from(parts[2], 'base64');
+    
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+    
+    let decrypted = decipher.update(encryptedData);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    
+    return decrypted.toString('utf8');
+  } catch (error) {
+    logger.error('Decryption with key failed:', error as Error);
+    throw new Error('Failed to decrypt data with provided key');
+  }
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit, Trash2, Filter, Bell, Zap, Workflow, Database, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import api from '../lib/api';
+import { sanitizeText } from '../lib/xss';
 
 interface AlertMapping {
   id: string;
@@ -280,25 +281,25 @@ export default function AlertMappings() {
                   <div className="flex items-center gap-2">
                     <Database className="w-4 h-4 text-text-secondary" />
                     <span className="text-sm text-text-primary">
-                      来源: <span className="font-medium">{mapping.alert_source || '任意'}</span>
+                      来源: <span className="font-medium">{sanitizeText(mapping.alert_source) || '任意'}</span>
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {getSeverityIcon(mapping.alert_severity)}
                     <span className="text-sm text-text-primary">
-                      级别: <span className="font-medium">{mapping.alert_severity || '任意'}</span>
+                      级别: <span className="font-medium">{sanitizeText(mapping.alert_severity) || '任意'}</span>
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-text-secondary" />
                     <span className="text-sm text-text-primary">
-                      匹配: <span className="font-mono text-xs bg-background px-1.5 py-0.5 rounded">{mapping.alert_title_pattern || '任意'}</span>
+                      匹配: <span className="font-mono text-xs bg-background px-1.5 py-0.5 rounded">{sanitizeText(mapping.alert_title_pattern) || '任意'}</span>
                     </span>
                   </div>
                   <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
                     <Workflow className="w-4 h-4 text-primary" />
                     <span className="text-sm text-text-primary font-medium">
-                      {mapping.workflow_name}
+                      {sanitizeText(mapping.workflow_name)}
                     </span>
                   </div>
                 </div>

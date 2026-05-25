@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import db, { getIOInstance } from '../models/database';
 import { logger } from '../utils/logger';
 import { executeAgentNode, getThinkingSteps } from './agentExecutor';
@@ -10,6 +10,48 @@ import {
   TaskLogEntry,
   WorkflowParsed
 } from '../types';
+
+function calculateTextSimilarity(text1: string, text2: string): number {
+  const set1 = new Set(text1.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/));
+  const set2 = new Set(text2.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/));
+  const intersection = new Set([...set1].filter(x => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+  return union.size === 0 ? 1 : intersection.size / union.size;
+}
+
+function isDuplicateKnowledgeBase(content: string, similarityThreshold: number = 0.7): string | null {
+  try {
+    const existing = db.prepare('SELECT id, content FROM knowledge_base WHERE category = ? ORDER BY created_at DESC LIMIT 50').all('故障处理') as Array<{ id: string; content: string }>;
+    const targetError = content.toLowerCase();
+    
+    for (const entry of existing) {
+      const similarity = calculateTextSimilarity(targetError, entry.content.toLowerCase());
+      if (similarity >= similarityThreshold) {
+        return entry.id;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+interface ExecutionVariable {
+  name: string;
+  value: unknown;
+}
+
+interface ExecutionContext {
+  variables: Record<string, unknown>;
+  previousResults: Array<{ nodeId: string; status: string; output?: string; error?: string }>;
+  metadata: {
+    taskId: string;
+    workflowName: string;
+    currentNodeId?: string;
+    executionDepth: number;
+    startTime: string;
+  };
+}
 
 export async function executeWorkflow(
   taskId: string,
@@ -23,6 +65,17 @@ export async function executeWorkflow(
   const nodeResults: Record<string, NodeResult> = {};
   let nodes: WorkflowNode[] = [];
   let executionOrder: string[] = [];
+  const startTime = new Date().toISOString();
+  const executionContext: ExecutionContext = {
+    variables: context ? { ...context } : {},
+    previousResults: [],
+    metadata: {
+      taskId,
+      workflowName: workflow.name,
+      executionDepth: 0,
+      startTime
+    }
+  };
   
   try {
     logger.info('🔄 Starting workflow execution:', { taskId, workflowName: workflow.name, context });
@@ -63,6 +116,15 @@ export async function executeWorkflow(
         const previousResults = Object.values(nodeResults).map((r) => r.output).filter(Boolean).join('\n\n');
         const input = previousResults || initialInput || '请开始执行任务';
         
+        executionContext.metadata.currentNodeId = nodeId;
+        executionContext.metadata.executionDepth = executionDepth;
+        executionContext.previousResults.push({
+          nodeId,
+          status: 'running',
+          output: undefined,
+          error: undefined
+        });
+        
         // 显示思考进度
         const thinkingProcess = getThinkingSteps(node.data.label);
         for (const step of thinkingProcess) {
@@ -86,6 +148,15 @@ export async function executeWorkflow(
             executionTime: Date.now()
           }
         };
+        
+        const lastResultIdx = executionContext.previousResults.findIndex(r => r.nodeId === nodeId && r.status === 'running');
+        if (lastResultIdx !== -1) {
+          executionContext.previousResults[lastResultIdx] = {
+            nodeId,
+            status: 'success',
+            output
+          };
+        }
         
         io?.to(`task:${taskId}`).emit('task:node:output', {
           taskId,
@@ -143,6 +214,12 @@ export async function executeWorkflow(
         failedNodes.forEach((nodeResult) => {
           const title = `${workflow.name} - 故障案例`;
           const content = `**故障节点**: ${nodeResult.node?.data?.label || nodeResult.nodeId}\n**错误**: ${nodeResult.error}\n**分析时间**: ${new Date().toISOString()}`;
+          
+          const duplicateId = isDuplicateKnowledgeBase(content);
+          if (duplicateId) {
+            logger.info(`ℹ️ 跳过重复的故障案例，已存在相似条目: ${duplicateId}`);
+            return;
+          }
           
           db.prepare(`
             INSERT INTO knowledge_base (id, title, category, content, created_at)

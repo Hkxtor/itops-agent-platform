@@ -21,8 +21,14 @@ export default function Login() {
       const response = await api.post('/api/auth/login', { username, password });
 
       if (response.data.success) {
-        login(response.data.data.token, response.data.data.user);
-        navigate('/dashboard');
+        login(response.data.data.token, response.data.data.user, response.data.data.refreshToken);
+        
+        // 检查是否需要强制修改密码
+        if (response.data.data.user.passwordMustChange) {
+          navigate('/settings?changePassword=true');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
         setError(response.data.message || '登录失败，请检查用户名和密码');
       }

@@ -1,7 +1,7 @@
-﻿import db from '../models/database';
+import db from '../models/database';
 import { logger } from '../utils/logger';
 import { executeAgentWithLLM } from './llmService';
-import { executeCommand, runComplianceCheck } from './sshService';
+import { executeCommand, runComplianceCheck, complianceChecks } from './sshService';
 import { Agent, Server } from '../types';
 
 export async function executeAgentNode(
@@ -173,7 +173,7 @@ async function executeAutoInspectionAgent(input: string, context?: Record<string
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       report += `\n### 🖥️ ${server.name} (${server.hostname})\n\n**错误**: ${errorMessage}\n\n`;
-      totalFailChecks += 13;
+      totalFailChecks += complianceChecks.length;
     }
     
     report += '\n---\n';

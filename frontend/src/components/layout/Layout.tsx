@@ -1,13 +1,13 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
-import { 
-  LayoutDashboard, 
-  Bot, 
-  GitBranch, 
-  Play, 
-  Bell, 
-  BookOpen, 
+import {
+  LayoutDashboard,
+  Bot,
+  GitBranch,
+  Play,
+  Bell,
+  BookOpen,
   FileCode,
   Settings,
   Server,
@@ -21,7 +21,10 @@ import {
   LogOut,
   User as UserIcon,
   Terminal,
-  Monitor
+  Monitor,
+  Wrench,
+  ListChecks,
+  BarChart3,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,6 +41,9 @@ const navigation = [
   { name: '告警中心', href: '/alerts', icon: Bell },
   { name: '告警自动处理', href: '/alert-mappings', icon: Link2 },
   { name: '告警降噪', href: '/alert-noise', icon: Shield },
+  { name: '自动修复策略', href: '/remediation-policies', icon: Wrench },
+  { name: '修复效果仪表盘', href: '/remediation-dashboard', icon: BarChart3 },
+  { name: '修复执行记录', href: '/remediation-executions', icon: ListChecks },
   { name: '根因分析', href: '/root-cause-analysis', icon: Search },
   { name: '知识库', href: '/knowledge', icon: BookOpen },
   { name: '脚本中心', href: '/scripts', icon: FileCode },
@@ -58,7 +64,7 @@ export default function Layout() {
     queryKey: ['agents-count'],
     queryFn: async () => {
       const res = await api.get('/api/agents');
-      return (res.data.data as any[]).filter((a: any) => a.enabled === 1).length;
+      return (res.data.data as Array<{ enabled: number }>).filter((a) => a.enabled === 1).length;
     },
     refetchInterval: 60000,
     staleTime: 5 * 60 * 1000,
@@ -68,7 +74,7 @@ export default function Layout() {
     queryKey: ['workflows-count'],
     queryFn: async () => {
       const res = await api.get('/api/workflows');
-      return (res.data.data as any[]).filter((w: any) => w.is_template === 1).length;
+      return (res.data.data as Array<{ is_template: number }>).filter((w) => w.is_template === 1).length;
     },
     refetchInterval: 60000,
     staleTime: 5 * 60 * 1000,

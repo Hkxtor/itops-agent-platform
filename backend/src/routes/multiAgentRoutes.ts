@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { MultiAgentOrchestrator } from '../services/multiAgentCollaboration';
 import EnhancedRAGService from '../services/enhancedRAGService';
-import db from '../models/database';
+import db, { getIOInstance } from '../models/database';
+import { emitToTask } from '../websocket/handler';
+import { logger } from '../utils/logger';
 
 const router = Router();
 const ragService = new EnhancedRAGService();
@@ -89,6 +91,13 @@ router.post('/collaborate', async (req: Request, res: Response) => {
         JSON.stringify({ conversation: result })
       );
 
+      const io = getIOInstance();
+      emitToTask(io!, taskId, 'task:completed', {
+        status: 'completed',
+        result: result,
+        timestamp: new Date().toISOString()
+      });
+
       // 可选：保存到知识库
       if (options.saveToKnowledge) {
         await orchestrator.saveToKnowledgeBase(
@@ -98,11 +107,17 @@ router.post('/collaborate', async (req: Request, res: Response) => {
       }
 
     } catch (executionError) {
-      console.error('协作执行失败:', executionError);
+      logger.error('协作执行失败:', executionError);
+      const io = getIOInstance();
+      emitToTask(io!, taskId, 'task:error', {
+        status: 'failed',
+        error: executionError instanceof Error ? executionError.message : String(executionError),
+        timestamp: new Date().toISOString()
+      });
     }
 
   } catch (error) {
-    console.error('启动协作失败:', error);
+    logger.error('启动协作失败:', error);
     res.status(500).json({
       success: false,
       error: '启动协作失败'
@@ -182,8 +197,21 @@ router.post('/collaborate/from-template', async (req: Request, res: Response) =>
     // 后台执行
     try {
       await orchestrator.collaborate(query, agentIds);
+      const io = getIOInstance();
+      emitToTask(io!, taskId, 'task:completed', {
+        status: 'completed',
+        templateId,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
-      console.error('模板协作执行失败:', error);
+      logger.error('模板协作执行失败:', error);
+      const io = getIOInstance();
+      emitToTask(io!, taskId, 'task:error', {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        templateId,
+        timestamp: new Date().toISOString()
+      });
     }
 
   } catch {
@@ -225,7 +253,7 @@ router.get('/knowledge/search', async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('搜索失败:', error);
+    logger.error('搜索失败:', error);
     res.status(500).json({
       success: false,
       error: '搜索失败'
@@ -258,7 +286,7 @@ router.post('/knowledge/inject', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error) {
-    console.error('知识注入失败:', error);
+    logger.error('知识注入失败:', error);
     res.status(500).json({
       success: false,
       error: '知识注入失败'
@@ -287,7 +315,7 @@ router.post('/knowledge', async (req: Request, res: Response) => {
       data: { id, title, category }
     });
   } catch (error) {
-    console.error('添加知识失败:', error);
+    logger.error('添加知识失败:', error);
     res.status(500).json({
       success: false,
       error: '添加知识失败'
@@ -316,7 +344,7 @@ router.post('/knowledge/batch', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error) {
-    console.error('批量导入失败:', error);
+    logger.error('批量导入失败:', error);
     res.status(500).json({
       success: false,
       error: '批量导入失败'
@@ -345,7 +373,7 @@ router.get('/knowledge/:id/similar', async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('获取相似知识失败:', error);
+    logger.error('获取相似知识失败:', error);
     res.status(500).json({
       success: false,
       error: '获取相似知识失败'
@@ -364,7 +392,7 @@ router.get('/knowledge/statistics', (_req: Request, res: Response) => {
       data: statistics
     });
   } catch (error) {
-    console.error('获取统计失败:', error);
+    logger.error('获取统计失败:', error);
     res.status(500).json({
       success: false,
       error: '获取统计失败'

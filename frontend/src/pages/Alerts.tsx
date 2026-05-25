@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { Bell, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import clsx from 'clsx';
 import api from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { sanitizeText } from '../lib/xss';
 
 const wsUrl = window.location.origin;
 
@@ -178,10 +179,10 @@ export default function Alerts() {
                         {alert.status === 'resolved' && '已解决'}
                       </span>
                     </div>
-                    <h3 className="font-semibold text-text-primary mb-1">{alert.title}</h3>
-                    <p className="text-sm text-text-secondary mb-2">{alert.content}</p>
+                    <h3 className="font-semibold text-text-primary mb-1">{sanitizeText(alert.title)}</h3>
+                    <p className="text-sm text-text-secondary mb-2">{sanitizeText(alert.content)}</p>
                     <div className="flex items-center gap-4 text-xs text-text-secondary">
-                      <span>来源: {alert.source || '系统'}</span>
+                      <span>来源: {sanitizeText(alert.source)}</span>
                       <span>
                         {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
                       </span>

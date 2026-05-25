@@ -20,6 +20,7 @@ interface AgentCollaborationContext {
   conversationHistory: CollaborationMessage[];
   context: Record<string, unknown>;
   startTime: number;
+  delegationChain: string[];
 }
 
 interface CollaborationMessage {
@@ -42,7 +43,8 @@ class MultiAgentOrchestrator {
       currentAgentName: '',
       conversationHistory: [],
       context: initialContext,
-      startTime: Date.now()
+      startTime: Date.now(),
+      delegationChain: []
     };
   }
 
@@ -57,12 +59,10 @@ class MultiAgentOrchestrator {
       throw new Error('No agents available');
     }
 
-    // 如果只有一个Agent，直接返回
     if (availableAgents.length === 1) {
       return availableAgents[0].id;
     }
 
-    // 使用LLM智能路由
     const agentDescriptions = availableAgents.map(agent => 
       `${agent.name} (${agent.id}): ${agent.role || agent.description || '通用Agent'}`
     ).join('\n');
@@ -84,7 +84,6 @@ ${agentDescriptions}
         0.3
       );
 
-      // 解析返回的Agent ID
       const matchedAgent = availableAgents.find(agent => 
         result.includes(agent.id) || result.includes(agent.name)
       );
@@ -93,12 +92,47 @@ ${agentDescriptions}
         return matchedAgent.id;
       }
 
-      // 如果没有匹配到，返回第一个启用的Agent
       return availableAgents.find((a) => a.enabled)?.id || availableAgents[0].id;
     } catch {
-      logger.error('Agent routing failed, falling back to first agent');
-      return availableAgents[0].id;
+      logger.warn('🔄 [Agent Router] LLM routing failed, falling back to rule-based routing');
+      return this.ruleBasedRouting(userQuery, availableAgents);
     }
+  }
+
+  /**
+   * 基于规则的Agent路由降级方案
+   */
+  private ruleBasedRouting(userQuery: string, availableAgents: AgentDB[]): string {
+    const queryLower = userQuery.toLowerCase();
+    
+    const ruleMappings: Array<{ keywords: string[]; agentRole: string }> = [
+      { keywords: ['告警', 'alert', '故障', '问题'], agentRole: '告警' },
+      { keywords: ['诊断', '排查', '根因', '故障'], agentRole: '诊断' },
+      { keywords: ['日志', 'log', '分析'], agentRole: '日志' },
+      { keywords: ['巡检', '检查', '健康'], agentRole: '巡检' },
+      { keywords: ['变更', '部署', '执行'], agentRole: '变更' },
+      { keywords: ['文档', '报告', '生成'], agentRole: '文档' },
+      { keywords: ['合规', '安全', '基线'], agentRole: '合规' },
+      { keywords: ['服务器', '命令', '执行'], agentRole: '命令执行' },
+      { keywords: ['知识库', '推荐', '相关'], agentRole: '知识' }
+    ];
+
+    for (const rule of ruleMappings) {
+      if (rule.keywords.some(k => queryLower.includes(k))) {
+        const matchedAgent = availableAgents.find(a => 
+          (a.role && a.role.toLowerCase().includes(rule.agentRole)) ||
+          (a.name && a.name.toLowerCase().includes(rule.agentRole)) ||
+          (a.description && a.description.toLowerCase().includes(rule.agentRole))
+        );
+        if (matchedAgent) {
+          logger.info(`✅ [Rule Router] Matched agent: ${matchedAgent.name} for query`);
+          return matchedAgent.id;
+        }
+      }
+    }
+
+    logger.info('📋 [Rule Router] No rule match, using first available agent');
+    return availableAgents.find((a) => a.enabled)?.id || availableAgents[0].id;
   }
 
   /**
@@ -179,10 +213,20 @@ ${agentDescriptions}
       if (result.type === 'final') {
         shouldContinue = false;
       } else if (result.type === 'delegate') {
-        // 委托给其他Agent
-        this.context.currentAgentId = result.delegateTo || '';
-        const nextAgent = agents.find(a => (a as AgentDB).id === result.delegateTo);
-        this.context.currentAgentName = (nextAgent as AgentDB)?.name || 'Unknown';
+        // 委托给其他Agent，检查循环
+        const delegateToAgent = result.delegateTo || '';
+        if (this.detectDelegationCycle(delegateToAgent)) {
+          this.context.conversationHistory.push({
+            role: 'system',
+            content: `检测到Agent委托循环 (${this.context.delegationChain.join(' -> ')} -> ${delegateToAgent})，终止委托以避免无限循环`,
+            timestamp: Date.now()
+          });
+          shouldContinue = false;
+        } else {
+          this.context.currentAgentId = delegateToAgent;
+          const nextAgent = agents.find(a => (a as AgentDB).id === delegateToAgent);
+          this.context.currentAgentName = (nextAgent as AgentDB)?.name || 'Unknown';
+        }
       }
 
       // 检查是否需要继续
@@ -333,6 +377,18 @@ ${formatted}
   }
 
   /**
+   * 检测委托循环
+   */
+  private detectDelegationCycle(targetAgentId: string): boolean {
+    if (this.context.delegationChain.includes(targetAgentId)) {
+      return true;
+    }
+    
+    this.context.delegationChain.push(targetAgentId);
+    return false;
+  }
+
+  /**
    * 检查任务是否完成
    */
   private isTaskComplete(): boolean {
@@ -378,8 +434,43 @@ ${conversationText}
         timestamp: Date.now()
       });
     } catch (error) {
-      logger.error('Summary generation failed:', error);
+      logger.warn('🔄 [Summary] LLM summary failed, falling back to rule-based summary');
+      this.generateRuleBasedSummary(conversationText);
     }
+  }
+
+  /**
+   * 基于规则的总结生成降级方案
+   */
+  private generateRuleBasedSummary(conversationText: string): void {
+    const summary = `# 协作总结（规则引擎生成）
+
+## 协作概况
+- **任务ID**: ${this.context.taskId}
+- **参与Agent**: ${this.context.delegationChain.length > 0 ? this.context.delegationChain.join(' → ') : this.context.currentAgentName}
+- **协作轮数**: ${this.context.conversationHistory.length} 轮
+- **用时**: ${((Date.now() - this.context.startTime) / 1000).toFixed(1)} 秒
+
+## 对话摘要
+${this.context.conversationHistory.slice(0, 5).map(msg => 
+`- **${msg.name || msg.role}**: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`
+).join('\n')}
+
+## 处理结果
+基于规则引擎生成的总结。建议：
+1. 检查系统日志获取更多信息
+2. 确认相关服务状态
+3. 如需更深入分析，请配置 LLM API 以获取智能分析结果
+
+---
+*此总结由本地规则引擎自动生成*`;
+
+    this.context.conversationHistory.push({
+      role: 'assistant',
+      name: '系统总结',
+      content: summary,
+      timestamp: Date.now()
+    });
   }
 
   /**
@@ -413,6 +504,15 @@ ${conversationText}
  */
 class AgentMessageBus {
   private messages: Map<string, CollaborationMessage[]> = new Map();
+  private messageTTL: number; // 毫秒，默认30分钟
+  private cleanupInterval: number; // 毫秒，默认10分钟
+  private lastCleanup: number;
+
+  constructor(options: { messageTTL?: number; cleanupInterval?: number } = {}) {
+    this.messageTTL = options.messageTTL || 30 * 60 * 1000; // 30分钟
+    this.cleanupInterval = options.cleanupInterval || 10 * 60 * 1000; // 10分钟
+    this.lastCleanup = Date.now();
+  }
 
   sendMessage(
     fromAgent: string,
@@ -432,10 +532,52 @@ class AgentMessageBus {
       timestamp: Date.now(),
       metadata
     });
+
+    // 定期检查清理过期消息
+    this.maybeCleanup();
   }
 
   getMessages(fromAgent: string, toAgent: string): CollaborationMessage[] {
     return this.messages.get(`${fromAgent}:${toAgent}`) || [];
+  }
+
+  /**
+   * 清理过期消息
+   */
+  private cleanup() {
+    const now = Date.now();
+    const cutoff = now - this.messageTTL;
+
+    for (const [key, msgs] of this.messages.entries()) {
+      // 过滤掉过期消息
+      const validMessages = msgs.filter(msg => msg.timestamp > cutoff);
+      
+      if (validMessages.length === 0) {
+        // 如果没有有效消息，删除整个键
+        this.messages.delete(key);
+      } else {
+        // 更新为有效消息
+        this.messages.set(key, validMessages);
+      }
+    }
+
+    this.lastCleanup = now;
+  }
+
+  /**
+   * 检查是否需要执行清理
+   */
+  private maybeCleanup() {
+    if (Date.now() - this.lastCleanup > this.cleanupInterval) {
+      this.cleanup();
+    }
+  }
+
+  /**
+   * 手动触发清理
+   */
+  forceCleanup() {
+    this.cleanup();
   }
 }
 

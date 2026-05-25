@@ -17,8 +17,17 @@ interface EnvConfig {
   OPENAI_API_KEY?: string;
   OPENAI_API_BASE?: string;
   OPENAI_MODEL?: string;
+  LOCAL_AI_API_KEY?: string;
+  LOCAL_AI_API_BASE?: string;
+  LOCAL_AI_MODEL?: string;
   WEBHOOK_VERIFY_ENABLED?: boolean;
   WEBHOOK_SECRET?: string;
+  ALERT_WEBHOOK_URL?: string;
+  ALERT_EMAIL_HOST?: string;
+  ALERT_EMAIL_PORT?: number;
+  ALERT_EMAIL_USER?: string;
+  ALERT_EMAIL_PASS?: string;
+  ALERT_EMAIL_TO?: string;
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -98,8 +107,17 @@ function validateEnv(): EnvConfig {
       OPENAI_API_KEY: process.env.OPENAI_API_KEY,
       OPENAI_API_BASE: process.env.OPENAI_API_BASE,
       OPENAI_MODEL: process.env.OPENAI_MODEL,
+      LOCAL_AI_API_KEY: process.env.LOCAL_AI_API_KEY,
+      LOCAL_AI_API_BASE: process.env.LOCAL_AI_API_BASE,
+      LOCAL_AI_MODEL: process.env.LOCAL_AI_MODEL,
       WEBHOOK_VERIFY_ENABLED: process.env.WEBHOOK_VERIFY_ENABLED === 'true',
-      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET
+      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
+      ALERT_WEBHOOK_URL: process.env.ALERT_WEBHOOK_URL,
+      ALERT_EMAIL_HOST: process.env.ALERT_EMAIL_HOST,
+      ALERT_EMAIL_PORT: getEnvAsNumber('ALERT_EMAIL_PORT', 587),
+      ALERT_EMAIL_USER: process.env.ALERT_EMAIL_USER,
+      ALERT_EMAIL_PASS: process.env.ALERT_EMAIL_PASS,
+      ALERT_EMAIL_TO: process.env.ALERT_EMAIL_TO
     };
   }
 
@@ -117,8 +135,17 @@ function validateEnv(): EnvConfig {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     OPENAI_API_BASE: process.env.OPENAI_API_BASE,
     OPENAI_MODEL: process.env.OPENAI_MODEL,
+    LOCAL_AI_API_KEY: process.env.LOCAL_AI_API_KEY,
+    LOCAL_AI_API_BASE: process.env.LOCAL_AI_API_BASE,
+    LOCAL_AI_MODEL: process.env.LOCAL_AI_MODEL,
     WEBHOOK_VERIFY_ENABLED: process.env.WEBHOOK_VERIFY_ENABLED === 'true',
-    WEBHOOK_SECRET: process.env.WEBHOOK_SECRET
+    WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
+    ALERT_WEBHOOK_URL: process.env.ALERT_WEBHOOK_URL,
+    ALERT_EMAIL_HOST: process.env.ALERT_EMAIL_HOST,
+    ALERT_EMAIL_PORT: getEnvAsNumber('ALERT_EMAIL_PORT', 587),
+    ALERT_EMAIL_USER: process.env.ALERT_EMAIL_USER,
+    ALERT_EMAIL_PASS: process.env.ALERT_EMAIL_PASS,
+    ALERT_EMAIL_TO: process.env.ALERT_EMAIL_TO
   };
 }
 

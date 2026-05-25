@@ -1,5 +1,6 @@
 import db from '../models/database';
 import { randomUUID, createHash } from 'crypto';
+import { logger } from '../utils/logger';
 
 interface AlertNoiseRecord {
   id: string;
@@ -15,7 +16,6 @@ interface AlertNoiseRecord {
 }
 
 class AlertNoiseReductionService {
-  // 计算告警指纹（用于去重）
   generateFingerprint(source: string, title: string, _content?: string): string {
     const normalizedTitle = title.toLowerCase().replace(/[\d\s_-]+/g, ' ').trim();
     const normalizedSource = source.toLowerCase();
@@ -23,7 +23,6 @@ class AlertNoiseReductionService {
     return createHash('md5').update(fingerprint).digest('hex');
   }
 
-  // 处理新告警，检查是否需要降噪
   async processAlert(
     source: string,
     title: string,
@@ -38,84 +37,103 @@ class AlertNoiseReductionService {
     const fingerprint = this.generateFingerprint(source, title, content);
     const now = new Date();
 
-    // 查询是否已存在此指纹的告警
     const existing = db.prepare(
       'SELECT * FROM alert_noise_reduction WHERE alert_fingerprint = ?'
     ).get(fingerprint) as AlertNoiseRecord | null;
 
     if (existing) {
-      // 检查是否已被抑制
-      const isSuppressed = existing.is_suppressed && 
-        (!existing.suppression_until || new Date(existing.suppression_until) > now);
-
-      // 更新出现次数
-      const newCount = existing.occurrence_count + 1;
-      db.prepare(`
-        UPDATE alert_noise_reduction 
-        SET occurrence_count = ?, last_occurrence = ? 
-        WHERE alert_fingerprint = ?
-      `).run(newCount, now.toISOString(), fingerprint);
-
-      // 判断是否需要抑制
-      const shouldSuppress = this.shouldSuppressAlert(existing, severity);
-
-      if (shouldSuppress && !isSuppressed) {
-        db.prepare(`
-          UPDATE alert_noise_reduction 
-          SET is_suppressed = 1, 
-              suppression_reason = ?,
-              suppression_until = ?
-          WHERE alert_fingerprint = ?
-        `).run(
-          '频繁告警自动抑制',
-          new Date(now.getTime() + 30 * 60 * 1000).toISOString(), // 30分钟
-          fingerprint
-        );
-      }
-
-      return {
-        shouldNotify: !isSuppressed && !shouldSuppress,
-        isDuplicate: true,
-        suppressionReason: isSuppressed ? existing.suppression_reason : undefined,
-        occurrenceCount: newCount
-      };
-    } else {
-      // 首次出现，创建记录
-      db.prepare(`
-        INSERT INTO alert_noise_reduction 
-        (id, alert_fingerprint, alert_source, alert_title, occurrence_count, first_occurrence, last_occurrence)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        randomUUID(),
-        fingerprint,
-        source,
-        title,
-        1,
-        now.toISOString(),
-        now.toISOString()
-      );
-
-      return {
-        shouldNotify: true,
-        isDuplicate: false,
-        occurrenceCount: 1
-      };
+      return this.handleExistingRecord(existing, fingerprint, now, severity);
     }
+
+    return this.handleNewRecord(source, title, fingerprint, now, severity);
   }
 
-  // 判断是否需要抑制告警
+  private handleExistingRecord(
+    existing: AlertNoiseRecord,
+    fingerprint: string,
+    now: Date,
+    severity?: string
+  ): {
+    shouldNotify: boolean;
+    isDuplicate: boolean;
+    suppressionReason?: string;
+    occurrenceCount: number;
+  } {
+    const isSuppressed = existing.is_suppressed &&
+      (!existing.suppression_until || new Date(existing.suppression_until) > now);
+
+    const newCount = existing.occurrence_count + 1;
+    db.prepare(
+      `UPDATE alert_noise_reduction SET occurrence_count = ?, last_occurrence = ? WHERE alert_fingerprint = ?`
+    ).run(newCount, now.toISOString(), fingerprint);
+
+    const shouldSuppress = this.shouldSuppressAlert(existing, severity);
+
+    if (shouldSuppress && !isSuppressed) {
+      db.prepare(
+        `UPDATE alert_noise_reduction SET is_suppressed = 1, suppression_reason = ?, suppression_until = ? WHERE alert_fingerprint = ?`
+      ).run(
+        '频繁告警自动抑制',
+        new Date(now.getTime() + 30 * 60 * 1000).toISOString(),
+        fingerprint
+      );
+    }
+
+    return {
+      shouldNotify: !isSuppressed && !shouldSuppress,
+      isDuplicate: true,
+      suppressionReason: isSuppressed ? existing.suppression_reason : undefined,
+      occurrenceCount: newCount
+    };
+  }
+
+  private handleNewRecord(
+    source: string,
+    title: string,
+    fingerprint: string,
+    now: Date,
+    severity?: string
+  ): {
+    shouldNotify: boolean;
+    isDuplicate: boolean;
+    suppressionReason?: string;
+    occurrenceCount: number;
+  } {
+    const result = db.prepare(
+      `INSERT OR IGNORE INTO alert_noise_reduction (id, alert_fingerprint, alert_source, alert_title, occurrence_count, first_occurrence, last_occurrence) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      randomUUID(),
+      fingerprint,
+      source,
+      title,
+      1,
+      now.toISOString(),
+      now.toISOString()
+    );
+
+    if (result.changes === 0) {
+      return this.handleExistingRecord(
+        db.prepare('SELECT * FROM alert_noise_reduction WHERE alert_fingerprint = ?').get(fingerprint) as AlertNoiseRecord,
+        fingerprint,
+        now,
+        severity
+      );
+    }
+
+    return {
+      shouldNotify: true,
+      isDuplicate: false,
+      occurrenceCount: 1
+    };
+  }
+
   private shouldSuppressAlert(record: AlertNoiseRecord, severity?: string): boolean {
-    // 严重和高优先级告警不抑制
     if (severity === 'critical' || severity === 'high') {
       return false;
     }
-
-    // 低级别告警，如果出现次数过多则抑制
-    const suppressionThreshold = 5; // 5次以上
-    return record.occurrence_count >= suppressionThreshold;
+    return record.occurrence_count >= 5;
   }
 
-  // 获取告警降噪统计
   getNoiseReductionStats(): {
     totalAlerts: number;
     suppressedAlerts: number;
@@ -123,34 +141,26 @@ class AlertNoiseReductionService {
     noiseReductionRate: number;
   } {
     const stats = db.prepare(`
-      SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN is_suppressed = 1 THEN 1 ELSE 0 END) as suppressed,
-        SUM(occurrence_count - 1) as duplicates
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN is_suppressed = 1 THEN 1 ELSE 0 END) as suppressed,
+             SUM(occurrence_count - 1) as duplicates
       FROM alert_noise_reduction
     `).get() as { total: number; suppressed: number; duplicates: number } | undefined;
 
     const total = stats?.total || 0;
     const suppressed = stats?.suppressed || 0;
     const duplicates = stats?.duplicates || 0;
-    const noiseReductionRate = total > 0 ? Math.round(((suppressed + duplicates) / (total + duplicates)) * 100) : 0;
+    const noiseReductionRate = total > 0
+      ? Math.round(((suppressed + duplicates) / (total + duplicates)) * 100)
+      : 0;
 
-    return {
-      totalAlerts: total,
-      suppressedAlerts: suppressed,
-      duplicateCount: duplicates,
-      noiseReductionRate
-    };
+    return { totalAlerts: total, suppressedAlerts: suppressed, duplicateCount: duplicates, noiseReductionRate };
   }
 
-  // 获取被抑制的告警列表
   getSuppressedAlerts(): AlertNoiseRecord[] {
-    const records = db.prepare(`
-      SELECT * FROM alert_noise_reduction 
-      WHERE is_suppressed = 1 
-      ORDER BY last_occurrence DESC 
-      LIMIT 50
-    `).all() as Array<{
+    const records = db.prepare(
+      `SELECT * FROM alert_noise_reduction WHERE is_suppressed = 1 ORDER BY last_occurrence DESC LIMIT 50`
+    ).all() as Array<{
       id: string;
       alert_title: string;
       alert_content: string;
@@ -175,45 +185,38 @@ class AlertNoiseReductionService {
     }));
   }
 
-  // 恢复被抑制的告警
   unsuppressAlert(fingerprint: string): boolean {
-    const result = db.prepare(`
-      UPDATE alert_noise_reduction 
-      SET is_suppressed = 0, suppression_reason = NULL, suppression_until = NULL 
-      WHERE alert_fingerprint = ?
-    `).run(fingerprint);
-
+    const result = db.prepare(
+      `UPDATE alert_noise_reduction SET is_suppressed = 0, suppression_reason = NULL, suppression_until = NULL WHERE alert_fingerprint = ?`
+    ).run(fingerprint);
     return result.changes > 0;
   }
 
-  // 清理旧的降噪记录
   cleanupOldRecords(daysToKeep: number = 30): number {
     const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
-    const result = db.prepare(`
-      DELETE FROM alert_noise_reduction 
-      WHERE last_occurrence < ?
-    `).run(cutoffDate.toISOString());
-
+    const result = db.prepare(
+      `DELETE FROM alert_noise_reduction WHERE last_occurrence < ?`
+    ).run(cutoffDate.toISOString());
     return result.changes;
   }
 
-  // 手动抑制告警
-  manuallySuppressAlert(
-    fingerprint: string,
-    reason: string,
-    durationMinutes: number = 60
-  ): boolean {
+  manuallySuppressAlert(fingerprint: string, reason: string, durationMinutes: number = 60): boolean {
     const now = new Date();
     const suppressionUntil = new Date(now.getTime() + durationMinutes * 60 * 1000);
-
-    const result = db.prepare(`
-      UPDATE alert_noise_reduction 
-      SET is_suppressed = 1, suppression_reason = ?, suppression_until = ? 
-      WHERE alert_fingerprint = ?
-    `).run(reason, suppressionUntil.toISOString(), fingerprint);
-
+    const result = db.prepare(
+      `UPDATE alert_noise_reduction SET is_suppressed = 1, suppression_reason = ?, suppression_until = ? WHERE alert_fingerprint = ?`
+    ).run(reason, suppressionUntil.toISOString(), fingerprint);
     return result.changes > 0;
   }
 }
 
 export const alertNoiseReductionService = new AlertNoiseReductionService();
+
+// Auto-cleanup old records every 6 hours
+const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+setInterval(() => {
+  const cleaned = alertNoiseReductionService.cleanupOldRecords(30);
+  if (cleaned > 0) {
+    logger.info(`Auto-cleaned ${cleaned} old alert noise reduction records`);
+  }
+}, CLEANUP_INTERVAL_MS).unref();

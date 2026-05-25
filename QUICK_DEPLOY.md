@@ -84,7 +84,7 @@ version: '3.8'
 
 services:
   backend:
-    image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:backend-v3.0.1
+    image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:IT_Onlin-ITOps-backend-v3.0.2
     container_name: itops-backend
     restart: unless-stopped
     ports:
@@ -102,7 +102,7 @@ services:
       start_period: 30s
 
   frontend:
-    image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:frontend-v3.0.1
+    image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:IT_Onlin-ITOps-frontend-v3.0.2
     container_name: itops-frontend
     restart: unless-stopped
     ports:
@@ -158,9 +158,9 @@ curl -I http://localhost:80
 - **前端地址**: http://服务器IP
 - **后端 API**: http://服务器IP:3001
 - **默认账号**: admin
-- **默认密码**: admin123
+- **默认密码**: admin
 
-> ⚠️ **首次登录后请立即修改密码**
+> ⚠️ **首次登录后系统会强制要求修改密码**
 
 ---
 
@@ -285,13 +285,14 @@ docker compose logs backend
 
 ### 3. 登录失败
 
-- 确认使用了正确的默认账号：`admin` / `admin123`
+- 确认使用了正确的默认账号：`admin` / `admin`
 - 如果提示"用户不存在"，可能数据库被清空，执行：
   ```bash
   docker compose down -v
   docker compose up -d
   ```
   > ⚠️ 这会清除所有数据！
+- 如果密码错误但账号存在，可能是之前已经修改过密码，尝试你设置的密码
 
 ### 4. 防火墙配置
 
@@ -351,7 +352,7 @@ sudo ufw reload
 
 | 组件 | 版本 |
 |------|------|
-| 项目版本 | v3.0.1 |
+| 项目版本 | v3.0.2 |
 | Docker | 20.10+ |
 | Docker Compose | v2.0+ |
 | Node.js (容器) | 20 |

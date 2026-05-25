@@ -130,6 +130,9 @@ $EnvContent = @"
 # JWT Configuration
 JWT_SECRET=$JwtSecret
 
+# Administrator Initial Password (change after first login)
+ADMIN_INITIAL_PASSWORD=admin
+
 # LLM API Configuration (configure at least one)
 # Doubao (豆包)
 DOUBAO_API_KEY=
@@ -278,17 +281,20 @@ Write-Host "  Health:   http://localhost:$BackendPort/health"
 Write-Host ""
 Write-Host "Default Credentials:" -ForegroundColor $Yellow
 Write-Host "  Username: admin"
-Write-Host "  Password: admin123"
+Write-Host "  Password: admin"
+Write-Host ""
+Write-Host "IMPORTANT: Change password after first login!" -ForegroundColor $Red
 Write-Host ""
 Write-Host "Quick Commands:" -ForegroundColor $Yellow
-Write-Host "  View logs:        docker compose -f docker-compose.deploy.yml logs -f"
-Write-Host "  Stop services:    docker compose -f docker-compose.deploy.yml down"
-Write-Host "  Restart services: docker compose -f docker-compose.deploy.yml restart"
+Write-Host "  View logs:        docker compose logs -f"
+Write-Host "  Stop services:    docker compose down"
+Write-Host "  Restart services: docker compose restart"
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor $Yellow
 Write-Host "  1. Visit http://localhost:$FrontendPort in your browser"
-Write-Host "  2. Login with admin/admin123"
-Write-Host "  3. Configure your LLM API keys in Settings"
-Write-Host "  4. Start creating agents and workflows!"
+Write-Host "  2. Login with admin/admin"
+Write-Host "  3. Change your password immediately in Settings"
+Write-Host "  4. Configure your LLM API keys in Settings"
+Write-Host "  5. Start creating agents and workflows!"
 Write-Host ""
 Write-Host "===========================================" -ForegroundColor $Cyan

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../models/database';
 import { WorkflowParsed } from '../types';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -35,7 +36,7 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.post('/', (req: Request, res: Response) => {
+router.post('/', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { name, description, nodes, edges, agent_configs, is_template } = req.body;
     const id = randomUUID();
@@ -60,7 +61,7 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', (req: Request, res: Response) => {
+router.put('/:id', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { name, description, nodes, edges, agent_configs, is_template } = req.body;
     
@@ -86,7 +87,7 @@ router.put('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const workflow = db.prepare('SELECT * FROM workflows WHERE id = ?').get(req.params.id);
     if (!workflow) {
@@ -100,7 +101,7 @@ router.delete('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.post('/import', (req: Request, res: Response) => {
+router.post('/import', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const workflowData = req.body.workflow;
     if (!workflowData) {

@@ -8,9 +8,13 @@ import type { User } from '../types';
 
 interface SocketWithUser extends Socket {
   user?: User;
+  isAlive?: boolean;
 }
 
 const taskRooms = new Map<string, Set<string>>();
+
+const HEARTBEAT_INTERVAL = 30000;
+const HEARTBEAT_TIMEOUT = 5000;
 
 function authenticateSocket(socket: Socket, next: (err?: Error) => void) {
   const token = socket.handshake.auth?.token || 
@@ -43,9 +47,42 @@ function authenticateSocket(socket: Socket, next: (err?: Error) => void) {
 export function setupWebSocket(io: SocketIOServer) {
   io.use(authenticateSocket);
 
+  const heartbeatInterval = setInterval(() => {
+    io.sockets.sockets.forEach((socket) => {
+      const socketWithUser = socket as SocketWithUser;
+      if (socketWithUser.isAlive === false) {
+        logger.warn(`💔 WebSocket client ${socket.id} did not respond to ping, disconnecting`);
+        socket.disconnect();
+        return;
+      }
+      socketWithUser.isAlive = false;
+      socket.emit('ping');
+    });
+  }, HEARTBEAT_INTERVAL);
+
   io.on('connection', (socket: Socket) => {
     const user = (socket as SocketWithUser).user;
+    (socket as SocketWithUser).isAlive = true;
     logger.info(`🔌 Client connected: ${socket.id} (User: ${user?.username})`);
+
+    socket.on('pong', () => {
+      (socket as SocketWithUser).isAlive = true;
+    });
+
+    let pingTimeout: NodeJS.Timeout | null = null;
+    socket.conn.on('ping', () => {
+      pingTimeout = setTimeout(() => {
+        logger.warn(`💔 WebSocket client ${socket.id} ping timeout, disconnecting`);
+        socket.disconnect();
+      }, HEARTBEAT_TIMEOUT);
+    });
+
+    socket.conn.on('pong', () => {
+      if (pingTimeout) {
+        clearTimeout(pingTimeout);
+        pingTimeout = null;
+      }
+    });
 
     socket.on('task:subscribe', (taskId: string) => {
       socket.join(`task:${taskId}`);
@@ -102,7 +139,8 @@ export function setupWebSocket(io: SocketIOServer) {
     });
 
     socket.on('terminal:data', (data: { sessionId: string; data: string }) => {
-      terminalService.sendData(data.sessionId, data.data);
+      const role = (socket as SocketWithUser).user?.role;
+      terminalService.sendData(data.sessionId, data.data, role);
     });
 
     socket.on('terminal:resize', (data: { sessionId: string; cols: number; rows: number }) => {
@@ -128,7 +166,17 @@ export function setupWebSocket(io: SocketIOServer) {
           terminalService.closeTerminalSession(sessionId);
         }
       });
+
+      if (pingTimeout) {
+        clearTimeout(pingTimeout);
+        pingTimeout = null;
+      }
     });
+  });
+
+  io.on('close', () => {
+    clearInterval(heartbeatInterval);
+    logger.info('🔌 WebSocket server closed, heartbeat interval cleared');
   });
 }
 

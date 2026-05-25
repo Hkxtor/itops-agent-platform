@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../models/database';
+import { logger } from '../utils/logger';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
 // 获取通知配置
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', requireRole('admin'), async (_req: Request, res: Response) => {
   try {
     const configs = db.prepare('SELECT * FROM settings WHERE key LIKE ?').all('notification_%') as Array<{ key: string; value: string }>;
     
@@ -41,13 +43,13 @@ router.get('/', async (_req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('获取通知配置失败:', error);
+    logger.error('获取通知配置失败:', error);
     res.status(500).json({ success: false, error: '获取通知配置失败' });
   }
 });
 
 // 更新通知配置
-router.put('/', async (req: Request, res: Response) => {
+router.put('/', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const {
       webhook_enabled,
@@ -87,7 +89,7 @@ router.put('/', async (req: Request, res: Response) => {
       message: '通知配置已更新'
     });
   } catch (error) {
-    console.error('更新通知配置失败:', error);
+    logger.error('更新通知配置失败:', error);
     res.status(500).json({ success: false, error: '更新通知配置失败' });
   }
 });

@@ -4,6 +4,58 @@
 
 ## [Unreleased]
 
+## [3.0.2] — 2026-05-25
+
+### 安全加固
+- JWT 双 token 机制：引入 refresh_token（7 天有效期），access_token 自动刷新
+- Token 黑名单安全降级修复：数据库错误时拒绝 token（原为接受）
+- 加密服务 decrypt 格式错误时抛出异常（原为返回原文）
+- bcrypt 密码哈希（成本因子 12）
+- 默认密码 admin/admin，首次登录强制修改密码
+- 邮件模板 HTML 转义，防止 XSS 注入
+- 旧 refresh token 在刷新后自动加入黑名单
+- Nginx 安全头完善：HSTS/CSP/X-Frame-Options/XSS-Protection/Referrer-Policy/Permissions-Policy
+
+### 服务稳定性
+- 优雅关闭机制：SIGTERM/SIGINT 信号处理，await HTTP/WS 关闭 → 停止定时任务 → 停止备份 → 关闭 DB → 刷日志，30s 超时强制退出
+- uncaughtException/unhandledRejection 全局异常处理
+- 所有 setInterval 添加 .unref() 防止阻止 Node.js 正常退出（3 处）
+- 健康检查 10 秒缓存，避免高频调用影响性能
+- SQLite mmap_size 从 30GB 调整为 1GB
+
+### 新功能实现
+- 备份恢复功能完整实现：查找备份 → 解压 → 完整性验证 → 恢复 → 清理临时文件
+- 真实邮件发送（nodemailer SMTP），支持 SSL/TLS
+- 前端 401 自动 token 刷新机制，不会因 token 过期误登出
+- Web Terminal WebSocket 自动重连（指数退避，最多 3 次）
+- 全局 Error Boundary 错误降级页面
+
+### 跨平台兼容
+- Windows 备份兼容性：spawn('gzip') → Node.js 内置 zlib.createGzip/createGunzip + pipeline
+- 备份/恢复全平台可用
+
+### Bug 修复
+- Agent 巡检报告合规检查计数从硬编码 13 改为动态计算（实际 14 项）
+- decryptWithKey 添加 try-catch 错误处理
+- 密码修改后通过 AuthContext.updateUser() 统一更新状态（原为直接操作 localStorage）
+- BigScreenDashboard JSON.parse 添加 try-catch 容错
+- 数据库 mmap_size 注释统一
+
+### 部署与发布
+- Dockerfile 权限修复：chmod 777 → chown appuser:appgroup + chmod 750
+- docker-compose.simple.yml 添加 CPU/内存限制、自定义网络隔离、日志驱动配置
+- docker-compose.yml 添加日志大小限制（backend 50MB, frontend 15MB）
+- docker-compose.yml 默认使用阿里云远程镜像（无需本地构建）
+- .env.example 新增 ADMIN_INITIAL_PASSWORD 字段说明
+
+### 代码质量
+- 前后端 TypeScript 编译零错误通过
+- 所有修改均有明确的类型定义
+
+---
+
+## [Unreleased]
+
 ### 新增功能
 - **Web SSH 终端** — 基于 xterm.js 的交互式远程终端
   - 实时双向 WebSocket 通信

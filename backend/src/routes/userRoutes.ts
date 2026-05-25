@@ -3,11 +3,11 @@ import db from '../models/database';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { createAuditLog } from '../services/auditService';
-import { requireRole } from '../middleware/auth';
+import { requireRole, authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-router.use(requireRole('admin', 'operator'));
+router.use(authenticateToken);
 
 router.get('/', (_req: Request, res: Response) => {
   try {
@@ -33,7 +33,7 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { username, password, email, role = 'viewer' } = req.body;
     
@@ -50,7 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
     const now = new Date().toISOString();
     
     // 使用bcrypt进行密码哈希
-    const saltRounds = 10;
+    const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     
     db.prepare(`
@@ -73,7 +73,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { username, email, role, enabled, password } = req.body;
@@ -103,7 +103,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       params.push(enabled ? 1 : 0);
     }
     if (password) {
-      const saltRounds = 10;
+      const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
       updates.push('password = ?');
       params.push(hashedPassword);
@@ -131,7 +131,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin'), (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     

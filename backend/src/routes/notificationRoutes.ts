@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../models/database';
 import { randomUUID } from 'crypto';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -103,7 +104,7 @@ export const createNotification = (data: {
     
     return id;
   } catch (error) {
-    console.error('Failed to create notification:', error);
+    logger.error('Failed to create notification:', error);
     return null;
   }
 };

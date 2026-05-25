@@ -43,7 +43,7 @@ interface AgentExecution {
   status: string;
   error_message?: string;
   execution_time_ms: number;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -63,7 +63,7 @@ export default function Agents() {
   const { data: agents, isLoading } = useQuery({
     queryKey: ['agents', selectedCategory, searchQuery],
     queryFn: async () => {
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (selectedCategory) params.category = selectedCategory;
       if (searchQuery) params.search = searchQuery;
       const res = await api.get('/api/agents', { params });
@@ -533,7 +533,7 @@ function AgentDetailInner({ agentId, onBack, deleteMutation }: AgentDetailInnerP
     queryKey: ['agents', agentId, 'executions'],
     queryFn: async () => {
       const res = await api.get(`/api/agents/${agentId}/executions`, { params: { limit: 30 } });
-      return res.data.data as { executions: AgentExecution[], pagination: any };
+      return res.data.data as { executions: AgentExecution[], pagination: { total: number; page: number; limit: number } };
     },
   });
 
@@ -793,8 +793,9 @@ function AgentModal({ agent, onClose }: { agent: Agent | null; onClose: () => vo
       });
       
       setTestResult(res.data.data.result || '测试完成，无返回结果');
-    } catch (error: any) {
-      setTestResult(`测试失败: ${error.response?.data?.message || error.message}`);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      setTestResult(`测试失败: ${err.response?.data?.message || err.message}`);
     } finally {
       setTestLoading(false);
     }
@@ -903,7 +904,7 @@ function AgentModal({ agent, onClose }: { agent: Agent | null; onClose: () => vo
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 className="w-full px-4 py-2 bg-background border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
               >
-                {(availableModels || []).map((model: any) => (
+                {(availableModels || []).map((model: { id: string; name: string; enabled?: boolean }) => (
                   <option 
                     key={model.id} 
                     value={model.id}

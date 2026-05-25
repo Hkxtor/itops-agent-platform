@@ -1,6 +1,6 @@
 import { scheduleJob, Job } from 'node-schedule';
 import { randomUUID } from 'crypto';
-import db from '../models/database';
+import db, { performMaintenance } from '../models/database';
 import { logger } from '../utils/logger';
 import { executeWorkflow } from './workflowExecutor';
 import { WorkflowParsed, WorkflowNode, WorkflowEdge } from '../types';
@@ -34,11 +34,46 @@ class SchedulerService {
         this.scheduleTask(task);
       });
       
+      // 启动数据库定期维护任务
+      this.initDatabaseMaintenance();
+      
       this.initialized = true;
       logger.info(`✅ Scheduler initialized with ${tasks.length} tasks`);
     } catch (e) {
       logger.info("⚠️  Could not initialize scheduler:", (e as Error).message);
     }
+  }
+
+  /**
+   * 初始化数据库定期维护
+   */
+  private initDatabaseMaintenance() {
+    // 每天凌晨3点执行数据库维护
+    const maintenanceJob = scheduleJob('0 3 * * *', async () => {
+      logger.info('🔧 Starting scheduled database maintenance...');
+      
+      try {
+        // 先分析统计信息
+        performMaintenance('analyze');
+        
+        // 检查完整性
+        performMaintenance('integrity_check');
+        
+        // 每周日凌晨3点执行VACUUM（释放空间）
+        const dayOfWeek = new Date().getDay();
+        if (dayOfWeek === 0) { // 周日
+          performMaintenance('vacuum');
+          logger.info('✅ Weekly VACUUM completed');
+        }
+        
+        logger.info('✅ Scheduled database maintenance completed');
+      } catch (error) {
+        logger.error('❌ Scheduled database maintenance failed', error as Error);
+      }
+    });
+    
+    this.jobs.set('db-maintenance', maintenanceJob);
+    logger.info('✅ Database maintenance scheduled: daily at 3:00 AM');
   }
 
   scheduleTask(task: ScheduledTaskRecord) {
@@ -49,32 +84,43 @@ class SchedulerService {
       const job = scheduleJob(task.schedule, async () => {
         logger.info(`⏰ Executing scheduled task: ${task.name} (${task.id})`);
         
-        db.prepare(`
-          UPDATE scheduled_tasks 
-          SET last_run = CURRENT_TIMESTAMP 
-          WHERE id = ?
-        `).run(task.id);
-
-        // 如果关联了工作流，则执行
-        if (task.workflow_id) {
-          await this.executeWorkflow(task);
-        }
+        let executionStatus: 'success' | 'failed' | 'timeout' = 'success';
         
-        // 记录审计日志
-        db.prepare(`
-          INSERT INTO audit_logs (id, action, resource_type, resource_id, details, created_at)
-          VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `).run(
-          randomUUID(),
-          'execute_scheduled_task',
-          'scheduled_task',
-          task.id,
-          JSON.stringify({
-            task_name: task.name,
-            workflow_id: task.workflow_id,
-            executed_at: new Date().toISOString()
-          })
-        );
+        try {
+          // 如果关联了工作流，则执行
+          if (task.workflow_id) {
+            await this.executeWorkflow(task);
+          }
+          
+          executionStatus = 'success';
+        } catch (error) {
+          executionStatus = 'failed';
+          logger.error(`❌ Scheduled task ${task.name} execution failed:`, error);
+        } finally {
+          // 记录执行结果
+          db.prepare(`
+            UPDATE scheduled_tasks 
+            SET last_run = CURRENT_TIMESTAMP, last_status = ? 
+            WHERE id = ?
+          `).run(executionStatus, task.id);
+
+          // 记录审计日志
+          db.prepare(`
+            INSERT INTO audit_logs (id, action, resource_type, resource_id, details, created_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `).run(
+            randomUUID(),
+            'execute_scheduled_task',
+            'scheduled_task',
+            task.id,
+            JSON.stringify({
+              task_name: task.name,
+              workflow_id: task.workflow_id,
+              executed_at: new Date().toISOString(),
+              status: executionStatus
+            })
+          );
+        }
       });
 
       this.jobs.set(task.id, job);
@@ -101,7 +147,7 @@ class SchedulerService {
       // 防止同一工作流并发执行
       if (this.runningWorkflows.has(workflowId)) {
         logger.warn(`⚠️ Workflow ${workflowId} is already running, skipping execution`);
-        return;
+        throw new Error(`Workflow ${workflowId} is already running`);
       }
       
       this.runningWorkflows.add(workflowId);
@@ -120,8 +166,9 @@ class SchedulerService {
       } | undefined;
       
       if (!workflow) {
-        logger.error(`Workflow ${workflowId} not found for scheduled task ${task.name}`);
-        return;
+        const error = new Error(`Workflow ${workflowId} not found for scheduled task ${task.name}`);
+        logger.error(error.message);
+        throw error;
       }
 
       // 创建任务执行记录
@@ -151,6 +198,7 @@ class SchedulerService {
       
     } catch (error: unknown) {
       logger.error(`❌ Error executing scheduled workflow:`, error);
+      throw error;
     } finally {
       this.runningWorkflows.delete(task.workflow_id);
     }

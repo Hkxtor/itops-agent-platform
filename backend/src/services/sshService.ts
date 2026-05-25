@@ -3,6 +3,8 @@ import db from '../models/database';
 import { randomUUID } from 'crypto';
 import { decrypt } from './encryptionService';
 import { generateCompletion } from './llmService';
+import { withRetry, isRetryableError } from '../utils/retry';
+import { logger } from '../utils/logger';
 
 interface ServerInfo {
   id: string;
@@ -300,13 +302,14 @@ export async function runComplianceCheck(
   options: {
     saveResults?: boolean;
     useAI?: boolean;
+    concurrency?: number;
   } = {}
 ): Promise<Record<string, CommandResult>> {
   const checkId = randomUUID();
   const results: Record<string, CommandResult> = {};
   const useAI = options.useAI !== false;
+  const concurrency = options.concurrency ?? 3;
   
-  // 创建检查记录
   if (options.saveResults) {
     db.prepare(`
       INSERT INTO compliance_checks 
@@ -315,22 +318,27 @@ export async function runComplianceCheck(
     `).run(checkId, serverId);
   }
   
-  // 执行所有检查并分析
-  for (const check of complianceCheckList) {
+  const executeCheckWithAI = async (check: typeof complianceCheckList[0]): Promise<[string, CommandResult]> => {
     const result = await executeCommand(serverId, check.command, {
       logHistory: false,
       executedBy: 'compliance-check'
     });
     
-    // 如果启用 AI 分析，则添加分析结果
     if (useAI) {
       result.aiAnalysis = await analyzeComplianceCheck(check.name, result);
     }
     
-    results[check.name] = result;
+    return [check.name, result];
+  };
+  
+  for (let i = 0; i < complianceCheckList.length; i += concurrency) {
+    const batch = complianceCheckList.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(executeCheckWithAI));
+    batchResults.forEach(([name, result]) => {
+      results[name] = result;
+    });
   }
   
-  // 保存结果
   if (options.saveResults) {
     db.prepare(`
       UPDATE compliance_checks 
@@ -392,4 +400,66 @@ export function getCommandHistory(serverId: string, limit: number = 50): Array<{
     execution_time_ms: number;
     executed_by: string;
   }>;
+}
+
+export async function executeCommandWithRetry(
+  serverId: string,
+  command: string,
+  options: {
+    timeout?: number;
+    logHistory?: boolean;
+    executedBy?: string;
+    maxRetries?: number;
+    initialDelayMs?: number;
+  } = {}
+): Promise<CommandResult> {
+  const maxRetries = options.maxRetries ?? 3;
+  const initialDelayMs = options.initialDelayMs ?? 1000;
+
+  return withRetry(
+    () => executeCommand(serverId, command, options),
+    {
+      maxRetries,
+      initialDelayMs,
+      shouldRetry: (error: unknown) => {
+        if (error instanceof Error && error.message.includes('No authentication method')) {
+          return false;
+        }
+        return isRetryableError(error);
+      },
+      onRetry: (attempt: number, error: unknown, delayMs: number) => {
+        logger.warn(
+          `🔄 SSH command retry ${attempt}/${maxRetries} for server ${serverId}: ` +
+          `${error instanceof Error ? error.message : String(error)}. ` +
+          `Next attempt in ${delayMs}ms`
+        );
+      }
+    }
+  );
+}
+
+export async function testConnectionWithRetry(
+  serverId: string,
+  maxRetries: number = 2
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await executeCommandWithRetry(
+      serverId,
+      'echo "Connection test successful"',
+      {
+        logHistory: false,
+        maxRetries,
+        initialDelayMs: 500
+      }
+    );
+    return {
+      success: result.success,
+      message: result.success ? 'Connection successful' : result.stderr
+    };
+  } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error'
+      };
+  }
 }

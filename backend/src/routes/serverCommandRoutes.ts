@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { executeCommand, testConnection, runComplianceCheck, complianceChecks } from '../services/sshService';
 import { randomUUID } from 'crypto';
 import db from '../models/database';
+import { logger } from '../utils/logger';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -63,12 +65,12 @@ function logCommandAudit(
       JSON.stringify({ command, isSafe, warnings })
     );
   } catch (error) {
-    console.error('Failed to log command audit:', error);
+    logger.error('Failed to log command audit:', error);
   }
 }
 
 // 测试服务器连�?
-router.post('/:id/test', async (req: Request, res: Response) => {
+router.post('/:id/test', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const result = await testConnection(req.params.id);
     res.json({ success: result.success, data: result });
@@ -78,7 +80,7 @@ router.post('/:id/test', async (req: Request, res: Response) => {
 });
 
 // 执行单个命令
-router.post('/:id/exec', async (req: Request & { user?: { id: string } }, res: Response) => {
+router.post('/:id/exec', requireRole('admin', 'operator'), async (req: Request & { user?: { id: string } }, res: Response) => {
   try {
     const { command, timeout } = req.body;
     
@@ -123,7 +125,7 @@ router.get('/compliance/checks', (_req: Request, res: Response) => {
 });
 
 // 运行完整的合规检�?
-router.post('/:id/compliance', async (req: Request, res: Response) => {
+router.post('/:id/compliance', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const saveResults = req.body.saveResults !== false;
     const results = await runComplianceCheck(req.params.id, { saveResults });

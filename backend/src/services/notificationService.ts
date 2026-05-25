@@ -2,6 +2,7 @@ import db, { getIOInstance } from '../models/database';
 import { logger } from '../utils/logger';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import nodemailer from 'nodemailer';
 
 interface NotificationDB {
   id: string;
@@ -205,9 +206,25 @@ class NotificationService {
       throw new Error('Email SMTP not configured');
     }
 
-    // 这里可以集成 nodemailer 等邮件库
-    logger.info('Sending email notification:', notification.title);
-    logger.info('Email config:', emailConfig);
+    const transporter = nodemailer.createTransport({
+      host: emailConfig.smtp_host,
+      port: emailConfig.smtp_port || 465,
+      secure: (emailConfig.smtp_port || 465) === 465,
+      auth: {
+        user: emailConfig.user,
+        pass: emailConfig.password
+      }
+    });
+
+    const info = await transporter.sendMail({
+      from: `"ITOps Agent Platform" <${emailConfig.user}>`,
+      to: emailConfig.user,
+      subject: notification.title,
+      text: notification.content,
+      html: `<h2>${notification.title}</h2><pre>${notification.content}</pre><hr/><small>ITOps Agent Platform - ${new Date().toLocaleString()}</small>`
+    });
+
+    logger.info('Email sent successfully', { messageId: info.messageId });
   }
 
   private async sendWebhook(notification: { type: string; title: string; content: string }) {

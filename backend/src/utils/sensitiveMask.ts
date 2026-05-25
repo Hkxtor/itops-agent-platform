@@ -51,21 +51,25 @@ export function maskSensitiveData(obj: unknown): unknown {
       const lowerKey = key.toLowerCase();
       
       // 敏感字段直接脱敏
-      if (lowerKey.includes('password') || 
-          lowerKey.includes('secret') || 
-          lowerKey.includes('passwd')) {
+      if (lowerKey.includes('password') ||
+          lowerKey.includes('secret') ||
+          lowerKey.includes('passwd') ||
+          lowerKey.includes('api_secret') ||
+          lowerKey.includes('access_key')) {
         masked[key] = maskPassword(value as string);
       }
-      else if (lowerKey.includes('token') || 
-               lowerKey.includes('apikey') || 
+      else if (lowerKey.includes('token') ||
+               lowerKey.includes('apikey') ||
                lowerKey.includes('api_key') ||
-               lowerKey.includes('api-key')) {
+               lowerKey.includes('api-key') ||
+               lowerKey.includes('accesskey') ||
+               lowerKey.includes('access-key')) {
         masked[key] = maskApiKey(value as string);
       }
       else if (lowerKey.includes('private') && lowerKey.includes('key')) {
         masked[key] = maskPrivateKey(value as string);
       }
-      else if (lowerKey.includes('key')) {
+      else if (lowerKey === 'key' || lowerKey.endsWith('_key') || lowerKey.includes('credential')) {
         masked[key] = maskApiKey(value as string);
       }
       // 递归处理

@@ -2,6 +2,7 @@ import { Client, ClientChannel } from 'ssh2';
 import db from '../models/database';
 import { decrypt } from './encryptionService';
 import { logger } from '../utils/logger';
+import { checkCommandSafety } from '../middleware/commandFilter';
 
 export interface TerminalSession {
   id: string;
@@ -16,7 +17,7 @@ const SESSION_TTL_MS = 30 * 60 * 1000;
 const SESSION_MAX_COUNT = 100;
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
-setInterval(() => {
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
   
@@ -46,6 +47,7 @@ setInterval(() => {
     logger.info(`Cleaned up ${cleaned} expired/orphan terminal sessions, ${activeSessions.size} remaining`);
   }
 }, CLEANUP_INTERVAL_MS);
+cleanupTimer.unref();
 
 interface ServerInfo {
   id: string;
@@ -226,17 +228,30 @@ export class TerminalService {
     }
   }
 
-  sendData(sessionId: string, data: string): boolean {
+  sendData(sessionId: string, data: string, userRole?: string): { success: boolean; reason?: string } {
     const session = activeSessions.get(sessionId);
     if (!session) {
-      return false;
+      return { success: false, reason: 'Session not found' };
+    }
+
+    if (userRole) {
+      const safetyCheck = checkCommandSafety(data, userRole);
+      if (!safetyCheck.allowed) {
+        logger.warn(`Terminal command blocked for user role ${userRole}: ${data.substring(0, 100)}`);
+        session.shell.write(`\r\n\x1b[31m[安全拦截] ${safetyCheck.reason}\x1b[0m\r\n`);
+        return { success: false, reason: safetyCheck.reason };
+      }
+      if (safetyCheck.severity === 'warning') {
+        logger.info(`Terminal command warning for user role ${userRole}: ${data.substring(0, 100)}`);
+        session.shell.write(`\r\n\x1b[33m[安全警告] ${safetyCheck.reason}\x1b[0m\r\n`);
+      }
     }
 
     try {
       session.shell.write(data);
-      return true;
+      return { success: true };
     } catch {
-      return false;
+      return { success: false, reason: 'Failed to send data' };
     }
   }
 

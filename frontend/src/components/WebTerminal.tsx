@@ -19,10 +19,19 @@ export default function WebTerminal({ serverId, serverName, token, onClose }: Te
   const socketRef = useRef<Socket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const terminalDataHandlerRef = useRef<((data: { sessionId: string; data: string }) => void) | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectCountRef = useRef(0);
+  const maxReconnectAttempts = 3;
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error' | 'disconnected'>('connecting');
   const [error, setError] = useState<string>('');
 
   const cleanup = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    reconnectCountRef.current = 0;
+
     const socket = socketRef.current;
     const sessionId = sessionIdRef.current;
     const xterm = xtermRef.current;
@@ -44,6 +53,74 @@ export default function WebTerminal({ serverId, serverName, token, onClose }: Te
       xtermRef.current = null;
     }
   }, []);
+
+  const connect = useCallback(() => {
+    if (!terminalRef.current || !xtermRef.current) return;
+
+    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+      auth: { token },
+      transports: ['websocket']
+    });
+
+    socketRef.current = socket;
+
+    const terminalDataHandler = (data: { sessionId: string; data: string }) => {
+      if (data.sessionId === sessionIdRef.current && xtermRef.current) {
+        xtermRef.current.write(data.data);
+      }
+    };
+
+    terminalDataHandlerRef.current = terminalDataHandler;
+    socket.on('terminal:data', terminalDataHandler);
+
+    socket.on('connect', () => {
+      const term = xtermRef.current;
+      if (!term) return;
+      const cols = term.cols;
+      const rows = term.rows;
+
+      reconnectCountRef.current = 0;
+      socket.emit('terminal:open', { serverId, cols, rows }, (result: { sessionId?: string; error?: string }) => {
+        if (result.error) {
+          setStatus('error');
+          setError(result.error || 'Failed to open terminal');
+          return;
+        }
+
+        sessionIdRef.current = result.sessionId || null;
+        setStatus('connected');
+      });
+    });
+
+    socket.on('connect_error', () => {
+      setStatus('error');
+      setError('WebSocket connection failed');
+    });
+
+    socket.on('disconnect', (reason) => {
+      if (reason === 'io server disconnect') {
+        socket.disconnect();
+        setStatus('disconnected');
+        return;
+      }
+
+      if (reconnectCountRef.current < maxReconnectAttempts) {
+        setStatus('connecting');
+        reconnectCountRef.current++;
+        reconnectTimerRef.current = setTimeout(() => {
+          socket.connect();
+        }, Math.min(1000 * Math.pow(2, reconnectCountRef.current), 5000));
+      } else {
+        setStatus('disconnected');
+        setError('Terminal connection lost');
+      }
+    });
+
+    socket.on('terminal:data', terminalDataHandler);
+    socketRef.current = socket;
+
+    return socket;
+  }, [serverId, token]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -89,56 +166,17 @@ export default function WebTerminal({ serverId, serverName, token, onClose }: Te
     term.open(terminalRef.current);
     fitAddon.fit();
 
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
-      auth: { token },
-      transports: ['websocket']
-    });
-
-    socketRef.current = socket;
-
-    const terminalDataHandler = (data: { sessionId: string; data: string }) => {
-      if (data.sessionId === sessionIdRef.current && xtermRef.current) {
-        xtermRef.current.write(data.data);
-      }
-    };
-
-    terminalDataHandlerRef.current = terminalDataHandler;
-    socket.on('terminal:data', terminalDataHandler);
-
-    socket.on('connect', () => {
-      const cols = term.cols;
-      const rows = term.rows;
-
-      socket.emit('terminal:open', { serverId, cols, rows }, (result: { sessionId?: string; error?: string }) => {
-        if (result.error) {
-          setStatus('error');
-          setError(result.error || 'Failed to open terminal');
-          return;
-        }
-
-        sessionIdRef.current = result.sessionId || null;
-        setStatus('connected');
-      });
-    });
-
-    socket.on('connect_error', () => {
-      setStatus('error');
-      setError('WebSocket connection failed');
-    });
-
-    socket.on('disconnect', () => {
-      setStatus('disconnected');
-    });
+    connect();
 
     term.onData((data) => {
-      if (socket.connected && sessionIdRef.current) {
-        socket.emit('terminal:data', { sessionId: sessionIdRef.current, data });
+      if (socketRef.current?.connected && sessionIdRef.current) {
+        socketRef.current.emit('terminal:data', { sessionId: sessionIdRef.current, data });
       }
     });
 
     term.onResize(({ cols, rows }) => {
-      if (socket.connected && sessionIdRef.current) {
-        socket.emit('terminal:resize', { sessionId: sessionIdRef.current, cols, rows });
+      if (socketRef.current?.connected && sessionIdRef.current) {
+        socketRef.current.emit('terminal:resize', { sessionId: sessionIdRef.current, cols, rows });
       }
     });
 
@@ -151,7 +189,7 @@ export default function WebTerminal({ serverId, serverName, token, onClose }: Te
       window.removeEventListener('resize', handleResize);
       cleanup();
     };
-  }, [serverId, token, cleanup]);
+  }, [serverId, token, cleanup, connect]);
 
   const handleDisconnect = () => {
     cleanup();

@@ -69,8 +69,16 @@ class CircuitBreaker {
   }
 }
 
-// 全局熔断器实例
-const circuitBreaker = new CircuitBreaker();
+// 按 Provider 拆分的熔断器实例
+const circuitBreakers = new Map<string, CircuitBreaker>();
+
+function getCircuitBreaker(providerName: string): CircuitBreaker {
+  if (!circuitBreakers.has(providerName)) {
+    circuitBreakers.set(providerName, new CircuitBreaker());
+    logger.info(`🔌 Circuit breaker initialized for provider: ${providerName}`);
+  }
+  return circuitBreakers.get(providerName)!;
+}
 
 // 延迟函数
 function delay(ms: number): Promise<void> {
@@ -197,6 +205,20 @@ const OPENAI_CONFIG: LLMProviderConfig = {
   placeholderKey: 'your-openai-api-key-here'
 };
 
+// 本地 AI 大模型配置（支持 Ollama、LM Studio、vLLM 等 OpenAI 兼容 API）
+const LOCAL_AI_CONFIG: LLMProviderConfig = {
+  providerName: 'LocalAI',
+  apiKeySetting: 'LOCAL_AI_API_KEY',
+  apiKeyEnv: 'LOCAL_AI_API_KEY',
+  apiBaseSetting: 'LOCAL_AI_API_BASE',
+  apiBaseEnv: 'LOCAL_AI_API_BASE',
+  defaultApiBase: 'http://host.docker.internal:11434/v1', // Ollama 默认地址
+  modelSetting: 'LOCAL_AI_MODEL',
+  modelEnv: 'LOCAL_AI_MODEL',
+  defaultModel: 'qwen2.5:7b', // Ollama 默认模型
+  placeholderKey: '' // 本地模型通常不需要 API Key
+};
+
 /**
  * 通用的LLM API调用函数
  */
@@ -212,15 +234,16 @@ async function callLLMAPI(
   const apiBase = getApiBase(db, config.apiBaseSetting, config.apiBaseEnv, config.defaultApiBase);
   const model = getModelId(db, config.modelSetting, config.modelEnv, config.defaultModel);
 
-  // 检查 API Key 配置
-  if (!apiKey || apiKey === config.placeholderKey) {
+  // 检查 API Key 配置（本地模型通常不需要 API Key）
+  if (config.providerName !== 'LocalAI' && (!apiKey || apiKey === config.placeholderKey)) {
     const errorMsg = `${config.providerName}_API_KEY not configured - please configure API key in Settings page`;
     logger.error(`❌ [${agentName}] ${errorMsg}`);
     throw new Error(errorMsg);
   }
 
   // 检查熔断器
-  if (!circuitBreaker.canCall()) {
+  const breaker = getCircuitBreaker(config.providerName);
+  if (!breaker.canCall()) {
     const errorMsg = 'Circuit breaker is OPEN, rejecting request - service temporarily unavailable';
     logger.error(`🔌 [${agentName}] ${errorMsg}`);
     throw new Error(errorMsg);
@@ -261,7 +284,7 @@ async function callLLMAPI(
       )
     );
 
-    circuitBreaker.recordSuccess();
+    circuitBreakers.get(config.providerName)?.recordSuccess();
 
     if (response.data.choices && response.data.choices.length > 0) {
       const content = response.data.choices[0].message.content;
@@ -283,7 +306,7 @@ async function callLLMAPI(
       throw new Error('API returned empty choices');
     }
   } catch (error: unknown) {
-    circuitBreaker.recordFailure();
+    circuitBreakers.get(config.providerName)?.recordFailure();
     
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`❌ [${agentName}] ${config.providerName} API call failed:`, errorMessage);
@@ -334,6 +357,22 @@ export async function callOpenAIAPI(
 }
 
 /**
+ * 调用本地 AI 大模型获取响应
+ * @param systemPrompt 系统提示词
+ * @param userInput 用户输入
+ * @param agentName Agent 名称（用于日志）
+ * @param temperature 温度参数
+ */
+export async function callLocalAIAPI(
+  systemPrompt: string,
+  userInput: string,
+  agentName: string = 'Agent',
+  temperature: number = 0.7
+): Promise<string> {
+  return callLLMAPI(LOCAL_AI_CONFIG, systemPrompt, userInput, agentName, temperature);
+}
+
+/**
  * 通用的 LLM 完成生成函数
  * @param prompt 用户提示词
  * @param systemPrompt 系统提示词（可选）
@@ -346,7 +385,19 @@ export async function generateCompletion(
   temperature: number = 0.7,
   model?: string
 ): Promise<string> {
-  const provider = model ? getProviderForModel(model) : 'doubao';
+  const provider = model ? getProviderForModel(model) : 'local';
+  
+  // 优先尝试本地模型，如果未配置则回退到云端
+  if (provider === 'local') {
+    try {
+      logger.info('🏠 Trying Local AI first...');
+      return await callLocalAIAPI(systemPrompt, prompt, 'LLM', temperature);
+    } catch (localError) {
+      logger.warn(`⚠️ Local AI failed, falling back to Doubao: ${localError instanceof Error ? localError.message : 'Unknown error'}`);
+      // 回退到豆包
+      return await callDoubaoAPI(systemPrompt, prompt, 'LLM', temperature);
+    }
+  }
   
   if (provider === 'openai') {
     return await callOpenAIAPI(
@@ -368,10 +419,22 @@ export async function generateCompletion(
 /**
  * 判断模型属于哪个API提供商
  * @param modelId 模型ID
- * @returns 提供商名称 'doubao' 或 'openai'
+ * @returns 提供商名称 'local' | 'doubao' | 'openai'
  */
-function getProviderForModel(modelId: string): 'doubao' | 'openai' {
-  if (!modelId) return 'doubao';
+function getProviderForModel(modelId: string): 'local' | 'doubao' | 'openai' {
+  if (!modelId) return 'local'; // 默认尝试本地模型
+  
+  // 本地模型关键词
+  const localKeywords = [
+    'qwen', 'llama', 'mistral', 'codellama', 'deepseek', 'yi', 'baichuan',
+    'chatglm', 'glm', 'phi', 'gemma', 'falcon', 'vicuna', 'zephyr',
+    'wizardlm', 'openhermes', 'neural', 'tinyllama', 'stablelm', 'orca'
+  ];
+  for (const keyword of localKeywords) {
+    if (modelId.toLowerCase().includes(keyword)) {
+      return 'local';
+    }
+  }
   
   const doubaoKeywords = ['doubao', 'volcengine', 'ark'];
   for (const keyword of doubaoKeywords) {
@@ -387,7 +450,7 @@ function getProviderForModel(modelId: string): 'doubao' | 'openai' {
     }
   }
   
-  return 'doubao';
+  return 'local'; // 未识别的模型默认尝试本地
 }
 
 /**
@@ -444,11 +507,12 @@ export async function checkLLMAvailability(): Promise<{ available: boolean; mess
     return { available: false, message: 'API Key not configured' };
   }
   
-  if (!circuitBreaker.canCall()) {
+  const breaker = getCircuitBreaker('Doubao');
+  if (!breaker.canCall()) {
     return { available: false, message: 'Circuit breaker is open - service currently unavailable' };
   }
   
   return { available: true, message: 'LLM service available' };
 }
 
-export { circuitBreaker };
+export { getCircuitBreaker };

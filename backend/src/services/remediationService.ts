@@ -1,0 +1,871 @@
+import { v4 as uuidv4 } from 'uuid';
+import db from '../models/database';
+import { executeWorkflow } from './workflowExecutor';
+import { notificationService } from './notificationService';
+import { logger } from '../utils/logger';
+import type { RemediationPolicy, RemediationExecution, PolicyStats, WorkflowNode, WorkflowEdge, WorkflowParsed } from '../types';
+
+class RemediationService {
+  private initialized = false;
+
+  init(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+    logger.info('Auto-remediation engine initialized');
+  }
+
+  createPolicy(policy: Omit<RemediationPolicy, 'id' | 'created_at' | 'updated_at'>): RemediationPolicy {
+    const id = uuidv4();
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO remediation_policies (
+        id, name, description, alert_source, alert_severity,
+        alert_keywords, alert_tags, execution_mode, workflow_id,
+        workflow_params, max_executions_per_hour, cooldown_seconds,
+        require_confirmation, enable_verification, verification_workflow_id,
+        verification_params, verification_timeout_seconds, enable_rollback,
+        rollback_workflow_id, rollback_on_failure, enabled, created_by,
+        created_at, updated_at
+      ) VALUES (
+        @id, @name, @description, @alert_source, @alert_severity,
+        @alert_keywords, @alert_tags, @execution_mode, @workflow_id,
+        @workflow_params, @max_executions_per_hour, @cooldown_seconds,
+        @require_confirmation, @enable_verification, @verification_workflow_id,
+        @verification_params, @verification_timeout_seconds, @enable_rollback,
+        @rollback_workflow_id, @rollback_on_failure, @enabled, @created_by,
+        @created_at, @updated_at
+      )
+    `).run({
+      id,
+      name: policy.name,
+      description: policy.description || null,
+      alert_source: policy.alert_source,
+      alert_severity: policy.alert_severity || null,
+      alert_keywords: policy.alert_keywords || null,
+      alert_tags: policy.alert_tags || null,
+      execution_mode: policy.execution_mode,
+      workflow_id: policy.workflow_id || null,
+      workflow_params: policy.workflow_params || null,
+      max_executions_per_hour: policy.max_executions_per_hour,
+      cooldown_seconds: policy.cooldown_seconds,
+      require_confirmation: policy.require_confirmation || null,
+      enable_verification: policy.enable_verification ? 1 : 0,
+      verification_workflow_id: policy.verification_workflow_id || null,
+      verification_params: policy.verification_params || null,
+      verification_timeout_seconds: policy.verification_timeout_seconds,
+      enable_rollback: policy.enable_rollback ? 1 : 0,
+      rollback_workflow_id: policy.rollback_workflow_id || null,
+      rollback_on_failure: policy.rollback_on_failure ? 1 : 0,
+      enabled: policy.enabled ? 1 : 0,
+      created_by: policy.created_by || null,
+      created_at: now,
+      updated_at: now
+    });
+
+    return this.getPolicy(id);
+  }
+
+  updatePolicy(id: string, updates: Partial<Pick<RemediationPolicy, 'name' | 'description' | 'alert_source' | 'alert_severity' | 'alert_keywords' | 'alert_tags' | 'execution_mode' | 'workflow_id' | 'workflow_params' | 'max_executions_per_hour' | 'cooldown_seconds' | 'require_confirmation' | 'enable_verification' | 'verification_workflow_id' | 'verification_params' | 'verification_timeout_seconds' | 'enable_rollback' | 'rollback_workflow_id' | 'rollback_on_failure' | 'enabled'>>): RemediationPolicy {
+    const now = new Date().toISOString();
+    const fields: string[] = [];
+    const params: Record<string, unknown> = { id, updated_at: now };
+
+    const fieldMap: Record<string, keyof typeof updates> = {
+      'name': 'name',
+      'description': 'description',
+      'alert_source': 'alert_source',
+      'alert_severity': 'alert_severity',
+      'alert_keywords': 'alert_keywords',
+      'alert_tags': 'alert_tags',
+      'execution_mode': 'execution_mode',
+      'workflow_id': 'workflow_id',
+      'workflow_params': 'workflow_params',
+      'max_executions_per_hour': 'max_executions_per_hour',
+      'cooldown_seconds': 'cooldown_seconds',
+      'require_confirmation': 'require_confirmation',
+      'enable_verification': 'enable_verification',
+      'verification_workflow_id': 'verification_workflow_id',
+      'verification_params': 'verification_params',
+      'verification_timeout_seconds': 'verification_timeout_seconds',
+      'enable_rollback': 'enable_rollback',
+      'rollback_workflow_id': 'rollback_workflow_id',
+      'rollback_on_failure': 'rollback_on_failure',
+      'enabled': 'enabled'
+    };
+
+    for (const [dbField, key] of Object.entries(fieldMap)) {
+      const value = updates[key];
+      if (value !== undefined) {
+        fields.push(`${dbField} = @${key}`);
+        if (typeof value === 'boolean') {
+          params[key] = value ? 1 : 0;
+        } else {
+          params[key] = value;
+        }
+      }
+    }
+
+    if (fields.length === 0) {
+      throw new Error('No fields to update');
+    }
+
+    fields.push('updated_at = @updated_at');
+    const sql = `UPDATE remediation_policies SET ${fields.join(', ')} WHERE id = @id`;
+
+    db.prepare(sql).run(params);
+    return this.getPolicy(id);
+  }
+
+  deletePolicy(id: string): void {
+    db.prepare('DELETE FROM remediation_policies WHERE id = ?').run(id);
+    logger.info(`Deleted remediation policy: ${id}`);
+  }
+
+  getPolicy(id: string): RemediationPolicy {
+    const policy = db.prepare('SELECT * FROM remediation_policies WHERE id = ?').get(id) as RemediationPolicy | undefined;
+    if (!policy) {
+      throw new Error(`Policy not found: ${id}`);
+    }
+    return policy;
+  }
+
+  listPolicies(filters: { enabled?: boolean; alert_source?: string; page?: number; limit?: number }): { policies: RemediationPolicy[]; total: number } {
+    let sql = 'SELECT * FROM remediation_policies WHERE 1=1';
+    let countSql = 'SELECT COUNT(*) as count FROM remediation_policies WHERE 1=1';
+    const params: unknown[] = [];
+
+    if (filters.enabled !== undefined) {
+      sql += ' AND enabled = ?';
+      countSql += ' AND enabled = ?';
+      params.push(filters.enabled ? 1 : 0);
+    }
+
+    if (filters.alert_source) {
+      sql += ' AND alert_source = ?';
+      countSql += ' AND alert_source = ?';
+      params.push(filters.alert_source);
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    sql += ` LIMIT ${limit} OFFSET ${offset}`;
+
+    const policies = db.prepare(sql).all(...params) as RemediationPolicy[];
+    const totalResult = db.prepare(countSql).get(...params) as { count: number };
+
+    return { policies, total: totalResult.count };
+  }
+
+  togglePolicy(id: string): RemediationPolicy {
+    const policy = this.getPolicy(id);
+    const newEnabled = policy.enabled ? 0 : 1;
+    db.prepare('UPDATE remediation_policies SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newEnabled, id);
+    return this.getPolicy(id);
+  }
+
+  async matchAlertToPolicies(alert: { id: string; source: string; severity?: string; title?: string; content?: string; tags?: string[] }): Promise<RemediationPolicy[]> {
+    const policies = db.prepare(`
+      SELECT * FROM remediation_policies
+      WHERE enabled = 1 AND alert_source = ?
+      ORDER BY
+        CASE alert_severity
+          WHEN 'disaster' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'average' THEN 3
+          WHEN 'warning' THEN 4
+          ELSE 5
+        END
+    `).all(alert.source) as RemediationPolicy[];
+
+    return policies.filter(policy => {
+      if (policy.alert_severity && policy.alert_severity !== alert.severity) {
+        return false;
+      }
+
+      if (policy.alert_keywords) {
+        try {
+          const keywords = JSON.parse(policy.alert_keywords) as string[];
+          const alertText = `${alert.title || ''} ${alert.content || ''}`.toLowerCase();
+          if (!keywords.some(kw => alertText.includes(kw.toLowerCase()))) {
+            return false;
+          }
+        } catch {
+          logger.warn(`Invalid alert_keywords JSON in policy ${policy.id}`);
+          return false;
+        }
+      }
+
+      if (policy.alert_tags) {
+        try {
+          const tags = JSON.parse(policy.alert_tags) as string[];
+          const alertTags = alert.tags || [];
+          if (!tags.some(t => alertTags.includes(t))) {
+            return false;
+          }
+        } catch {
+          logger.warn(`Invalid alert_tags JSON in policy ${policy.id}`);
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  private isInCooldown(policy: RemediationPolicy, alert: { id: string }): boolean {
+    const result = db.prepare(`
+      SELECT cooldown_until FROM remediation_cooldowns
+      WHERE policy_id = ? AND alert_id = ?
+    `).get(policy.id, alert.id) as { cooldown_until: string } | undefined;
+
+    if (!result) return false;
+
+    const now = new Date().toISOString();
+    return now < result.cooldown_until;
+  }
+
+  private isRateLimited(policy: RemediationPolicy): boolean {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const result = db.prepare(`
+      SELECT COUNT(*) as count FROM remediation_executions
+      WHERE policy_id = ? AND created_at > ?
+    `).get(policy.id, oneHourAgo) as { count: number };
+
+    return result.count >= policy.max_executions_per_hour;
+  }
+
+  private async createSkippedExecution(policy: RemediationPolicy, alert: { id: string; source: string; severity?: string; title?: string; content?: string }, reason: string): Promise<RemediationExecution> {
+    const id = uuidv4();
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO remediation_executions (
+        id, policy_id, alert_id, alert_snapshot, status, status_reason, created_at
+      ) VALUES (?, ?, ?, ?, 'skipped', ?, ?)
+    `).run(
+      id,
+      policy.id,
+      alert.id,
+      JSON.stringify(alert),
+      reason,
+      now
+    );
+
+    return this.getExecution(id);
+  }
+
+  async triggerRemediation(policy: RemediationPolicy, alert: { id: string; source: string; severity?: string; title?: string; content?: string; tags?: string[] }): Promise<RemediationExecution> {
+    if (this.isInCooldown(policy, alert)) {
+      logger.info(`Policy ${policy.id} in cooldown for alert ${alert.id}`);
+      return this.createSkippedExecution(policy, alert, 'cooldown');
+    }
+
+    if (this.isRateLimited(policy)) {
+      logger.warn(`Policy ${policy.id} rate limited`);
+      return this.createSkippedExecution(policy, alert, 'rate_limited');
+    }
+
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    const approvalRequired = policy.execution_mode === 'approval' ? 1 : 0;
+
+    db.prepare(`
+      INSERT INTO remediation_executions (
+        id, policy_id, alert_id, alert_snapshot, status, approval_required, created_at
+      ) VALUES (?, ?, ?, ?, 'pending', ?, ?)
+    `).run(
+      id,
+      policy.id,
+      alert.id,
+      JSON.stringify(alert),
+      approvalRequired,
+      now
+    );
+
+    const execution = this.getExecution(id);
+
+    switch (policy.execution_mode) {
+      case 'auto':
+        this.executeWorkflowAsync(execution.id);
+        break;
+      case 'approval':
+        await this.requestApproval(execution);
+        break;
+      case 'suggestion':
+        await this.sendSuggestion(execution);
+        break;
+    }
+
+    return execution;
+  }
+
+  private async executeWorkflowAsync(executionId: string): Promise<void> {
+    try {
+      await this.executeWorkflow(executionId);
+    } catch (error) {
+      logger.error(`Async workflow execution failed for ${executionId}:`, error);
+    }
+  }
+
+  async executeWorkflow(executionId: string): Promise<void> {
+    const execution = this.getExecution(executionId);
+    const policy = this.getPolicy(execution.policy_id);
+    const alert = JSON.parse(execution.alert_snapshot || '{}');
+
+    if (!policy.workflow_id) {
+      this.updateExecutionStatus(executionId, 'failed', 'No workflow configured');
+      return;
+    }
+
+    this.updateExecution(executionId, { status: 'running', started_at: new Date().toISOString() });
+    const startTime = Date.now();
+
+    try {
+      const workflow = db.prepare('SELECT * FROM workflows WHERE id = ?').get(policy.workflow_id) as {
+        id: string; name: string; description: string; nodes: string; edges: string; agent_configs: string; is_template: number; created_at: string; updated_at: string;
+      } | undefined;
+
+      if (!workflow) {
+        this.updateExecutionStatus(executionId, 'failed', 'Workflow not found');
+        return;
+      }
+
+      const taskId = uuidv4();
+      const params = this.resolveParams(policy.workflow_params, alert);
+
+      db.prepare(`
+        INSERT INTO tasks (id, workflow_id, name, status, context, created_at)
+        VALUES (?, ?, ?, 'pending', ?, CURRENT_TIMESTAMP)
+      `).run(taskId, workflow.id, `自动修复: ${workflow.name}`, JSON.stringify(params));
+
+      let nodes: WorkflowNode[] = [];
+      let edges: WorkflowEdge[] = [];
+      let agentConfigs = {};
+
+      try {
+        nodes = typeof workflow.nodes === 'string' ? JSON.parse(workflow.nodes) : workflow.nodes;
+        edges = typeof workflow.edges === 'string' ? JSON.parse(workflow.edges) : workflow.edges;
+        agentConfigs = workflow.agent_configs
+          ? (typeof workflow.agent_configs === 'string' ? JSON.parse(workflow.agent_configs) : workflow.agent_configs)
+          : {};
+      } catch (error) {
+        this.updateExecutionStatus(executionId, 'failed', 'Invalid workflow format');
+        logger.error(`Failed to parse workflow ${workflow.id}:`, error);
+        return;
+      }
+
+      const parsedWorkflow: WorkflowParsed = {
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.description,
+        nodes,
+        edges,
+        agent_configs: agentConfigs,
+        is_template: workflow.is_template,
+        created_at: workflow.created_at,
+        updated_at: workflow.updated_at
+      };
+
+      await executeWorkflow(taskId, parsedWorkflow, undefined, params);
+
+      this.updateExecution(executionId, {
+        workflow_execution_id: taskId,
+        execution_result: JSON.stringify({ taskId }),
+        completed_at: new Date().toISOString(),
+        execution_duration_ms: Date.now() - startTime
+      });
+
+      if (policy.enable_verification && policy.verification_workflow_id) {
+        await this.verifyResult(executionId);
+      } else {
+        this.updateExecutionStatus(executionId, 'success');
+        this.resolveAlert(execution.alert_id);
+        this.updateCooldown(policy, alert);
+        this.recordHistory(execution, policy, 'success');
+      }
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`Remediation execution ${executionId} failed:`, error);
+
+      this.updateExecution(executionId, {
+        status: 'failed',
+        status_reason: errorMsg,
+        completed_at: new Date().toISOString(),
+        execution_duration_ms: Date.now() - startTime
+      });
+
+      this.recordHistory(execution, policy, 'failed', errorMsg);
+
+      if (policy.enable_rollback && policy.rollback_on_failure && policy.rollback_workflow_id) {
+        await this.rollbackExecution(executionId);
+      }
+    }
+  }
+
+  async verifyResult(executionId: string): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const execution = this.getExecution(executionId);
+    const policy = this.getPolicy(execution.policy_id);
+    const alert = JSON.parse(execution.alert_snapshot || '{}');
+
+    this.updateExecution(executionId, { verification_status: 'pending' });
+
+    try {
+      const workflow = db.prepare('SELECT * FROM workflows WHERE id = ?').get(policy.verification_workflow_id!) as {
+        id: string; name: string; description: string; nodes: string; edges: string; agent_configs: string; is_template: number; created_at: string; updated_at: string;
+      } | undefined;
+
+      if (!workflow) {
+        throw new Error('Verification workflow not found');
+      }
+
+      const params = this.resolveParams(policy.verification_params, alert);
+      const timeout = policy.verification_timeout_seconds * 1000;
+      const taskId = uuidv4();
+
+      db.prepare(`
+        INSERT INTO tasks (id, workflow_id, name, status, context, created_at)
+        VALUES (?, ?, ?, 'pending', ?, CURRENT_TIMESTAMP)
+      `).run(taskId, workflow.id, `修复验证: ${workflow.name}`, JSON.stringify(params));
+
+      let nodes: WorkflowNode[] = [];
+      let edges: WorkflowEdge[] = [];
+      let agentConfigs = {};
+
+      try {
+        nodes = typeof workflow.nodes === 'string' ? JSON.parse(workflow.nodes) : workflow.nodes;
+        edges = typeof workflow.edges === 'string' ? JSON.parse(workflow.edges) : workflow.edges;
+        agentConfigs = workflow.agent_configs
+          ? (typeof workflow.agent_configs === 'string' ? JSON.parse(workflow.agent_configs) : workflow.agent_configs)
+          : {};
+      } catch {
+        throw new Error('Invalid verification workflow format');
+      }
+
+      const parsedWorkflow: WorkflowParsed = {
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.description,
+        nodes,
+        edges,
+        agent_configs: agentConfigs,
+        is_template: workflow.is_template,
+        created_at: workflow.created_at,
+        updated_at: workflow.updated_at
+      };
+
+      const result = await Promise.race([
+        executeWorkflow(taskId, parsedWorkflow, undefined, params),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Verification timeout')), timeout)
+        )
+      ]);
+
+      this.updateExecution(executionId, {
+        verification_status: 'success',
+        verification_result: JSON.stringify(result),
+        verification_completed_at: new Date().toISOString(),
+        status: 'success'
+      });
+
+      this.resolveAlert(execution.alert_id);
+      this.updateCooldown(policy, alert);
+      this.recordHistory(execution, policy, 'success');
+
+      return { success: true, result };
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`Verification failed for execution ${executionId}:`, error);
+
+      this.updateExecution(executionId, {
+        verification_status: 'failed',
+        verification_result: JSON.stringify({ error: errorMsg }),
+        verification_completed_at: new Date().toISOString()
+      });
+
+      this.recordHistory(execution, policy, 'failed', errorMsg);
+
+      if (policy.enable_rollback && policy.rollback_workflow_id) {
+        await this.rollbackExecution(executionId);
+      }
+
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  async rollbackExecution(executionId: string): Promise<void> {
+    const execution = this.getExecution(executionId);
+    const policy = this.getPolicy(execution.policy_id);
+
+    if (!policy.rollback_workflow_id) {
+      logger.warn(`No rollback workflow configured for policy ${policy.id}`);
+      return;
+    }
+
+    logger.warn(`Rolling back execution ${executionId}`);
+
+    try {
+      const workflow = db.prepare('SELECT * FROM workflows WHERE id = ?').get(policy.rollback_workflow_id) as {
+        id: string; name: string; description: string; nodes: string; edges: string; agent_configs: string; is_template: number; created_at: string; updated_at: string;
+      } | undefined;
+
+      if (!workflow) {
+        throw new Error('Rollback workflow not found');
+      }
+
+      const taskId = uuidv4();
+      db.prepare(`
+        INSERT INTO tasks (id, workflow_id, name, status, context, created_at)
+        VALUES (?, ?, ?, 'pending', ?, CURRENT_TIMESTAMP)
+      `).run(taskId, workflow.id, `回滚: ${workflow.name}`, JSON.stringify({ execution_id: executionId }));
+
+      const parsedWorkflow: WorkflowParsed = {
+        id: workflow.id,
+        name: workflow.name,
+        description: workflow.description,
+        nodes: typeof workflow.nodes === 'string' ? JSON.parse(workflow.nodes) as WorkflowNode[] : workflow.nodes,
+        edges: typeof workflow.edges === 'string' ? JSON.parse(workflow.edges) as WorkflowEdge[] : workflow.edges,
+        agent_configs: workflow.agent_configs ? (typeof workflow.agent_configs === 'string' ? JSON.parse(workflow.agent_configs) : workflow.agent_configs) : {},
+        is_template: workflow.is_template,
+        created_at: workflow.created_at,
+        updated_at: workflow.updated_at
+      };
+
+      const result = await executeWorkflow(taskId, parsedWorkflow);
+
+      this.updateExecution(executionId, {
+        rollback_triggered: 1,
+        rollback_execution_id: taskId,
+        rollback_result: JSON.stringify(result),
+        rollback_completed_at: new Date().toISOString(),
+        status: 'rolled_back'
+      });
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`Rollback failed for execution ${executionId}:`, error);
+
+      this.updateExecution(executionId, {
+        rollback_triggered: 1,
+        rollback_result: JSON.stringify({ error: errorMsg }),
+        rollback_completed_at: new Date().toISOString()
+      });
+    }
+  }
+
+  async approveExecution(executionId: string, action: 'approve' | 'reject', userId: string, comment?: string): Promise<void> {
+    const execution = this.getExecution(executionId);
+
+    if (execution.status !== 'waiting_approval') {
+      throw new Error('Execution is not waiting for approval');
+    }
+
+    const now = new Date().toISOString();
+
+    if (action === 'approve') {
+      this.updateExecution(executionId, {
+        status: 'approved',
+        approved_by: userId,
+        approved_at: now,
+        approval_comment: comment
+      });
+
+      this.executeWorkflowAsync(executionId);
+    } else {
+      this.updateExecution(executionId, {
+        status: 'rejected',
+        approved_by: userId,
+        approved_at: now,
+        approval_comment: comment,
+        completed_at: now
+      });
+    }
+  }
+
+  async retryExecution(executionId: string): Promise<void> {
+    const execution = this.getExecution(executionId);
+
+    if (execution.status !== 'failed' && execution.status !== 'rejected') {
+      throw new Error('Only failed or rejected executions can be retried');
+    }
+
+    this.updateExecution(executionId, {
+      status: 'pending' as any,
+      workflow_execution_id: undefined,
+      started_at: undefined,
+      completed_at: undefined,
+      execution_result: undefined,
+      verification_status: undefined,
+      verification_result: undefined,
+      verification_completed_at: undefined,
+      rollback_triggered: 0,
+      rollback_execution_id: undefined,
+      rollback_completed_at: undefined,
+      rollback_result: undefined,
+      execution_duration_ms: undefined
+    });
+
+    this.executeWorkflowAsync(executionId);
+  }
+
+  getExecution(id: string): RemediationExecution {
+    const execution = db.prepare('SELECT * FROM remediation_executions WHERE id = ?').get(id) as RemediationExecution | undefined;
+    if (!execution) {
+      throw new Error(`Execution not found: ${id}`);
+    }
+    return execution;
+  }
+
+  listExecutions(filters: { policy_id?: string; alert_id?: string; status?: string; page?: number; limit?: number }): { executions: RemediationExecution[]; total: number } {
+    let sql = 'SELECT * FROM remediation_executions WHERE 1=1';
+    let countSql = 'SELECT COUNT(*) as count FROM remediation_executions WHERE 1=1';
+    const params: unknown[] = [];
+
+    if (filters.policy_id) {
+      sql += ' AND policy_id = ?';
+      countSql += ' AND policy_id = ?';
+      params.push(filters.policy_id);
+    }
+
+    if (filters.alert_id) {
+      sql += ' AND alert_id = ?';
+      countSql += ' AND alert_id = ?';
+      params.push(filters.alert_id);
+    }
+
+    if (filters.status) {
+      sql += ' AND status = ?';
+      countSql += ' AND status = ?';
+      params.push(filters.status);
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const offset = (page - 1) * limit;
+    sql += ` LIMIT ${limit} OFFSET ${offset}`;
+
+    const executions = db.prepare(sql).all(...params) as RemediationExecution[];
+    const totalResult = db.prepare(countSql).get(...params) as { count: number };
+
+    return { executions, total: totalResult.count };
+  }
+
+  async getPolicyStats(policyId: string, days: number): Promise<PolicyStats> {
+    const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const totalResult = db.prepare(`
+      SELECT COUNT(*) as count FROM remediation_executions
+      WHERE policy_id = ? AND created_at > ?
+    `).get(policyId, sinceDate) as { count: number };
+
+    const successResult = db.prepare(`
+      SELECT COUNT(*) as count FROM remediation_executions
+      WHERE policy_id = ? AND status = 'success' AND created_at > ?
+    `).get(policyId, sinceDate) as { count: number };
+
+    const failedResult = db.prepare(`
+      SELECT COUNT(*) as count FROM remediation_executions
+      WHERE policy_id = ? AND status = 'failed' AND created_at > ?
+    `).get(policyId, sinceDate) as { count: number };
+
+    const rolledBackResult = db.prepare(`
+      SELECT COUNT(*) as count FROM remediation_executions
+      WHERE policy_id = ? AND status = 'rolled_back' AND created_at > ?
+    `).get(policyId, sinceDate) as { count: number };
+
+    const avgDurationResult = db.prepare(`
+      SELECT AVG(execution_duration_ms) as avg_duration FROM remediation_executions
+      WHERE policy_id = ? AND execution_duration_ms IS NOT NULL AND created_at > ?
+    `).get(policyId, sinceDate) as { avg_duration: number | null };
+
+    const total = totalResult.count;
+    const successRate = total > 0 ? (successResult.count / total) * 100 : 0;
+
+    const dailyStats = db.prepare(`
+      SELECT
+        DATE(created_at) as date,
+        COUNT(*) as triggers,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+      FROM remediation_executions
+      WHERE policy_id = ? AND created_at > ?
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `).all(policyId, sinceDate) as Array<{ date: string; triggers: number; success: number; failed: number }>;
+
+    return {
+      total_triggers: total,
+      success_count: successResult.count,
+      failed_count: failedResult.count,
+      rolled_back_count: rolledBackResult.count,
+      success_rate: Math.round(successRate * 100) / 100,
+      avg_duration_ms: avgDurationResult.avg_duration ? Math.round(avgDurationResult.avg_duration) : 0,
+      top_root_causes: [],
+      daily_stats: dailyStats
+    };
+  }
+
+  private resolveParams(paramsJson: string | undefined, alert: Record<string, unknown>): Record<string, unknown> {
+    if (!paramsJson) return {};
+
+    let params: Record<string, unknown>;
+    try {
+      params = JSON.parse(paramsJson);
+    } catch {
+      return {};
+    }
+
+    const resolved: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (typeof value === 'string') {
+        resolved[key] = value.replace(/\{\{alert\.(\w+)\}\}/g, (_match, prop) => {
+          const val = alert[prop];
+          return val !== undefined && val !== null ? String(val) : '';
+        });
+      } else {
+        resolved[key] = value;
+      }
+    }
+
+    return resolved;
+  }
+
+  private async requestApproval(execution: RemediationExecution): Promise<void> {
+    this.updateExecution(execution.id, { status: 'waiting_approval' });
+
+    const policy = this.getPolicy(execution.policy_id);
+    const alert = JSON.parse(execution.alert_snapshot || '{}');
+
+    try {
+      await notificationService.sendNotification({
+        type: 'remediation_approval',
+        title: '修复审批请求',
+        content: `策略: ${policy.name}\n告警: ${alert.title || alert.content || 'Unknown'}\n请审批执行`,
+        related_alert_id: execution.alert_id
+      });
+    } catch (error) {
+      logger.error('Failed to send approval notification:', error);
+    }
+  }
+
+  private async sendSuggestion(execution: RemediationExecution): Promise<void> {
+    this.updateExecution(execution.id, { status: 'success', status_reason: 'suggestion_sent' });
+
+    const policy = this.getPolicy(execution.policy_id);
+    const alert = JSON.parse(execution.alert_snapshot || '{}');
+
+    try {
+      await notificationService.sendNotification({
+        type: 'remediation_suggestion',
+        title: '修复建议',
+        content: `策略: ${policy.name}\n告警: ${alert.title || alert.content || 'Unknown'}\n建议执行修复操作`,
+        related_alert_id: execution.alert_id
+      });
+    } catch (error) {
+      logger.error('Failed to send suggestion notification:', error);
+    }
+  }
+
+  private updateExecutionStatus(id: string, status: RemediationExecution['status'], reason?: string): void {
+    const fields: string[] = ['status = ?'];
+    const params: unknown[] = [status];
+
+    if (reason) {
+      fields.push('status_reason = ?');
+      params.push(reason);
+    }
+
+    if (['success', 'failed', 'rolled_back', 'rejected', 'skipped'].includes(status)) {
+      fields.push('completed_at = ?');
+      params.push(new Date().toISOString());
+    }
+
+    if (status === 'running') {
+      fields.push('started_at = ?');
+      params.push(new Date().toISOString());
+    }
+
+    params.push(id);
+    db.prepare(`UPDATE remediation_executions SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  }
+
+  private updateExecution(id: string, updates: Partial<RemediationExecution>): void {
+    const fields: string[] = [];
+    const params: Record<string, unknown> = { id };
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && key !== 'id') {
+        fields.push(`${key} = @${key}`);
+        params[key] = value;
+      }
+    }
+
+    if (fields.length === 0) return;
+
+    const sql = `UPDATE remediation_executions SET ${fields.join(', ')} WHERE id = @id`;
+    db.prepare(sql).run(params);
+  }
+
+  private resolveAlert(alertId: string): void {
+    try {
+      const result = db.prepare(`
+        UPDATE alerts SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(alertId);
+      if (result.changes > 0) {
+        logger.info(`Alert ${alertId} marked as resolved by auto-remediation`);
+      }
+    } catch (error) {
+      logger.error('Failed to resolve alert:', error);
+    }
+  }
+
+  private updateCooldown(policy: RemediationPolicy, alert: Record<string, unknown>): void {
+    if (alert.id && typeof alert.id === 'string') {
+      const cooldownUntil = new Date(Date.now() + policy.cooldown_seconds * 1000).toISOString();
+      db.prepare(`
+        INSERT INTO remediation_cooldowns (policy_id, alert_id, cooldown_until)
+        VALUES (?, ?, ?)
+        ON CONFLICT (policy_id, alert_id) DO UPDATE SET cooldown_until = excluded.cooldown_until, created_at = CURRENT_TIMESTAMP
+      `).run(policy.id, alert.id, cooldownUntil);
+    }
+  }
+
+  private recordHistory(execution: RemediationExecution, policy: RemediationPolicy, status: string, reason?: string): void {
+    try {
+      const alert = JSON.parse(execution.alert_snapshot || '{}');
+      db.prepare(`
+        INSERT INTO remediation_history (
+          id, policy_id, alert_source, alert_severity, execution_status, resolution, duration_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        uuidv4(),
+        policy.id,
+        alert.source,
+        alert.severity,
+        status,
+        reason || 'Auto-remediated',
+        execution.execution_duration_ms || null
+      );
+    } catch (error) {
+      logger.error('Failed to record remediation history:', error);
+    }
+  }
+
+  async cleanupOldExecutions(days: number): Promise<void> {
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const result = db.prepare(`
+      DELETE FROM remediation_executions WHERE created_at < ?
+    `).run(cutoffDate);
+    logger.info(`Cleaned up ${result.changes} old remediation executions`);
+  }
+}
+
+export const remediationService = new RemediationService();

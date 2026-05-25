@@ -6,6 +6,8 @@
 
 <img width="1920" height="1080" alt="0cpuy-fbfi3" src="文档引用图片\0 (3).gif" />
 
+<img width="1920" height="1080" alt="0cpuy-fbfi3" src="文档引用图片\屏幕截图 2026-05-25 143839.png" />
+
 ## 项目简介
 
 ITOps Agent Platform 是一个企业级全栈运维自动化平台，通过可视化工作流编排多个 AI Agent 协同工作，实现服务器巡检、告警处理、故障诊断、合规检查等运维任务的自动化。
@@ -85,8 +87,8 @@ docker-compose up -d --build
 
 ```bash
 # 拉取镜像
-docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:backend-v3.0.1
-docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:frontend-v3.0.1
+docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:IT_Onlin-ITOps-backend-v3.0.2
+docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:IT_Onlin-ITOps-frontend-v3.0.2
 
 # 启动服务
 docker-compose up -d
@@ -118,7 +120,9 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-**默认管理员**: `admin` / `admin123`
+**默认管理员**: `admin` / `admin`
+
+> ⚠️ 首次登录后系统会强制要求修改密码
 
 <img width="1842" height="957" alt="image" src="https://github.com/user-attachments/assets/befe8ad6-b39f-4881-8b9b-e4f17356767a" />
 
@@ -153,7 +157,7 @@ cd frontend && npm install && npm run dev
 - 添加/编辑/删除服务器，支持 SSH 密码或密钥认证
 - 标签筛选、连接测试
 - 在线 Shell 命令执行，命令历史审计
-- 13 项系统合规检查（CPU/内存/磁盘/网络/服务/安全等）
+- 14 项系统合规检查（CPU/内存/磁盘/网络/服务/安全等）
 - 命令历史和合规历史 JSON 导出
 
 <img width="1667" height="956" alt="屏幕截图 2026-05-18 144417" src="文档引用图片/0 (1).gif" />
@@ -299,11 +303,17 @@ cd frontend && npm install && npm run dev
 ## 安全特性
 
 - 服务器密码和 SSH 密钥 AES-256-GCM 加密存储
-- JWT 认证 + Token 黑名单机制
+- JWT 认证 + Token 黑名单机制（数据库错误时安全降级：拒绝）
+- access_token + refresh_token 双 token 机制，自动刷新
 - API 速率限制
+- bcrypt 密码哈希（成本因子 12）
 - 完整操作审计日志
 - 敏感信息自动脱敏
-- Helmet 安全头
+- Nginx 安全头（HSTS/CSP/X-Frame-Options/XSS-Protection）
+- 部署脚本默认 admin/admin 初始密码，首次登录强制修改
+- 邮件模板 XSS 防护（HTML 转义）
+- Graceful Shutdown（优雅关闭，30s 超时保护）
+- 非 root 用户容器运行 + 最小权限文件权限
 
 ## 作者
 

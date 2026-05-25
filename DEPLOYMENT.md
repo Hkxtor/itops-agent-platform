@@ -57,21 +57,43 @@ OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o
 ```
 
-### 2.3 一键启动（简化版，推荐首次使用）
+### 2.3 一键启动（推荐）
+
+**方式一：使用部署脚本（自动生成随机密码）**
 
 ```bash
-docker compose -f docker-compose.simple.yml up -d --build
+# Windows
+.\deploy.ps1
+
+# Linux/Mac
+chmod +x deploy.sh && ./deploy.sh
+```
+
+脚本会自动：生成随机 JWT 密钥 → 拉取阿里云镜像 → 启动服务 → 健康检查 → 输出登录信息
+
+**方式二：Docker Compose（使用远程镜像）**
+
+```bash
+docker compose up -d
+```
+
+生产版 `docker-compose.yml` 默认使用阿里云远程镜像，无需本地构建。
+
+**方式三：Docker Compose（本地源码构建）**
+
+```bash
+docker compose up -d --build
 ```
 
 ### 2.4 验证部署
 
 ```bash
 # 查看容器状态（两个都应显示 Up）
-docker compose -f docker-compose.simple.yml ps
+docker compose ps
 
 # 检查后端健康
 curl http://localhost:3001/health
-# 预期输出: {"status":"ok","timestamp":"..."}
+# 预期输出: {"status":"healthy","timestamp":"..."}
 
 # 前端页面
 # 浏览器打开: http://localhost:8080
@@ -79,11 +101,11 @@ curl http://localhost:3001/health
 
 ### 2.5 登录系统
 
-```
-地址: http://localhost:8080
-用户名: admin
-密码: admin123
-```
+- **地址**: http://localhost:8080
+- **用户名**: admin
+- **密码**: admin
+
+> ⚠️ 首次登录后系统会强制要求修改密码
 
 ---
 
@@ -97,13 +119,18 @@ curl http://localhost:3001/health
 |------|--------|--------|
 | 多阶段构建（镜像体积更小） | ❌ | ✅ |
 | 健康检查 | ❌ | ✅ |
-| 资源限制（CPU/内存） | ❌ | ✅ |
-| 自定义网络隔离 | ❌ | ✅ |
+| 资源限制（CPU/内存） | ✅ | ✅ |
+| 自定义网络隔离 | ✅ | ✅ |
 | 完整环境变量注入 | ❌ | ✅ |
+| 日志大小限制 | ✅ | ✅ |
+| 远程镜像（无需构建） | ❌ | ✅ |
 
 ```bash
-# 构建并启动
+# 构建并启动（本地源码构建）
 docker compose up -d --build
+
+# 使用远程镜像（推荐，更快）
+docker compose up -d
 
 # 仅重新构建（不重启已运行的容器）
 docker compose build
@@ -338,13 +365,14 @@ docker compose restart backend
 
 ### 8.4 登录失败
 
-1. 确认使用了正确的默认账号：`admin` / `admin123`
+1. 确认使用了正确的默认账号：`admin` / `admin`
 2. 如果提示"用户不存在"，可能数据库被清空了，执行：
    ```bash
    docker compose down -v
    docker compose up -d --build
    ```
    ⚠️ 这会清除所有数据！
+3. 如果密码错误但账号存在，可能是之前已经修改过密码，尝试你设置的密码
 
 ### 8.5 AI 模型无法调用
 
@@ -372,6 +400,8 @@ docker compose restart backend
 4. **HTTPS**：生产环境建议在 Nginx 前加一层反向代理（如 Nginx Proxy Manager、Traefik）配置 SSL 证书
 
 5. **防火墙**：仅暴露 8080 端口对外，3001 端口应仅内网访问
+
+6. **备份策略**：系统内置自动备份（24 小时周期），建议配置远程备份（S3/OSS）
 
 ---
 

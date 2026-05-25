@@ -1,14 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Key, Bell, Database, Shield, Loader2, CheckCircle2, AlertCircle, Sun, Moon } from 'lucide-react';
+import { Key, Bell, Database, Shield, Loader2, CheckCircle2, AlertCircle, Sun, Moon, Lock } from 'lucide-react';
 import clsx from 'clsx';
 import { useTheme } from '../hooks/useTheme';
 import api from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Settings() {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('api');
   const queryClient = useQueryClient();
   const { theme, toggleTheme } = useTheme();
+  const { user, login, updateUser } = useAuth();
+  const navigate = useNavigate();
+  
+  // 密码修改状态
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [passwordError, setPasswordError] = useState('');
   
   // API密钥本地状态
   const [doubaoApiKey, setDoubaoApiKey] = useState('');
@@ -17,6 +29,8 @@ export default function Settings() {
   const [openaiModel, setOpenaiModel] = useState('');
   const [doubaoApiBase, setDoubaoApiBase] = useState('');
   const [openaiApiBase, setOpenaiApiBase] = useState('');
+  const [localAiModel, setLocalAiModel] = useState('qwen2.5:7b');
+  const [localAiApiBase, setLocalAiApiBase] = useState('http://host.docker.internal:11434/v1');
   const [apiKeySaveStatus, setApiKeySaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   
   // 通知配置本地状态
@@ -41,6 +55,65 @@ export default function Settings() {
   });
   const [notificationSaveStatus, setNotificationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
+  // 如果是强制修改密码，自动切换到安全设置标签
+  useEffect(() => {
+    if (searchParams.get('changePassword') === 'true') {
+      setActiveTab('security');
+    }
+  }, [searchParams]);
+
+  // 密码修改处理
+  const handlePasswordChange = async () => {
+    setPasswordError('');
+    setPasswordStatus('saving');
+    
+    if (newPassword !== confirmPassword) {
+      setPasswordError('两次输入的新密码不一致');
+      setPasswordStatus('error');
+      setTimeout(() => setPasswordStatus('idle'), 3000);
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      setPasswordError('密码长度至少8位');
+      setPasswordStatus('error');
+      setTimeout(() => setPasswordStatus('idle'), 3000);
+      return;
+    }
+    
+    try {
+      const response = await api.post('/api/auth/change-password', {
+        currentPassword,
+        newPassword
+      });
+      
+      if (response.data.success) {
+        setPasswordStatus('saved');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        
+        if (user) {
+          const updatedUser = { ...user, passwordMustChange: false };
+          updateUser(updatedUser);
+        }
+        
+        // 清除 URL 中的 changePassword 参数
+        navigate('/settings', { replace: true });
+        
+        setTimeout(() => setPasswordStatus('idle'), 3000);
+      } else {
+        setPasswordError(response.data.message || '密码修改失败');
+        setPasswordStatus('error');
+        setTimeout(() => setPasswordStatus('idle'), 3000);
+      }
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || '密码修改失败');
+      setPasswordStatus('error');
+      setTimeout(() => setPasswordStatus('idle'), 3000);
+    }
+  };
+
   const { data: apiKeyStatus } = useQuery({
     queryKey: ['apiKeyStatus'],
     queryFn: async () => {
@@ -63,19 +136,26 @@ export default function Settings() {
       if (res.data.data?.openai?.apiBase) {
         setOpenaiApiBase(res.data.data.openai.apiBase);
       }
+      if (res.data.data?.localAi?.model) {
+        setLocalAiModel(res.data.data.localAi.model);
+      }
+      if (res.data.data?.localAi?.apiBase) {
+        setLocalAiApiBase(res.data.data.localAi.apiBase);
+      }
       return res.data.data;
     },
   });
 
   const apiKeysMutation = useMutation({
     mutationFn: async ({ 
-      doubaoApiKey, openaiApiKey, doubaoModel, openaiModel, doubaoApiBase, openaiApiBase
+      doubaoApiKey, openaiApiKey, doubaoModel, openaiModel, doubaoApiBase, openaiApiBase, localAiModel, localAiApiBase
     }: { 
       doubaoApiKey?: string; openaiApiKey?: string; doubaoModel?: string; openaiModel?: string;
       doubaoApiBase?: string; openaiApiBase?: string;
+      localAiModel?: string; localAiApiBase?: string;
     }) => {
       const res = await api.put('/api/settings/api-keys', { 
-        doubaoApiKey, openaiApiKey, doubaoModel, openaiModel, doubaoApiBase, openaiApiBase
+        doubaoApiKey, openaiApiKey, doubaoModel, openaiModel, doubaoApiBase, openaiApiBase, localAiModel, localAiApiBase
       });
       return res.data;
     },
@@ -94,7 +174,7 @@ export default function Settings() {
   });
 
   const deleteModelMutation = useMutation({
-    mutationFn: async (provider: 'doubao' | 'openai') => {
+    mutationFn: async (provider: 'doubao' | 'openai' | 'local') => {
       const res = await api.delete(`/api/settings/api-keys/${provider}`);
       return res.data;
     },
@@ -110,6 +190,10 @@ export default function Settings() {
         setOpenaiApiKey('');
         setOpenaiModel('');
         setOpenaiApiBase('');
+      }
+      if (provider === 'local') {
+        setLocalAiModel('qwen2.5:7b');
+        setLocalAiApiBase('http://host.docker.internal:11434/v1');
       }
     },
   });
@@ -156,6 +240,8 @@ export default function Settings() {
     payload.openaiModel = openaiModel;
     payload.doubaoApiBase = doubaoApiBase;
     payload.openaiApiBase = openaiApiBase;
+    payload.localAiModel = localAiModel;
+    payload.localAiApiBase = localAiApiBase;
     
     apiKeysMutation.mutate(payload);
   };
@@ -214,7 +300,7 @@ export default function Settings() {
                   </div>
 
                   {/* 已配置模型列表 */}
-                  {(apiKeyStatus?.doubao?.configured || apiKeyStatus?.openai?.configured) && (
+                  {(apiKeyStatus?.doubao?.configured || apiKeyStatus?.openai?.configured || apiKeyStatus?.localAi?.configured) && (
                     <div className="bg-background rounded-lg p-4">
                       <h4 className="font-medium text-text-primary mb-3">已配置的模型</h4>
                       <div className="space-y-2">
@@ -241,6 +327,21 @@ export default function Settings() {
                             </div>
                             <button
                               onClick={() => deleteModelMutation.mutate('openai')}
+                              disabled={deleteModelMutation.isPending}
+                              className="px-3 py-1.5 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded transition-all"
+                            >
+                              {deleteModelMutation.isPending ? '删除中...' : '删除'}
+                            </button>
+                          </div>
+                        )}
+                        {apiKeyStatus?.localAi?.configured && (
+                          <div className="flex items-center justify-between p-3 bg-surface rounded-lg">
+                            <div>
+                              <p className="text-sm font-medium text-text-primary">本地 AI ({apiKeyStatus.localAi.model})</p>
+                              <p className="text-xs text-text-secondary">地址: {apiKeyStatus.localAi.apiBase}</p>
+                            </div>
+                            <button
+                              onClick={() => deleteModelMutation.mutate('local')}
                               disabled={deleteModelMutation.isPending}
                               className="px-3 py-1.5 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded transition-all"
                             >
@@ -340,6 +441,52 @@ export default function Settings() {
                       />
                       <p className="text-xs text-text-secondary">
                         输入您的 OpenAI API 密钥、模型 ID 和 API 地址
+                      </p>
+                    </div>
+
+                    {/* 本地 AI 大模型配置 */}
+                    <div className="bg-background rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-text-primary">本地 AI 大模型</h4>
+                        <span
+                          className={clsx(
+                            'px-2 py-1 rounded text-xs font-medium',
+                            apiKeyStatus?.localAi?.configured
+                              ? 'bg-status-success/10 text-status-success'
+                              : 'bg-status-failed/10 text-status-failed'
+                          )}
+                        >
+                          {apiKeyStatus?.localAi?.configured ? '已配置' : '未配置'}
+                        </span>
+                      </div>
+                      {apiKeyStatus?.localAi?.configured && (
+                        <p className="text-sm text-text-secondary mb-3">
+                          当前地址: {apiKeyStatus.localAi.apiBase}
+                        </p>
+                      )}
+                      <select
+                        value={localAiModel}
+                        onChange={(e) => setLocalAiModel(e.target.value)}
+                        className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary mb-3"
+                      >
+                        <option value="qwen2.5:7b">Qwen 2.5 7B</option>
+                        <option value="qwen2.5:14b">Qwen 2.5 14B</option>
+                        <option value="llama3.1:8b">Llama 3.1 8B</option>
+                        <option value="llama3.1:70b">Llama 3.1 70B</option>
+                        <option value="mistral:7b">Mistral 7B</option>
+                        <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B</option>
+                        <option value="gemma2:9b">Gemma 2 9B</option>
+                        <option value="phi3:3.8b">Phi 3 3.8B</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="输入本地 AI API 地址 (默认: http://host.docker.internal:11434/v1)"
+                        value={localAiApiBase}
+                        onChange={(e) => setLocalAiApiBase(e.target.value)}
+                        className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary mb-3"
+                      />
+                      <p className="text-xs text-text-secondary">
+                        支持 Ollama、LM Studio、vLLM 等 OpenAI 兼容 API。本地模型无需 API Key。
                       </p>
                     </div>
                     
@@ -633,6 +780,82 @@ export default function Settings() {
                     <p className="text-sm text-text-secondary mb-6">
                       配置安全策略和访问控制
                     </p>
+                  </div>
+
+                  {/* 修改密码 */}
+                  <div className="bg-background rounded-lg p-6">
+                    <h4 className="font-medium text-text-primary mb-4 flex items-center gap-2">
+                      <Lock className="w-5 h-5" />
+                      修改密码
+                    </h4>
+                    {searchParams.get('changePassword') === 'true' && (
+                      <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-2 text-yellow-300">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium">首次登录需要修改密码</p>
+                          <p className="text-xs mt-1">为了您的账户安全，请修改默认密码后继续使用</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-4 max-w-md">
+                      <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">当前密码</label>
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="请输入当前密码"
+                          className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">新密码</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="请输入新密码（至少8位）"
+                          className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">确认新密码</label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="请再次输入新密码"
+                          className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      {passwordError && (
+                        <p className="text-sm text-status-failed flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" />
+                          {passwordError}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        {passwordStatus === 'saving' && (
+                          <Loader2 className="w-4 h-4 animate-spin text-text-secondary" />
+                        )}
+                        {passwordStatus === 'saved' && (
+                          <p className="text-sm text-status-success flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4" />
+                            密码修改成功
+                          </p>
+                        )}
+                        <button
+                          onClick={handlePasswordChange}
+                          disabled={passwordStatus === 'saving'}
+                          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {passwordStatus === 'saving' && (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          )}
+                          修改密码
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-4">

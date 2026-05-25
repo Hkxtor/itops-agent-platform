@@ -124,3 +124,79 @@ export interface User {
   role: string;
   enabled: number;
 }
+
+export interface RemediationPolicy {
+  id: string;
+  name: string;
+  description?: string;
+  alert_source: string;
+  alert_severity?: string;
+  alert_keywords?: string;
+  alert_tags?: string;
+  execution_mode: 'auto' | 'approval' | 'suggestion';
+  workflow_id?: string;
+  workflow_params?: string;
+  max_executions_per_hour: number;
+  cooldown_seconds: number;
+  require_confirmation?: string;
+  enable_verification: number;
+  verification_workflow_id?: string;
+  verification_params?: string;
+  verification_timeout_seconds: number;
+  enable_rollback: number;
+  rollback_workflow_id?: string;
+  rollback_on_failure: number;
+  enabled: number;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RemediationExecution {
+  id: string;
+  policy_id: string;
+  alert_id: string;
+  alert_snapshot?: string;
+  status: 'pending' | 'checking' | 'waiting_approval' | 'approved' | 'rejected' | 'running' | 'verifying' | 'success' | 'failed' | 'rolled_back' | 'skipped';
+  status_reason?: string;
+  approval_required: number;
+  approved_by?: string;
+  approved_at?: string;
+  approval_comment?: string;
+  workflow_execution_id?: string;
+  started_at?: string;
+  completed_at?: string;
+  execution_result?: string;
+  verification_status?: 'pending' | 'success' | 'failed' | 'skipped';
+  verification_result?: string;
+  verification_completed_at?: string;
+  rollback_triggered: number;
+  rollback_execution_id?: string;
+  rollback_completed_at?: string;
+  rollback_result?: string;
+  execution_duration_ms?: number;
+  created_at: string;
+}
+
+export interface RemediationHistory {
+  id: string;
+  policy_id: string;
+  alert_source?: string;
+  alert_severity?: string;
+  execution_status: string;
+  root_cause?: string;
+  resolution?: string;
+  duration_ms?: number;
+  created_at: string;
+}
+
+export interface PolicyStats {
+  total_triggers: number;
+  success_count: number;
+  failed_count: number;
+  rolled_back_count: number;
+  success_rate: number;
+  avg_duration_ms: number;
+  top_root_causes: Array<{ cause: string; count: number }>;
+  daily_stats: Array<{ date: string; triggers: number; success: number; failed: number }>;
+}

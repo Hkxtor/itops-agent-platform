@@ -1,6 +1,8 @@
 import db from '../models/database';
 import { randomUUID } from 'crypto';
 import { generateCompletion } from './llmService';
+import { localRuleEngine } from './localRuleEngine';
+import { logger } from '../utils/logger';
 import type { Statement } from 'better-sqlite3';
 
 type StatementNoParams = Statement<[]>;
@@ -160,6 +162,16 @@ class RootCauseAnalysisService {
     return result.changes > 0;
   }
 
+  async analyzeByAlert(alertId: string, alertTitle: string, alertContent: string): Promise<RootCauseAnalysis | undefined> {
+    const rca = this.create({
+      alert_id: alertId,
+      title: `自动根因分析: ${alertTitle}`,
+      description: alertContent
+    });
+
+    return this.analyze(rca.id);
+  }
+
   async analyze(id: string): Promise<RootCauseAnalysis | undefined> {
     if (!this.getRCAById) this.initializeStatements();
     const existing = this.getRCAById!.get(id) as RootCauseAnalysis;
@@ -167,27 +179,50 @@ class RootCauseAnalysisService {
       return undefined;
     }
 
-    // 更新状态为分析中
     this.update(id, { status: 'analyzing' });
 
     try {
       let analysisResult;
 
       try {
-        // 优先使用 LLM 进行分析
         analysisResult = await this.performLLMAnalysis(existing);
-      } catch {
-        // LLM 分析失败，使用预设分析结果
-        analysisResult = this.generateFallbackAnalysis(existing);
+      } catch (llmError) {
+        logger.info(`🔄 [RCA] LLM analysis failed, falling back to local rule engine: ${(llmError as Error).message}`);
+        analysisResult = this.performRuleEngineAnalysis(existing);
       }
 
-      // 更新分析结果
       return this.update(id, analysisResult);
     } catch (error) {
-      // 分析失败，更新状态
       this.update(id, { status: 'failed' });
       throw error;
     }
+  }
+
+  private performRuleEngineAnalysis(rca: RootCauseAnalysis): UpdateRCAInput {
+    let alertInfo = { title: rca.title, content: rca.description || '' };
+
+    if (rca.alert_id) {
+      const alert = db.prepare('SELECT title, content FROM alerts WHERE id = ?').get(rca.alert_id) as {
+        title: string;
+        content: string;
+      } | undefined;
+      if (alert) {
+        alertInfo = alert;
+      }
+    }
+
+    const ruleResult = localRuleEngine.analyzeByRules(alertInfo.title, alertInfo.content);
+
+    const timeline = ruleResult.timeline.map(t => ({ time: t.time, event: t.event }));
+
+    return {
+      status: 'completed',
+      root_cause: ruleResult.rootCause,
+      symptoms: ruleResult.symptoms,
+      timeline,
+      evidence: ruleResult.evidence,
+      recommendations: ruleResult.recommendations
+    };
   }
 
   private generateFallbackAnalysis(rca: RootCauseAnalysis): UpdateRCAInput {

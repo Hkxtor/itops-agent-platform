@@ -39,8 +39,6 @@ export interface GeneratedReport {
 interface ReportTemplateDB {
   id: string;
   name: string;
-  description: string;
-  type: string;
   content: string;
   variables: string;
   is_preset: number;
@@ -48,12 +46,13 @@ interface ReportTemplateDB {
   updated_at: string;
 }
 
-interface ReportDB {
+interface GeneratedReportDB {
   id: string;
   name: string;
+  type: string;
   content: string;
   format: string;
-  task_id: string | null;
+  metadata: string;
   created_at: string;
 }
 
@@ -65,6 +64,7 @@ interface ScheduledReportDB {
   enabled: number;
   recipients: string;
   format: string;
+  last_generated: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -176,7 +176,6 @@ class ReportService {
   ];
 
   constructor() {
-    // 延迟初始化，等待数据库准备好
   }
 
   init() {
@@ -189,17 +188,15 @@ class ReportService {
 
   private initializePresetTemplates() {
     try {
-      const existingCount = db.prepare('SELECT COUNT(*) as count FROM report_templates WHERE is_preset = 1').get() as { count: number };
+      const existingCount = db.prepare('SELECT COUNT(*) as count FROM reports WHERE is_preset = 1 AND type = \'template\'').get() as { count: number };
       if (existingCount.count === 0) {
         for (const template of this.presetTemplates) {
           db.prepare(`
-            INSERT INTO report_templates (id, name, description, type, content, variables, is_preset, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO reports (id, name, type, content, variables, is_preset, created_at, updated_at)
+            VALUES (?, ?, 'template', ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           `).run(
             randomUUID(),
             template.name,
-            template.description,
-            template.type,
             template.content,
             JSON.stringify(template.variables),
             1
@@ -212,12 +209,12 @@ class ReportService {
   }
 
   getTemplates(): ReportTemplate[] {
-    const templates = db.prepare('SELECT * FROM report_templates ORDER BY is_preset DESC, created_at DESC').all() as ReportTemplateDB[];
+    const templates = db.prepare('SELECT * FROM reports WHERE type = \'template\' ORDER BY is_preset DESC, created_at DESC').all() as ReportTemplateDB[];
     return templates.map(t => ({
       id: t.id,
       name: t.name,
-      description: t.description,
-      type: t.type as ReportTemplate['type'],
+      description: '',
+      type: 'inspection' as ReportTemplate['type'],
       content: t.content,
       variables: JSON.parse(t.variables || '[]'),
       is_preset: Boolean(t.is_preset),
@@ -227,13 +224,13 @@ class ReportService {
   }
 
   getTemplate(id: string): ReportTemplate | null {
-    const template = db.prepare('SELECT * FROM report_templates WHERE id = ?').get(id) as ReportTemplateDB | undefined;
+    const template = db.prepare('SELECT * FROM reports WHERE id = ? AND type = \'template\'').get(id) as ReportTemplateDB | undefined;
     if (!template) return null;
     return {
       id: template.id,
       name: template.name,
-      description: template.description,
-      type: template.type as ReportTemplate['type'],
+      description: '',
+      type: 'inspection' as ReportTemplate['type'],
       content: template.content,
       variables: JSON.parse(template.variables || '[]'),
       is_preset: Boolean(template.is_preset),
@@ -246,13 +243,11 @@ class ReportService {
     const id = randomUUID();
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO report_templates (id, name, description, type, content, variables, is_preset, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO reports (id, name, type, content, variables, is_preset, created_at, updated_at)
+      VALUES (?, ?, 'template', ?, ?, ?, ?, ?)
     `).run(
       id,
       template.name,
-      template.description,
-      template.type,
       template.content,
       JSON.stringify(template.variables),
       template.is_preset ? 1 : 0,
@@ -269,20 +264,19 @@ class ReportService {
     const updates: string[] = [];
     const params: unknown[] = [];
     if (template.name !== undefined) { updates.push('name = ?'); params.push(template.name); }
-    if (template.description !== undefined) { updates.push('description = ?'); params.push(template.description); }
     if (template.content !== undefined) { updates.push('content = ?'); params.push(template.content); }
     if (template.variables !== undefined) { updates.push('variables = ?'); params.push(JSON.stringify(template.variables)); }
 
     if (updates.length > 0) {
       updates.push('updated_at = ?');
       params.push(new Date().toISOString(), id);
-      db.prepare(`UPDATE report_templates SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      db.prepare(`UPDATE reports SET ${updates.join(', ')} WHERE id = ? AND type = 'template'`).run(...params);
     }
     return this.getTemplate(id);
   }
 
   deleteTemplate(id: string): boolean {
-    const result = db.prepare('DELETE FROM report_templates WHERE id = ? AND is_preset = 0').run(id);
+    const result = db.prepare('DELETE FROM reports WHERE id = ? AND is_preset = 0 AND type = \'template\'').run(id);
     return result.changes > 0;
   }
 
@@ -301,15 +295,15 @@ class ReportService {
     const now = new Date().toISOString();
 
     db.prepare(`
-      INSERT INTO generated_reports (id, name, type, content, format, metadata, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO reports (id, name, type, content, format, metadata, variables, created_at)
+      VALUES (?, ?, 'generated', ?, ?, ?, ?, ?)
     `).run(
       id,
       `${template.name} - ${new Date().toLocaleString()}`,
-      template.type,
       content,
       format,
       JSON.stringify({ templateId, variables }),
+      JSON.stringify(variables),
       now
     );
 
@@ -325,89 +319,41 @@ class ReportService {
   }
 
   getReports(limit = 20): GeneratedReport[] {
-    // 从两个表中获取所有报告：generated_reports（模板生成）和 reports（工作流执行）
-    const generatedReports = db.prepare('SELECT * FROM generated_reports ORDER BY created_at DESC LIMIT ?').all(limit) as Array<{
-      id: string;
-      name: string;
-      type: string;
-      content: string;
-      format: string;
-      metadata: string;
-      created_at: string;
-    }>;
-    const workflowReports = db.prepare('SELECT * FROM reports ORDER BY created_at DESC LIMIT ?').all(limit) as ReportDB[];
+    const reports = db.prepare(`
+      SELECT * FROM reports 
+      WHERE type IN ('generated', 'workflow') 
+      ORDER BY created_at DESC 
+      LIMIT ?
+    `).all(limit) as GeneratedReportDB[];
     
-    // 合并并转换格式
-    const allReports = [
-      ...generatedReports.map(r => ({
-        id: r.id,
-        name: r.name,
-        type: r.type as GeneratedReport['type'],
-        content: r.content,
-        format: r.format as GeneratedReport['format'],
-        metadata: JSON.parse(r.metadata || '{}'),
-        created_at: r.created_at
-      })),
-      ...workflowReports.map(r => ({
-        id: r.id,
-        name: r.name,
-        type: 'inspection' as const,
-        content: r.content,
-        format: r.format as GeneratedReport['format'],
-        metadata: { task_id: r.task_id },
-        created_at: r.created_at
-      }))
-    ];
-    
-    // 按创建时间降序排序
-    allReports.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    
-    // 返回限制数量
-    return allReports.slice(0, limit);
+    return reports.map(r => ({
+      id: r.id,
+      name: r.name,
+      type: r.type as GeneratedReport['type'],
+      content: r.content,
+      format: r.format as GeneratedReport['format'],
+      metadata: JSON.parse(r.metadata || '{}'),
+      created_at: r.created_at
+    }));
   }
 
   getReport(id: string): GeneratedReport | null {
-    // 先从 generated_reports 查找
-    const report = db.prepare('SELECT * FROM generated_reports WHERE id = ?').get(id) as {
-      id: string;
-      name: string;
-      type: string;
-      content: string;
-      format: string;
-      metadata: string;
-      created_at: string;
-    } | undefined;
-    if (report) {
-      return {
-        id: report.id,
-        name: report.name,
-        type: report.type as GeneratedReport['type'],
-        content: report.content,
-        format: report.format as GeneratedReport['format'],
-        metadata: JSON.parse(report.metadata || '{}'),
-        created_at: report.created_at
-      };
-    }
+    const report = db.prepare('SELECT * FROM reports WHERE id = ? AND type IN (\'generated\', \'workflow\')').get(id) as GeneratedReportDB | undefined;
+    if (!report) return null;
     
-    // 如果没找到，再从 reports 表查找
-    const workflowReport = db.prepare('SELECT * FROM reports WHERE id = ?').get(id) as ReportDB | undefined;
-    if (workflowReport) {
-      return {
-        id: workflowReport.id,
-        name: workflowReport.name,
-        type: 'inspection' as const,
-        content: workflowReport.content,
-        format: workflowReport.format as GeneratedReport['format'],
-        metadata: { task_id: workflowReport.task_id },
-        created_at: workflowReport.created_at
-      };
-    }
-    
-    return null;
+    return {
+      id: report.id,
+      name: report.name,
+      type: report.type as GeneratedReport['type'],
+      content: report.content,
+      format: report.format as GeneratedReport['format'],
+      metadata: JSON.parse(report.metadata || '{}'),
+      created_at: report.created_at
+    };
   }
 
   getScheduledReports(): ScheduledReport[] {
-    const reports = db.prepare('SELECT * FROM scheduled_reports ORDER BY created_at DESC').all() as ScheduledReportDB[];
+    const reports = db.prepare('SELECT * FROM report_schedules ORDER BY created_at DESC').all() as ScheduledReportDB[];
     return reports.map(r => ({
       id: r.id,
       name: r.name,
@@ -416,6 +362,7 @@ class ReportService {
       recipients: JSON.parse(r.recipients || '[]'),
       format: r.format as ScheduledReport['format'],
       enabled: Boolean(r.enabled),
+      last_generated: r.last_generated || undefined,
       created_at: r.created_at,
       updated_at: r.updated_at
     }));
@@ -425,7 +372,7 @@ class ReportService {
     const id = randomUUID();
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO scheduled_reports (id, name, template_id, cron_expression, enabled, recipients, format, created_at, updated_at)
+      INSERT INTO report_schedules (id, name, template_id, cron_expression, enabled, recipients, format, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
@@ -442,7 +389,7 @@ class ReportService {
   }
 
   getScheduledReport(id: string): ScheduledReport | null {
-    const report = db.prepare('SELECT * FROM scheduled_reports WHERE id = ?').get(id) as ScheduledReportDB | undefined;
+    const report = db.prepare('SELECT * FROM report_schedules WHERE id = ?').get(id) as ScheduledReportDB | undefined;
     if (!report) return null;
     return {
       id: report.id,
@@ -452,6 +399,7 @@ class ReportService {
       recipients: JSON.parse(report.recipients || '[]'),
       format: report.format as ScheduledReport['format'],
       enabled: Boolean(report.enabled),
+      last_generated: report.last_generated || undefined,
       created_at: report.created_at,
       updated_at: report.updated_at
     };
@@ -473,13 +421,13 @@ class ReportService {
     if (updates.length > 0) {
       updates.push('updated_at = ?');
       params.push(new Date().toISOString(), id);
-      db.prepare(`UPDATE scheduled_reports SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+      db.prepare(`UPDATE report_schedules SET ${updates.join(', ')} WHERE id = ?`).run(...params);
     }
     return this.getScheduledReport(id);
   }
 
   deleteScheduledReport(id: string): boolean {
-    const result = db.prepare('DELETE FROM scheduled_reports WHERE id = ?').run(id);
+    const result = db.prepare('DELETE FROM report_schedules WHERE id = ?').run(id);
     return result.changes > 0;
   }
 

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
@@ -25,6 +26,11 @@ import AlertNoiseManagement from './pages/AlertNoiseManagement';
 import RootCauseAnalysis from './pages/RootCauseAnalysis';
 import TerminalPage from './pages/TerminalPage';
 import BigScreenDashboard from './pages/BigScreenDashboard';
+import RemediationPolicies from './pages/RemediationPolicies';
+import RemediationPolicyEditor from './pages/RemediationPolicyEditor';
+import RemediationExecutions from './pages/RemediationExecutions';
+import RemediationDashboard from './pages/RemediationDashboard';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,10 +51,11 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
@@ -72,11 +79,17 @@ function App() {
               <Route path="root-cause-analysis" element={<ProtectedRoute><RootCauseAnalysis /></ProtectedRoute>} />
               <Route path="terminal" element={<ProtectedRoute><TerminalPage /></ProtectedRoute>} />
               <Route path="big-screen" element={<ProtectedRoute><BigScreenDashboard /></ProtectedRoute>} />
+              <Route path="remediation-policies" element={<ProtectedRoute><RemediationPolicies /></ProtectedRoute>} />
+              <Route path="remediation-policies/:id" element={<ProtectedRoute><RemediationPolicyEditor /></ProtectedRoute>} />
+              <Route path="remediation-executions" element={<ProtectedRoute><RemediationExecutions /></ProtectedRoute>} />
+              <Route path="remediation-dashboard" element={<ProtectedRoute><RemediationDashboard /></ProtectedRoute>} />
             </Route>
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </QueryClientProvider>
     </AuthProvider>
+  </ErrorBoundary>
   );
 }
 

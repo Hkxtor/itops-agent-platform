@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import bodyParser from 'body-parser';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import { initializeDatabase, setIOInstance } from './models/database';
+import { initializeDatabase, setIOInstance, db } from './models/database';
 import { setupWebSocket } from './websocket/handler';
 import agentRoutes from './routes/agentRoutes';
 import workflowRoutes from './routes/workflowRoutes';
@@ -32,17 +32,25 @@ import multiAgentRoutes from './routes/multiAgentRoutes';
 import serverGroupRoutes from './routes/serverGroupRoutes';
 import serverManagementRoutes from './routes/serverManagementRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import remediationPolicyRoutes from './routes/remediationPolicyRoutes';
+import remediationExecutionRoutes from './routes/remediationExecutionRoutes';
+import backupRoutes from './routes/backupRoutes';
+import databaseRoutes from './routes/databaseRoutes';
 import { schedulerService } from './services/schedulerService';
 import { reportService } from './services/reportService';
 import { copilotService } from './services/copilotService';
 import { rootCauseAnalysisService } from './services/rootCauseAnalysisService';
 import { notificationService } from './services/notificationService';
-import { errorHandler } from './middleware/errorHandler';
+import { remediationService } from './services/remediationService';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authenticateToken } from './middleware/auth';
 import { rateLimiter } from './middleware/rateLimiter';
+import { traceMiddleware } from './middleware/trace';
 import { env } from './utils/env';
 import { logger } from './utils/logger';
 import { initTokenBlacklist } from './services/tokenBlacklist';
+import { healthService } from './services/healthService';
+import { backupService } from './services/backupService';
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,6 +63,7 @@ const io = new SocketIOServer(httpServer, {
 });
 
 app.use(helmet());
+app.use(traceMiddleware);
 app.use(morgan('combined'));
 app.use(cors({
   origin: env.ALLOWED_ORIGINS,
@@ -64,14 +73,19 @@ app.use(cors({
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
+import { initAlertService } from './services/alertService';
+
 initializeDatabase();
 
 // 初始化各个服务
+initAlertService();
 reportService.init();
 copilotService.init();
 rootCauseAnalysisService.init();
 schedulerService.init();
 notificationService.init();
+remediationService.init();
+backupService.init();
 initTokenBlacklist();
 
 setupWebSocket(io);
@@ -84,8 +98,34 @@ app.use('/api/auth', rateLimiter, authRoutes);
 app.use('/api/webhooks', rateLimiter, webhookRoutes);
 
 // 健康检查 - 不需要认证
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (_req, res) => {
+  const health = await healthService.checkHealth();
+  const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
+app.get('/health/live', (_req, res) => {
+  res.json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
+app.get('/health/ready', async (_req, res) => {
+  const health = await healthService.checkHealth();
+  const isReady = health.status === 'healthy' || health.status === 'degraded';
+  res.status(isReady ? 200 : 503).json({
+    ready: isReady,
+    status: health.status,
+    checks: health.checks
+  });
+});
+
+app.get('/api/health/summary', authenticateToken, (_req, res) => {
+  const summary = healthService.getHealthSummary();
+  res.json({ success: true, data: summary });
+});
+
+app.get('/api/health/history', authenticateToken, (_req, res) => {
+  const history = healthService.getHealthHistory();
+  res.json({ success: true, data: history });
 });
 
 // 以下所有路由都需要认证
@@ -115,7 +155,12 @@ app.use('/api/alert-noise', rateLimiter, alertNoiseRoutes);
 app.use('/api/root-cause-analysis', rateLimiter, rootCauseAnalysisRoutes);
 app.use('/api/multi-agent', rateLimiter, multiAgentRoutes);
 app.use('/api/dashboard', rateLimiter, dashboardRoutes);
+app.use('/api/remediation-policies', rateLimiter, remediationPolicyRoutes);
+app.use('/api/remediation-executions', rateLimiter, remediationExecutionRoutes);
+app.use('/api/backups', rateLimiter, backupRoutes);
+app.use('/api/database', rateLimiter, databaseRoutes);
 
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 const PORT = env.PORT;
@@ -125,6 +170,57 @@ httpServer.listen(PORT, HOST, () => {
   logger.info(`🚀 ITOps Agent Platform Backend running on ${HOST}:${PORT}`);
   logger.info(`📡 WebSocket server ready`);
   logger.info(`🌍 Environment: ${env.NODE_ENV}`);
+});
+
+const gracefulShutdown = async (signal: string) => {
+  logger.info(`${signal} received, starting graceful shutdown...`);
+  
+  const shutdownTimeout = setTimeout(() => {
+    logger.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 30000);
+
+  try {
+    await Promise.all([
+      new Promise<void>((resolve) => httpServer.close(() => {
+        logger.info('HTTP server closed');
+        resolve();
+      })),
+      new Promise<void>((resolve) => io.close(() => {
+        logger.info('WebSocket server closed');
+        resolve();
+      }))
+    ]);
+
+    schedulerService.shutdown();
+    logger.info('Scheduler service stopped');
+
+    backupService.stopAutoBackup();
+    logger.info('Backup service stopped');
+
+    db.close();
+    logger.info('Database connection closed');
+
+    logger.shutdown();
+    clearTimeout(shutdownTimeout);
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during shutdown', error as Error);
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Promise Rejection', reason instanceof Error ? reason : new Error(String(reason)));
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', error);
+  process.exit(1);
 });
 
 export { app, io };

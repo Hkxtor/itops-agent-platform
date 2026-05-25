@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import db from '../models/database';
+import { localRuleEngine } from './localRuleEngine';
 
 interface KnowledgeItem {
   id: string;
@@ -221,10 +222,19 @@ class EnhancedRAGService {
     });
 
     if (searchResults.length === 0) {
+      const ruleRecommendations = localRuleEngine.recommendKnowledge('', query);
+      if (ruleRecommendations.length > 0) {
+        let rulePrompt = `📚 本地规则引擎推荐的相关知识：\n\n`;
+        ruleRecommendations.forEach((rec, index) => {
+          rulePrompt += `【推荐 ${index + 1}】${rec.title} (相关度: ${Math.round(rec.relevance * 100)}%)\n`;
+          rulePrompt += `${rec.summary}\n\n`;
+        });
+        rulePrompt += `请注意：以上推荐基于本地规则库，建议结合实际情况进行判断。`;
+        return { hasKnowledge: true, prompt: rulePrompt };
+      }
       return { hasKnowledge: false, prompt: '' };
     }
 
-    // 增加使用计数
     for (const result of searchResults) {
       try {
         db.prepare(`
@@ -238,7 +248,6 @@ class EnhancedRAGService {
       }
     }
 
-    // 格式化为提示词
     let knowledgePrompt = `📚 以下是从知识库中检索到的相关信息（相关度排序）：\n\n`;
     
     searchResults.forEach((result, index) => {

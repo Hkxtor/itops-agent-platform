@@ -3,6 +3,7 @@ import db from '../models/database';
 import { randomUUID } from 'crypto';
 import { createAuditLog } from '../services/auditService';
 import { schedulerService } from '../services/schedulerService';
+import { requireRole } from '../middleware/auth';
 
 interface ScheduledTaskRecord {
   id: string;
@@ -49,7 +50,7 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.post('/', (req: Request, res: Response) => {
+router.post('/', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { name, description, workflow_id, schedule, enabled = 1 } = req.body;
     
@@ -98,7 +99,7 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', (req: Request, res: Response) => {
+router.put('/:id', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, workflow_id, schedule, enabled } = req.body;
@@ -164,7 +165,7 @@ router.put('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     

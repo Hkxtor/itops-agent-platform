@@ -201,6 +201,9 @@ generate_env_file() {
 # JWT 签名密钥（生产环境必须修改）
 JWT_SECRET=${JWT_SECRET}
 
+# 管理员初始密码（请在首次登录后立即修改）
+ADMIN_INITIAL_PASSWORD=admin
+
 # 后端端口
 PORT=3001
 
@@ -222,7 +225,7 @@ ALLOWED_ORIGINS=http://localhost,http://localhost:80,http://localhost:8080
 EOF
     
     print_success ".env 文件已生成"
-    print_warn "请妥善保管 JWT_SECRET，不要泄露"
+    
     echo ""
 }
 
@@ -304,7 +307,9 @@ print_deploy_info() {
     echo -e "后端 API:  ${GREEN}http://${SERVER_IP}:3001/api/health${NC}"
     echo ""
     echo -e "默认账号:  ${YELLOW}admin${NC}"
-    echo -e "默认密码:  ${YELLOW}admin123${NC}"
+    echo -e "用户名:  ${YELLOW}admin${NC}"
+    echo -e "密码:    ${YELLOW}admin${NC}"
+    echo -e "${YELLOW}请在首次登录后立即修改密码!${NC}"
     echo ""
     echo -e "${CYAN}常用命令:${NC}"
     echo -e "  查看状态:  ${BLUE}$COMPOSE_CMD ps${NC}"

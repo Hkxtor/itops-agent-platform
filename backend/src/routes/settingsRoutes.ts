@@ -54,10 +54,13 @@ router.get('/api-keys', (_req: Request, res: Response) => {
   try {
     const doubaoKey = getApiKey(db, 'DOUBAO_API_KEY', 'DOUBAO_API_KEY');
     const openaiKey = getApiKey(db, 'OPENAI_API_KEY', 'OPENAI_API_KEY');
+    const localAiKey = getApiKey(db, 'LOCAL_AI_API_KEY', 'LOCAL_AI_API_KEY');
     const doubaoModel = getModelId(db, 'DOUBAO_MODEL', 'DOUBAO_MODEL', 'doubao-4o');
     const openaiModel = getModelId(db, 'OPENAI_MODEL', 'OPENAI_MODEL', 'gpt-4o');
+    const localAiModel = getModelId(db, 'LOCAL_AI_MODEL', 'LOCAL_AI_MODEL', 'qwen2.5:7b');
     const doubaoApiBase = getApiBase(db, 'DOUBAO_API_BASE', 'DOUBAO_API_BASE', 'https://ark.cn-beijing.volces.com/api/v3');
     const openaiApiBase = getApiBase(db, 'OPENAI_API_BASE', 'OPENAI_API_BASE', 'https://api.openai.com/v1');
+    const localAiApiBase = getApiBase(db, 'LOCAL_AI_API_BASE', 'LOCAL_AI_API_BASE', 'http://host.docker.internal:11434/v1');
     
     res.json({
       success: true,
@@ -73,6 +76,11 @@ router.get('/api-keys', (_req: Request, res: Response) => {
           masked: openaiKey ? '***' + openaiKey.slice(-4) : null,
           model: openaiModel,
           apiBase: openaiApiBase
+        },
+        localAi: {
+          configured: !!localAiApiBase && localAiApiBase !== 'http://host.docker.internal:11434/v1',
+          model: localAiModel,
+          apiBase: localAiApiBase
         }
       }
     });
@@ -92,9 +100,30 @@ router.get('/models', (_req: Request, res: Response) => {
     const models: Array<{
       id: string;
       name: string;
-      provider: 'doubao' | 'openai';
+      provider: 'doubao' | 'openai' | 'local';
       enabled: boolean;
     }> = [];
+    
+    // 添加本地 AI 模型（默认启用，不需要 API Key）
+    const localModels = [
+      { id: 'qwen2.5:7b', name: 'Qwen 2.5 7B (Ollama)' },
+      { id: 'qwen2.5:14b', name: 'Qwen 2.5 14B (Ollama)' },
+      { id: 'llama3.1:8b', name: 'Llama 3.1 8B (Ollama)' },
+      { id: 'llama3.1:70b', name: 'Llama 3.1 70B (Ollama)' },
+      { id: 'mistral:7b', name: 'Mistral 7B (Ollama)' },
+      { id: 'deepseek-coder:6.7b', name: 'DeepSeek Coder 6.7B (Ollama)' },
+      { id: 'gemma2:9b', name: 'Gemma 2 9B (Ollama)' },
+      { id: 'phi3:3.8b', name: 'Phi 3 3.8B (Ollama)' },
+    ];
+    
+    for (const lm of localModels) {
+      models.push({
+        id: lm.id,
+        name: lm.name,
+        provider: 'local',
+        enabled: true // 本地模型始终启用
+      });
+    }
     
     // 添加用户配置的豆包模型（如果已配置）
     if (doubaoKey && doubaoModel) {
@@ -117,7 +146,6 @@ router.get('/models', (_req: Request, res: Response) => {
     }
     
     // 总是添加一些默认模型作为备选（即使没有配置 API 密钥）
-    // 这样用户可以在配置 API 之前先创建 Agent
     if (!models.some(m => m.id === 'doubao-4o')) {
       models.push({
         id: 'doubao-4o',
@@ -157,7 +185,7 @@ router.get('/models', (_req: Request, res: Response) => {
 // 保存 API 密钥和模型配置
 router.put('/api-keys', (req: Request, res: Response) => {
   try {
-    const { doubaoApiKey, openaiApiKey, doubaoModel, openaiModel, doubaoApiBase, openaiApiBase } = req.body;
+    const { doubaoApiKey, openaiApiKey, doubaoModel, openaiModel, doubaoApiBase, openaiApiBase, localAiModel, localAiApiBase } = req.body;
     
     safeLog('🔧 Saving API key settings...');
     
@@ -225,23 +253,49 @@ router.put('/api-keys', (req: Request, res: Response) => {
       }
     }
     
+    // 保存本地 AI 模型（如果提供）
+    if (localAiModel !== undefined) {
+      if (localAiModel === '') {
+        db.prepare('DELETE FROM settings WHERE key = ?').run('LOCAL_AI_MODEL');
+      } else {
+        upsertStmt.run('LOCAL_AI_MODEL', localAiModel, localAiModel);
+      }
+    }
+    
+    // 保存本地 AI API 地址（如果提供）
+    if (localAiApiBase !== undefined) {
+      if (localAiApiBase === '') {
+        db.prepare('DELETE FROM settings WHERE key = ?').run('LOCAL_AI_API_BASE');
+      } else {
+        upsertStmt.run('LOCAL_AI_API_BASE', localAiApiBase, localAiApiBase);
+      }
+    }
+    
     // 自动更新预设Agent的模型字段
-    // 先确定用户配置的模型
+    // 先确定用户配置的模型（优先检查本地 AI，然后是豆包，最后是 OpenAI）
     let configuredModel = null;
     
-    // 优先检查豆包模型
-    const doubaoKeyResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_API_KEY');
-    const doubaoModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_MODEL');
-    
-    if (doubaoKeyResult && (doubaoKeyResult as { value: string }).value && (doubaoKeyResult as { value: string }).value !== 'your-doubao-api-key-here') {
-      configuredModel = (doubaoModelResult && (doubaoModelResult as { value: string }).value) ? (doubaoModelResult as { value: string }).value : 'doubao-4o';
+    // 优先检查本地 AI（如果配置了非默认地址）
+    const localAiApiBaseResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('LOCAL_AI_API_BASE');
+    if (localAiApiBaseResult && (localAiApiBaseResult as { value: string }).value && 
+        (localAiApiBaseResult as { value: string }).value !== 'http://host.docker.internal:11434/v1') {
+      const localAiModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('LOCAL_AI_MODEL');
+      configuredModel = (localAiModelResult && (localAiModelResult as { value: string }).value) ? (localAiModelResult as { value: string }).value : 'qwen2.5:7b';
     } else {
-      // 如果豆包没有配置，检查OpenAI
-      const openaiKeyResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_API_KEY');
-      const openaiModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_MODEL');
+      // 检查豆包模型
+      const doubaoKeyResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_API_KEY');
+      const doubaoModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_MODEL');
       
-      if (openaiKeyResult && (openaiKeyResult as { value: string }).value && (openaiKeyResult as { value: string }).value !== 'your-openai-api-key-here') {
-        configuredModel = (openaiModelResult && (openaiModelResult as { value: string }).value) ? (openaiModelResult as { value: string }).value : 'gpt-4o';
+      if (doubaoKeyResult && (doubaoKeyResult as { value: string }).value && (doubaoKeyResult as { value: string }).value !== 'your-doubao-api-key-here') {
+        configuredModel = (doubaoModelResult && (doubaoModelResult as { value: string }).value) ? (doubaoModelResult as { value: string }).value : 'doubao-4o';
+      } else {
+        // 如果豆包没有配置，检查OpenAI
+        const openaiKeyResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_API_KEY');
+        const openaiModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_MODEL');
+        
+        if (openaiKeyResult && (openaiKeyResult as { value: string }).value && (openaiKeyResult as { value: string }).value !== 'your-openai-api-key-here') {
+          configuredModel = (openaiModelResult && (openaiModelResult as { value: string }).value) ? (openaiModelResult as { value: string }).value : 'gpt-4o';
+        }
       }
     }
     
@@ -287,22 +341,39 @@ router.delete('/api-keys/:provider', (req: Request, res: Response) => {
       db.prepare('DELETE FROM settings WHERE key = ?').run('OPENAI_API_KEY');
       db.prepare('DELETE FROM settings WHERE key = ?').run('OPENAI_MODEL');
       db.prepare('DELETE FROM settings WHERE key = ?').run('OPENAI_API_BASE');
+    } else if (provider === 'local') {
+      db.prepare('DELETE FROM settings WHERE key = ?').run('LOCAL_AI_MODEL');
+      db.prepare('DELETE FROM settings WHERE key = ?').run('LOCAL_AI_API_BASE');
     } else {
       return res.status(400).json({ success: false, error: 'Invalid provider' });
     }
     
     // 删除配置后，检查是否还有其他可用配置
     let hasRemainingConfig = false;
+    let configuredModel = null;
     
-    // 检查豆包是否还有配置
-    const doubaoKey = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_API_KEY');
-    if (doubaoKey && (doubaoKey as { value: string }).value && (doubaoKey as { value: string }).value !== 'your-doubao-api-key-here') {
+    // 优先检查本地 AI
+    const localAiApiBase = db.prepare('SELECT value FROM settings WHERE key = ?').get('LOCAL_AI_API_BASE');
+    if (localAiApiBase && (localAiApiBase as { value: string }).value && 
+        (localAiApiBase as { value: string }).value !== 'http://host.docker.internal:11434/v1') {
       hasRemainingConfig = true;
+      const localAiModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('LOCAL_AI_MODEL');
+      configuredModel = (localAiModelResult && (localAiModelResult as { value: string }).value) ? (localAiModelResult as { value: string }).value : 'qwen2.5:7b';
     } else {
-      // 检查OpenAI是否还有配置
-      const openaiKey = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_API_KEY');
-      if (openaiKey && (openaiKey as { value: string }).value && (openaiKey as { value: string }).value !== 'your-openai-api-key-here') {
+      // 检查豆包是否还有配置
+      const doubaoKey = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_API_KEY');
+      if (doubaoKey && (doubaoKey as { value: string }).value && (doubaoKey as { value: string }).value !== 'your-doubao-api-key-here') {
         hasRemainingConfig = true;
+        const doubaoModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_MODEL');
+        configuredModel = (doubaoModelResult && (doubaoModelResult as { value: string }).value) ? (doubaoModelResult as { value: string }).value : 'doubao-4o';
+      } else {
+        // 检查OpenAI是否还有配置
+        const openaiKey = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_API_KEY');
+        if (openaiKey && (openaiKey as { value: string }).value && (openaiKey as { value: string }).value !== 'your-openai-api-key-here') {
+          hasRemainingConfig = true;
+          const openaiModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_MODEL');
+          configuredModel = (openaiModelResult && (openaiModelResult as { value: string }).value) ? (openaiModelResult as { value: string }).value : 'gpt-4o';
+        }
       }
     }
     
@@ -315,32 +386,14 @@ router.delete('/api-keys/:provider', (req: Request, res: Response) => {
       `);
       const result = updateStmt.run();
       safeLog(`✅ Cleared model from ${(result as { changes: number }).changes} preset agents (no API keys configured)`);
-    } else {
-      // 还有其他配置，重新确定应该用哪个模型
-      let configuredModel = null;
-      
-      // 优先检查豆包模型
-      if (doubaoKey && (doubaoKey as { value: string }).value && (doubaoKey as { value: string }).value !== 'your-doubao-api-key-here') {
-        const doubaoModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_MODEL');
-        configuredModel = (doubaoModelResult && (doubaoModelResult as { value: string }).value) ? (doubaoModelResult as { value: string }).value : 'doubao-4o';
-      } else {
-        // 检查OpenAI
-        const openaiKeyResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_API_KEY');
-        if (openaiKeyResult && (openaiKeyResult as { value: string }).value && (openaiKeyResult as { value: string }).value !== 'your-openai-api-key-here') {
-          const openaiModelResult = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_MODEL');
-          configuredModel = (openaiModelResult && (openaiModelResult as { value: string }).value) ? (openaiModelResult as { value: string }).value : 'gpt-4o';
-        }
-      }
-      
-      if (configuredModel) {
-        const updateStmt = db.prepare(`
-          UPDATE agents 
-          SET model = ?, updated_at = CURRENT_TIMESTAMP 
-          WHERE is_preset = 1
-        `);
-        const result = updateStmt.run(configuredModel);
-        safeLog(`✅ Updated ${(result as { changes: number }).changes} preset agents with model: ${configuredModel} (after deleting one provider)`);
-      }
+    } else if (configuredModel) {
+      const updateStmt = db.prepare(`
+        UPDATE agents 
+        SET model = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE is_preset = 1
+      `);
+      const result = updateStmt.run(configuredModel);
+      safeLog(`✅ Updated ${(result as { changes: number }).changes} preset agents with model: ${configuredModel} (after deleting one provider)`);
     }
 
     safeLog(`✅ API configuration deleted for provider: ${provider}`);

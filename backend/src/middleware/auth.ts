@@ -14,6 +14,28 @@ interface AuthUser {
 
 const userCache = new Map<string, { user: AuthUser; expiresAt: number }>();
 const USER_CACHE_TTL = 60 * 1000;
+const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000;
+
+function startCacheCleanup(): void {
+  const interval = setInterval(() => {
+    const now = Date.now();
+    let expiredCount = 0;
+    
+    for (const [userId, cacheEntry] of userCache.entries()) {
+      if (cacheEntry.expiresAt < now) {
+        userCache.delete(userId);
+        expiredCount++;
+      }
+    }
+    
+    if (expiredCount > 0) {
+      console.log(`🧹 Cleaned up ${expiredCount} expired user cache entries`);
+    }
+  }, CACHE_CLEANUP_INTERVAL);
+  interval.unref();
+}
+
+startCacheCleanup();
 
 function getCachedUser(userId: string): AuthUser | null {
   const cached = userCache.get(userId);

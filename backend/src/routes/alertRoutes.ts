@@ -1,8 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { randomUUID } from 'crypto';
-import db from '../models/database';
+import { randomUUID, createHash } from 'crypto';
+import db, { getIOInstance } from '../models/database';
 import { notificationService } from '../services/notificationService';
 import { alertNoiseReductionService } from '../services/alertNoiseReductionService';
+import { remediationService } from '../services/remediationService';
+import { rootCauseAnalysisService } from '../services/rootCauseAnalysisService';
+import { emitToAlerts } from '../websocket/handler';
+import { logger } from '../utils/logger';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -81,67 +86,138 @@ router.get('/:id', (req: Request, res: Response) => {
 });
 
 router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { source, severity, title, content, metadata, related_task_id } = req.body;
+    try {
+      const { source, severity, title, content, metadata, related_task_id } = req.body;
 
-    // 输入验证
-    if (!title || title.length === 0) {
-      return res.status(400).json({ success: false, error: 'Title is required' });
-    }
-    if (severity && !validSeverities.includes(severity)) {
-      return res.status(400).json({ success: false, error: 'Invalid severity value' });
-    }
+      if (!title || title.length === 0) {
+        return res.status(400).json({ success: false, error: 'Title is required' });
+      }
+      if (severity && !validSeverities.includes(severity)) {
+        return res.status(400).json({ success: false, error: 'Invalid severity value' });
+      }
 
-    // 告警降噪处理
-    const noiseCheck = await alertNoiseReductionService.processAlert(
-      source || 'unknown',
-      title,
-      content,
-      severity
-    );
+      const noiseCheck = await alertNoiseReductionService.processAlert(
+        source || 'unknown',
+        title,
+        content,
+        severity
+      );
 
-    const id = randomUUID();
+      const id = randomUUID();
+      const normalizedTitle = title.toLowerCase().replace(/[\d\s_-]+/g, ' ').trim();
+      const normalizedSource = (source || 'unknown').toLowerCase();
+      const fingerprint = createHash('md5').update(`${normalizedSource}:${normalizedTitle}`).digest('hex');
 
-    db.prepare(`
-      INSERT INTO alerts (id, source, severity, title, content, metadata, related_task_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      source || 'unknown',
-      severity || 'medium',
-      title,
-      content || '',
-      JSON.stringify(metadata || {}),
-      related_task_id
-    );
-
-    const alert = db.prepare('SELECT * FROM alerts WHERE id = ?').get(id) as { id: string; metadata?: string; title: string; severity: string; content: string; source: string; [key: string]: unknown } | undefined;
-    if (alert && alert.metadata) {
       try {
-        alert.metadata = JSON.parse(alert.metadata);
-      } catch {
-        alert.metadata = '{}';
+        db.prepare(`
+          INSERT INTO alerts (id, source, severity, title, content, metadata, related_task_id, alert_fingerprint)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id,
+          source || 'unknown',
+          severity || 'medium',
+          title,
+          content || '',
+          JSON.stringify(metadata || {}),
+          related_task_id,
+          fingerprint
+        );
+      } catch (err) {
+        const error = err as { code?: string };
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+          logger.warn('Duplicate alert suppressed by database unique constraint', { fingerprint });
+          return res.status(200).json({
+            success: true,
+            data: {
+              alert: null,
+              noiseReduction: { ...noiseCheck, suppressedByDB: true }
+            }
+          });
+        }
+        throw err;
       }
-    }
 
-    // 仅在未被抑制时发送告警通知
-    if (noiseCheck.shouldNotify) {
-      notificationService.sendAlertNotification(alert!).catch(() => {
-        console.error('Failed to send alert notification');
+      const alert = db.prepare('SELECT * FROM alerts WHERE id = ?').get(id) as { id: string; metadata?: string; title: string; severity: string; content: string; source: string; [key: string]: unknown } | undefined;
+      if (alert && alert.metadata) {
+        try {
+          alert.metadata = JSON.parse(alert.metadata);
+        } catch {
+          alert.metadata = '{}';
+        }
+      }
+
+      if (noiseCheck.shouldNotify) {
+        notificationService.sendAlertNotification(alert!).catch((err) => {
+          logger.error('Failed to send alert notification:', err);
+        });
+      }
+
+      setImmediate(async () => {
+        const io = getIOInstance();
+        try {
+          const tags = metadata?.tags ? (typeof metadata.tags === 'string' ? JSON.parse(metadata.tags) : metadata.tags) : [];
+          const alertForMatching = {
+            id,
+            source: source || 'unknown',
+            severity: severity || 'medium',
+            title: title,
+            content: content || '',
+            tags: Array.isArray(tags) ? tags : []
+          };
+
+          emitToAlerts(io!, 'remediation:started', {
+            alertId: id,
+            title: title,
+            timestamp: new Date().toISOString()
+          });
+
+          const autoRCAEnabled = db.prepare("SELECT value FROM settings WHERE key = 'auto_root_cause_enabled'").get() as { value: string } | undefined;
+          if (autoRCAEnabled?.value === 'true') {
+            logger.info('🔍 Auto RCA triggered for alert:', id);
+            rootCauseAnalysisService.analyzeByAlert(id, title, content || '').catch((err) => {
+              logger.error('Failed to auto-trigger RCA for alert:', err);
+            });
+          }
+
+          const policies = await remediationService.matchAlertToPolicies(alertForMatching);
+          for (const policy of policies) {
+            const result = await remediationService.triggerRemediation(policy, alertForMatching);
+            emitToAlerts(io!, 'remediation:result', {
+              alertId: id,
+              policyId: policy.id,
+              policyName: policy.name,
+              executionId: result.id,
+              status: result.status,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          emitToAlerts(io!, 'remediation:completed', {
+            alertId: id,
+            totalPolicies: policies.length,
+            timestamp: new Date().toISOString()
+          });
+        } catch (error) {
+          logger.error('Failed to match remediation policies:', error);
+          emitToAlerts(io!, 'remediation:error', {
+            alertId: id,
+            error: error instanceof Error ? error.message : String(error),
+            timestamp: new Date().toISOString()
+          });
+        }
       });
-    }
 
-    res.status(201).json({ 
-      success: true, 
-      data: {
-        alert,
-        noiseReduction: noiseCheck
-      }
-    });
-  } catch {
-    res.status(500).json({ success: false, error: 'Failed to create alert' });
-  }
-});
+      res.status(201).json({
+        success: true,
+        data: {
+          alert,
+          noiseReduction: noiseCheck
+        }
+      });
+    } catch {
+      res.status(500).json({ success: false, error: 'Failed to create alert' });
+    }
+  });
 
 router.put('/:id/acknowledge', (req: Request, res: Response) => {
   try {
@@ -160,7 +236,7 @@ router.put('/:id/acknowledge', (req: Request, res: Response) => {
     notificationService.sendSystemNotification(
       '告警已确认',
       `告警 "${alert.title}" 已确认处理`
-    ).catch(() => console.error('Failed to send ack notification'));
+    ).catch((err) => logger.error('Failed to send ack notification:', err));
     
     res.json({ success: true, data: updated });
   } catch {
@@ -185,7 +261,7 @@ router.put('/:id/resolve', (req: Request, res: Response) => {
     notificationService.sendSystemNotification(
       '告警已解决',
       `告警 "${alert.title}" 已解决`
-    ).catch(() => console.error('Failed to send resolve notification'));
+    ).catch((err) => logger.error('Failed to send resolve notification:', err));
     
     res.json({ success: true, data: updated });
   } catch {
@@ -193,7 +269,7 @@ router.put('/:id/resolve', (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     

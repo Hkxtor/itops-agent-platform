@@ -452,6 +452,99 @@ item_key: {ITEM.KEY}
 
 ---
 
+## 🔒 Webhook 安全配置
+
+> ⚠️ **重要**：生产环境必须启用 Webhook 签名验证，否则任何人都可以向系统发送伪造告警。
+
+### 安全风险
+
+如果不启用签名验证，攻击者可以：
+- 向系统发送恶意告警，触发错误的自动工作流
+- 伪造告警恢复消息，掩盖真实故障
+- 发送大量伪造告警，造成拒绝服务攻击
+
+### 启用签名验证
+
+#### 1. 后端配置
+
+在 `.env` 文件中添加以下配置：
+
+```env
+WEBHOOK_VERIFY_ENABLED=true
+WEBHOOK_SECRET=your-random-secret-at-least-32-bytes-long
+```
+
+> **注意**：`WEBHOOK_SECRET` 必须是强随机字符串，建议至少 32 字节。可以使用以下命令生成：
+> ```bash
+> openssl rand -hex 32
+> ```
+
+#### 2. Zabbix 配置
+
+在 Zabbix 的 Webhook 脚本中，需要计算 HMAC-SHA256 签名并添加到请求 Header：
+
+```javascript
+// Zabbix Webhook 脚本示例
+var payload = JSON.stringify({
+    trigger: params.trigger,
+    host: params.host,
+    item: params.item,
+    value: params.value,
+    severity: params.severity
+});
+
+var secret = params.secret; // 在 Zabbix 媒介类型参数中添加 secret 参数
+
+// 计算 HMAC-SHA256 签名
+var signature = CryptoJS.HmacSHA256(payload, secret).toString();
+
+var request = new HttpRequest();
+request.addHeader('Content-Type: application/json');
+request.addHeader('X-Webhook-Signature-zabbix: ' + signature);
+
+var response = request.post('https://your-server:3001/api/webhooks/zabbix', payload);
+```
+
+#### 3. 签名验证机制
+
+| 配置项 | 值 |
+|--------|-----|
+| 算法 | HMAC-SHA256 |
+| 签名内容 | 请求 Body 的 JSON 字符串 |
+| Header 名称 | `X-Webhook-Signature-zabbix` |
+| 比较方式 | timingSafeEqual（防时序攻击） |
+
+### HTTPS 要求
+
+生产环境必须通过 HTTPS 发送 Webhook 请求，否则签名和告警数据可能被中间人截获：
+
+```
+# 错误（开发环境）
+http://your-server:3001/api/webhooks/zabbix
+
+# 正确（生产环境）
+https://your-domain.com/api/webhooks/zabbix
+```
+
+### 测试签名验证
+
+启用签名验证后，可以使用以下方式测试：
+
+```bash
+# 生成签名（Linux/Mac）
+PAYLOAD='{"trigger":"测试告警","host":"测试主机"}'
+SECRET='your-secret-here'
+SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $2}')
+
+# 发送带签名的请求
+curl -X POST https://your-server:3001/api/webhooks/zabbix \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Signature-zabbix: $SIGNATURE" \
+  -d "$PAYLOAD"
+```
+
+---
+
 ## 相关文档
 
 - [API 文档](./API.md) — 完整 API 接口文档，包含 Webhook 告警接收接口
