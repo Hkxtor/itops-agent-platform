@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.backend
     # For using pre-built images from registry (uncomment):
-    # image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-backend-v3.0.1
+    # image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:backend-v3.0.1
     container_name: itops-backend
     networks:
       - itops-network

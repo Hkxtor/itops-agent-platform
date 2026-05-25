@@ -23,7 +23,7 @@ ITOps Agent Platform is an enterprise-grade IT operations automation platform wh
 ### Backend API Server
 ```bash
 # Versioned tag (Recommended)
-docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-backend-v3.0.1
+docker pull registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:backend-v3.0.1
 ```
 
 ### Frontend Web UI
@@ -52,7 +52,7 @@ version: '3.8'
 
 services:
   backend:
-    image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-backend-v3.0.1
+    image: registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:backend-v3.0.1
     container_name: itops-backend
     ports:
       - "3001:3001"
@@ -99,7 +99,7 @@ docker run -d \
   -e JWT_SECRET=your-secret-key \
   -e DOUBAO_API_KEY=your-api-key \
   -v itops-data:/app/data \
-  registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:itops-backend-v3.0.1
+  registry.cn-hangzhou.aliyuncs.com/huluwa666/tsq-images-hub:backend-v3.0.1
 ```
 
 **Frontend:**
