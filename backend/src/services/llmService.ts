@@ -504,21 +504,21 @@ export async function executeAgentWithLLM(
   if (provider === 'openai') {
     return await callOpenAIAPI(
       enhancedPrompt,
-      userInput,
+      enhancedPrompt,
       agent.name,
       temperature
     );
   } else if (provider === 'local') {
     return await callLocalAIAPI(
       enhancedPrompt,
-      userInput,
+      enhancedPrompt,
       agent.name,
       temperature
     );
   } else {
     return await callDoubaoAPI(
       enhancedPrompt,
-      userInput,
+      enhancedPrompt,
       agent.name,
       temperature
     );

@@ -60,7 +60,12 @@ export default function Settings() {
     queryFn: async () => {
       const res = await api.get('/api/knowledge/qanything/config');
       if (res.data.data) {
-        setQanythingConfig(res.data.data);
+        // 保留前端已有的真实 apiKey，防止被后端脱敏值覆盖
+        const backendData = res.data.data;
+        if (backendData.apiKey && backendData.apiKey.includes('****')) {
+          backendData.apiKey = qanythingConfig.apiKey;
+        }
+        setQanythingConfig(backendData);
       }
       return res.data.data;
     },

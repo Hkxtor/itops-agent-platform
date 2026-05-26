@@ -9,7 +9,8 @@ const router = Router();
 
 function maskApiKey(key: string | undefined): string {
   if (!key || key.length === 0) return '';
-  if (key.length < 12) return key.substring(0, 4) + '****';
+  if (key.length < 8) return key.substring(0, 2) + '****';
+  if (key.length < 16) return key.substring(0, 4) + '****' + key.substring(key.length - 2);
   return key.substring(0, 8) + '...' + key.substring(key.length - 4);
 }
 
@@ -214,23 +215,31 @@ router.post('/upload-batch', upload.array('files', 10), async (req: Request, res
       return res.status(400).json({ success: false, error: '未上传文件' });
     }
 
-    const results = await Promise.all(files.map(async (file) => {
-      try {
-        const result = await qanythingService.uploadDocument(file.buffer, file.originalname);
-        return {
-          fileName: file.originalname,
-          fileId: result.fileId,
-          status: result.status,
-          success: true,
-        };
-      } catch (error: any) {
-        return {
-          fileName: file.originalname,
-          success: false,
-          error: error.message,
-        };
-      }
-    }));
+    // 限制并发上传数为 3，避免内存耗尽
+    const CONCURRENCY_LIMIT = 3;
+    const results: any[] = [];
+    
+    for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
+      const batch = files.slice(i, i + CONCURRENCY_LIMIT);
+      const batchResults = await Promise.all(batch.map(async (file) => {
+        try {
+          const result = await qanythingService.uploadDocument(file.buffer, file.originalname);
+          return {
+            fileName: file.originalname,
+            fileId: result.fileId,
+            status: result.status,
+            success: true,
+          };
+        } catch (error: any) {
+          return {
+            fileName: file.originalname,
+            success: false,
+            error: error.message,
+          };
+        }
+      }));
+      results.push(...batchResults);
+    }
 
     res.json({
       success: true,
