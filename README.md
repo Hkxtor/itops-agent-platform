@@ -9,9 +9,9 @@
 
 🌐 **项目官网**: <https://www.zjzwfw.cloud/ITOpsAgentinfo>
 
-<img width="1920" height="1080" alt="0cpuy-fbfi3" src="文档引用图片\0 (3).gif" />
+<img width="1920" height="1080" alt="0cpuy-fbfi3" src="docs-assets/0-3.gif" />
 
-<img width="1920" height="1080" alt="0cpuy-fbfi3" src="文档引用图片\屏幕截图 2026-05-25 143839.png" />
+<img width="1920" height="1080" alt="0cpuy-fbfi3" src="docs-assets/screenshot-2026-05-25-143839.png" />
 
 ## 项目简介
 
@@ -137,7 +137,7 @@ cd frontend && npm install && npm run dev
 
 系统概览，展示服务器、告警、任务等核心指标。
 
-<img width="1662" height="957" alt="屏幕截图 2026-05-18 144450" src="文档引用图片/0 (4).png" />
+<img width="1662" height="957" alt="屏幕截图 2026-05-18 144450" src="docs-assets/0-4.png" />
 
 ### Web 终端
 
@@ -155,7 +155,7 @@ cd frontend && npm install && npm run dev
 - 一键采集主机信息（OS/CPU/内存/磁盘/IP）
 - 服务器卡片展示分组标签和硬件信息
 
-<img width="1830" height="958" alt="image" src="文档引用图片/0 (3).png" />
+<img width="1830" height="958" alt="image" src="docs-assets/0-3.png" />
 
 ### 服务器管理
 
@@ -173,7 +173,7 @@ cd frontend && npm install && npm run dev
 - 支持自定义创建 Agent，配置系统提示词、模型、温度参数
 - Agent 测试与执行历史追踪
 
-<img width="1838" height="957" alt="image" src="文档引用图片/0 (2).png" />
+<img width="1838" height="957" alt="image" src="docs-assets/0-2.png" />
 
 ### 工作流编排
 
@@ -182,7 +182,7 @@ cd frontend && npm install && npm run dev
 - 支持上下文传递、服务器选择
 - 执行顺序拓扑排序，视觉位置优先
 
-<img width="1820" height="953" alt="屏幕截图 2026-05-18 144326" src="文档引用图片/0 (7).png" />
+<img width="1820" height="953" alt="屏幕截图 2026-05-18 144326" src="docs-assets/0-7.png" />
 
 ### 任务执行
 
