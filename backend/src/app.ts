@@ -75,6 +75,9 @@ import { setServerInstances } from './services/restartService';
 import { checkDbskiterAvailability } from './services/dbskiterService';
 import { timeoutApproval } from './services/workflowExecutor';
 import { queueService } from './services/queueService';
+import { alertAutoResponseService } from './services/alertAutoResponse/alertAutoResponseService';
+import { dockerService } from './services/dockerService';
+import { configTemplateService } from './services/configTemplateService';
 import importExportRouter from './routes/importExportRoutes';
 import alertAutoRouter from './routes/alertAutoRoutes';
 import linkageRouter from './routes/linkageRoutes';
@@ -164,6 +167,17 @@ async function initializeApp() {
   
   // Initialize alert correlation service
   alertCorrelationService.start();
+  
+  // Initialize alert auto-response service (adaptive alert handling)
+  alertAutoResponseService.start();
+  
+  // Initialize Docker service connection
+  dockerService.init().catch((err: Error) => {
+    logger.warn('Docker service initialization failed (non-fatal)', err);
+  });
+  
+  // Initialize config template service
+  configTemplateService.init();
   
   initTokenBlacklist();
   startCircuitBreakerCleanup();
