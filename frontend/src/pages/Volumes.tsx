@@ -91,7 +91,7 @@ export default function Volumes() {
     { title: '使用率', key: 'usage', width: 180, render: (_: unknown, r: Volume) => (
       <div className="flex items-center gap-2">
         <Progress percent={usagePercent(r)} size="small" className="flex-1" strokeColor={usagePercent(r) > 80 ? '#ff4d4f' : usagePercent(r) > 60 ? '#faad14' : '#52c41a'} />
-        <span className="text-xs text-gray-500">{r.used_gb || 0}/{r.size_gb || 0} GB</span>
+        <span className="text-xs text-text-tertiary">{r.used_gb || 0}/{r.size_gb || 0} GB</span>
       </div>
     )},
     { title: '状态', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={statusColors[s] || 'default'}>{s}</Tag> },

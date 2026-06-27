@@ -147,7 +147,7 @@ export default function ConfigTemplates() {
           <Form.Item name="content" label="模板内容"><Input.TextArea rows={8} className="font-mono text-sm" placeholder="使用 {{variable_name}} 作为变量占位符" /></Form.Item>
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-500">变量列表</span>
+              <span className="text-sm text-text-tertiary">变量列表</span>
               <Button size="small" icon={<Plus size={12} />} onClick={addVariable}>添加变量</Button>
             </div>
             {variables.map((v, i) => (

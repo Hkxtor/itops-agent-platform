@@ -48,7 +48,7 @@ function getCategoryColor(category: string): string {
     '数据库': { bg: 'from-pink-500/10 to-pink-600/5', border: 'border-pink-500/20', text: 'text-pink-400', gradient: 'from-pink-500 to-pink-600' },
     '网络': { bg: 'from-sky-500/10 to-sky-600/5', border: 'border-sky-500/20', text: 'text-sky-400', gradient: 'from-sky-500 to-sky-600' },
   };
-  return colors[category]?.text || 'text-slate-400';
+  return colors[category]?.text || 'text-text-secondary';
 }
 
 export default function ToolLinks() {
@@ -106,7 +106,7 @@ export default function ToolLinks() {
             <p className="text-text-secondary text-sm">常用运维工具快捷入口，可在「工具配置」页面自定义管理</p>
           </div>
           <NavLink
-            to="/tool-links/manage"
+            to="/tool-links-manage"
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
           >
             <Cog className="w-4 h-4" />
@@ -159,7 +159,7 @@ export default function ToolLinks() {
             </p>
             {!searchQuery && (
               <NavLink
-                to="/tool-links/manage"
+                to="/tool-links-manage"
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -213,7 +213,7 @@ export default function ToolLinks() {
                               ) : (
                                 <ToolIcon iconName={tool.icon} className={clsx(
                                   'w-5 h-5 transition-colors duration-200',
-                                  'text-slate-400 group-hover:text-primary'
+                                  'text-text-secondary group-hover:text-primary'
                                 )} />
                               )}
                             </div>

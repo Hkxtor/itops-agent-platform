@@ -42,7 +42,6 @@ export default function DataCenterManage() {
   const [slotForm] = Form.useForm();
   const [availDevices, setAvailDevices] = useState<any[]>([]);
   const [overview, setOverview] = useState<any>(null);
-  const [syncMockLoading, setSyncMockLoading] = useState(false);
 
   // Lifecycle state
   const [lifecycles, setLifecycles] = useState<any[]>([]);
@@ -199,7 +198,7 @@ export default function DataCenterManage() {
       <Spin spinning={deviceGroupLoading}>
         <div className="mb-4">
           <Input
-            prefix={<Search size={14} className="text-gray-500" />}
+            prefix={<Search size={14} className="text-text-tertiary" />}
             placeholder="搜索设备名称或机柜编号..."
             value={deviceSearch}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeviceSearch(e.target.value)}
@@ -217,7 +216,7 @@ export default function DataCenterManage() {
               } className="border border-gray-700">
                 {Object.values(room.racks).map((rack: any) => (
                   <div key={rack.rack_id} className="mb-3 last:mb-0">
-                    <div className="text-xs font-semibold text-gray-400 mb-1">{rack.rack_name}</div>
+                    <div className="text-xs font-semibold text-text-secondary mb-1">{rack.rack_name}</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                       {rack.devices.map((dev: any) => {
                         const typeLabel: Record<string, string> = {
@@ -232,13 +231,13 @@ export default function DataCenterManage() {
                             onClick={() => navigateToDevice(dev)}
                           >
                             <div>
-                              <div className="text-xs font-medium text-gray-200 flex items-center gap-1.5">
+                              <div className="text-xs font-medium text-text-primary flex items-center gap-1.5">
                                 <Tag color={typeColor[dev.device_type]} className="text-[10px] leading-none m-0">
                                   {typeLabel[dev.device_type] || dev.device_type}
                                 </Tag>
                                 {dev.device_name || '(未命名)'}
                               </div>
-                              <div className="text-[10px] text-gray-500 mt-0.5">
+                              <div className="text-[10px] text-text-tertiary mt-0.5">
                                 U{dev.start_u}-U{dev.end_u}
                                 {dev.ip_address ? ` · ${dev.ip_address}` : ''}
                               </div>
@@ -255,17 +254,6 @@ export default function DataCenterManage() {
         )}
       </Spin>
     );
-  };
-
-  // ===== Sync mock data =====
-  const syncMockData = async () => {
-    setSyncMockLoading(true);
-    try {
-      const res = await api.post('/api/dc/sync-mock');
-      message.success(res.data.message);
-      loadAll();
-    } catch { message.error('同步虚拟数据失败'); }
-    finally { setSyncMockLoading(false); }
   };
 
   // ===== 批次导入 =====
@@ -444,7 +432,7 @@ export default function DataCenterManage() {
 
   // ===== 渲染U位图 =====
   const renderSlotMap = () => {
-    if (!selectedRack) return <div className="text-gray-500 text-center py-12">← 选择一个机柜查看U位详情</div>;
+    if (!selectedRack) return <div className="text-text-tertiary text-center py-12">← 选择一个机柜查看U位详情</div>;
     const totalU = selectedRack.total_u || 42;
     const usedU = slots.reduce((s, sl) => s + (sl.end_u - sl.start_u + 1), 0);
     const utilPercent = totalU > 0 ? Math.round((usedU / totalU) * 100) : 0;
@@ -472,10 +460,10 @@ export default function DataCenterManage() {
               style={{ height: `${Math.max(height * 28, 28)}px` }}
               onClick={() => showDeviceActions(slot)}
             >
-              <span className="w-8 text-gray-500 shrink-0">U{slot.start_u}{slot.end_u > slot.start_u ? `-${slot.end_u}` : ''}</span>
+              <span className="w-8 text-text-tertiary shrink-0">U{slot.start_u}{slot.end_u > slot.start_u ? `-${slot.end_u}` : ''}</span>
               <span className="mr-1 text-[10px]">{statusDot}</span>
               <Tag color={deviceTypeColors[slot.device_type] || 'default'} className="shrink-0 mx-1 text-[10px]" style={{ lineHeight: '16px', fontSize: 10 }}>{slot.device_type === 'server' ? '🖥' : '🌐'}</Tag>
-              <span className="text-gray-200 truncate flex-1 text-[11px]">{slot.device_name || slot.device_id}</span>
+              <span className="text-text-primary truncate flex-1 text-[11px]">{slot.device_name || slot.device_id}</span>
               {slot.cpu_usage !== null && (
                 <div className="w-12 h-2 bg-gray-700 rounded-sm mr-1 overflow-hidden">
                   <div className={`h-full rounded-sm ${slot.cpu_usage > 80 ? 'bg-red-500' : slot.cpu_usage > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
@@ -493,9 +481,9 @@ export default function DataCenterManage() {
         }
       } else {
         rows.push(
-          <div key={u} className="flex items-center border-l border-gray-800 px-3 py-[3px] text-xs text-gray-600">
+          <div key={u} className="flex items-center border-l border-gray-800 px-3 py-[3px] text-xs text-text-tertiary">
             <span className="w-8 shrink-0">U{u}</span>
-            <span className="text-gray-700">— 空位 —</span>
+            <span className="text-text-secondary">— 空位 —</span>
           </div>
         );
       }
@@ -503,7 +491,7 @@ export default function DataCenterManage() {
 
     return (
       <div className="bg-gray-900/50 rounded-lg border border-gray-800 overflow-hidden">
-        <div className="px-3 py-2 border-b border-gray-800 text-sm font-medium text-gray-400 flex items-center gap-2">
+        <div className="px-3 py-2 border-b border-gray-800 text-sm font-medium text-text-secondary flex items-center gap-2">
           <Cube size={14} />
           {selectedRack.name} ({selectedRack.room_name || selectedRack.room_label || '?'}) — {totalU}U
           <div className="ml-auto flex items-center gap-3 text-xs">
@@ -524,6 +512,25 @@ export default function DataCenterManage() {
   // ===== 概览页：机柜热力图 =====
   const renderOverviewTab = () => {
     if (!overview) return <Spin />;
+
+    // 空库状态：显示引导页
+    if (overview.isEmpty) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center mb-6">
+            <Server size={40} className="text-text-tertiary" />
+          </div>
+          <h3 className="text-lg font-semibold text-text-primary mb-2">暂无数据中心资产</h3>
+          <p className="text-sm text-text-secondary mb-6 text-center max-w-md">
+            当前数据库中没有机房、机柜或设备数据。请手动添加真实资产开始使用。
+          </p>
+          <Button type="primary" icon={<Plus size={14} />} onClick={() => { setEditingRoom(null); roomForm.resetFields(); setRoomModalOpen(true); setActiveTab('rooms'); }}>
+            手动添加机房
+          </Button>
+        </div>
+      );
+    }
+
     const { summary, rackData } = overview;
     const roomsGrouped: Record<string, any[]> = {};
     (rackData || []).forEach((r: any) => {
@@ -554,12 +561,6 @@ export default function DataCenterManage() {
           <Col span={6}><Card size="small"><Statistic title="临界设备" value={summary?.criticalDevices || 0} valueStyle={{ color: '#ff4d4f' }} /></Card></Col>
         </Row>
 
-        {overview.isMock && !overview.isPartialMock && (
-          <div className="mb-4 p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-400 flex items-center gap-2">
-            <Database size={16} />
-            当前为虚拟演示数据。可点击 <Button size="small" type="primary" ghost onClick={syncMockData} loading={syncMockLoading}>重新生成</Button> 刷新，或手动添加真实设备。
-          </div>
-        )}
         {overview.isPartialMock && (
           <div className="mb-4 p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg text-sm text-purple-400 flex items-center gap-2">
             <Database size={16} />
@@ -601,7 +602,7 @@ export default function DataCenterManage() {
                         <div className={`bg-gradient-to-br ${colorClass} border rounded-lg p-3 cursor-pointer hover:scale-[1.02] transition-all`}
                           onClick={() => { setActiveTab('slots'); setTimeout(() => selectRack(rack), 100); }}>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-200">{rack.name}</span>
+                            <span className="text-sm font-medium text-text-primary">{rack.name}</span>
                             <span className="text-xs">{statusIcon}</span>
                           </div>
                           <div className="w-full h-4 bg-gray-800 rounded-full overflow-hidden">
@@ -609,7 +610,7 @@ export default function DataCenterManage() {
                               alertCount > 0 ? 'bg-red-500' : pct > 85 ? 'bg-yellow-500' : 'bg-gradient-to-r from-blue-500 to-cyan-400'
                             }`} style={{ width: `${Math.max(pct, 2)}%` }} />
                           </div>
-                          <div className="flex justify-between mt-1 text-xs text-gray-500">
+                          <div className="flex justify-between mt-1 text-xs text-text-tertiary">
                             <span>{usedU}/{totalU}U</span>
                             <span>{rack.device_count}设备</span>
                           </div>
@@ -623,7 +624,7 @@ export default function DataCenterManage() {
               </div>
             ),
           })) : [
-            { key: 'empty', label: '暂无数据', children: <Empty description="暂无机房数据，点击右上角「同步虚拟数据」生成演示数据" /> }
+            { key: 'empty', label: '暂无数据', children: <Empty description="暂无数据" /> }
           ]}
         />
       </div>
@@ -674,7 +675,7 @@ export default function DataCenterManage() {
     { title: '设备数', dataIndex: 'device_count', key: 'device_count' },
     { title: '告警', key: 'alerts', render: (_: any, r: any) => {
       const ac = rackAlertMap[r.id] || 0;
-      return ac > 0 ? <Badge count={ac} size="small"><span className="text-red-400">⚠</span></Badge> : <span className="text-gray-600">-</span>;
+      return ac > 0 ? <Badge count={ac} size="small"><span className="text-red-400">⚠</span></Badge> : <span className="text-text-tertiary">-</span>;
     }},
     { title: '操作', key: 'action', render: (_: any, rec: any) => (
       <Space>
@@ -748,9 +749,6 @@ export default function DataCenterManage() {
           ]}
         />
         <Space>
-          <Button icon={<Database size={14} />} onClick={syncMockData} loading={syncMockLoading}>
-            同步虚拟数据
-          </Button>
           {activeTab === 'rooms' && (
             <Button type="primary" icon={<Plus size={14} />}
               onClick={() => { setEditingRoom(null); roomForm.resetFields(); setRoomModalOpen(true); }}>新建机房</Button>
@@ -786,7 +784,7 @@ export default function DataCenterManage() {
       {activeTab === 'rooms' && (
         <div>
           <Input
-            prefix={<Search size={14} className="text-gray-500" />}
+            prefix={<Search size={14} className="text-text-tertiary" />}
             placeholder="搜索机房名称/标签..."
             className="mb-4 max-w-xs"
             value={roomSearch}
@@ -802,7 +800,7 @@ export default function DataCenterManage() {
         <div>
           <Space className="mb-4">
             <Input
-              prefix={<Search size={14} className="text-gray-500" />}
+              prefix={<Search size={14} className="text-text-tertiary" />}
               placeholder="搜索机柜编号..."
               value={rackSearch}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRackSearch(e.target.value)}
@@ -835,7 +833,7 @@ export default function DataCenterManage() {
             <Card title="机柜列表" size="small"
               extra={
                 <Input
-                  prefix={<Search size={12} className="text-gray-500" />}
+                  prefix={<Search size={12} className="text-text-tertiary" />}
                   placeholder="搜索..."
                   size="small"
                   style={{ width: 120 }}
@@ -849,7 +847,7 @@ export default function DataCenterManage() {
                   return (
                     <div key={r.id}
                       className={`px-3 py-2 rounded cursor-pointer text-sm flex items-center gap-2 transition-colors
-                        ${selectedRack?.id === r.id ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'hover:bg-gray-800 text-gray-400 border border-transparent'}`}
+                        ${selectedRack?.id === r.id ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'hover:bg-gray-800 text-text-secondary border border-transparent'}`}
                       onClick={() => selectRack(r)}>
                       <LayoutGrid size={14} />
                       <span>{r.name}</span>
@@ -899,13 +897,13 @@ export default function DataCenterManage() {
       {/* ===== Export Tab ===== */}
       {activeTab === 'export' && (
         <div>
-          <div className="mb-4 text-sm text-gray-400">
+          <div className="mb-4 text-sm text-text-secondary">
             导出数据中心完整布局数据为 JSON 格式，包含机房、机柜、U位、生命周期和供电设备信息。
           </div>
           {exportData ? (
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-text-primary">
                   包含 {exportData.summary?.rooms || 0} 个机房, {exportData.summary?.racks || 0} 个机柜,
                   {exportData.summary?.slots || 0} 个U位, {exportData.summary?.lifecycles || 0} 条记录,
                   {exportData.summary?.pdus || 0} 个供电设备
@@ -915,7 +913,7 @@ export default function DataCenterManage() {
                   <Button size="small" onClick={handleExportCopy}>复制JSON</Button>
                 </Space>
               </div>
-              <pre className="text-xs text-gray-400 max-h-96 overflow-auto bg-gray-950 rounded p-3 border border-gray-800">
+              <pre className="text-xs text-text-secondary max-h-96 overflow-auto bg-gray-950 rounded p-3 border border-gray-800">
                 {JSON.stringify(exportData, null, 2).slice(0, 5000)}
                 {JSON.stringify(exportData, null, 2).length > 5000 && '\n... (截断)'}
               </pre>
@@ -1044,7 +1042,7 @@ export default function DataCenterManage() {
       {/* 导入 Modal */}
       <Modal title="导入数据中心数据" open={importModalOpen} onOk={handleImport} onCancel={() => { setImportModalOpen(false); setImportText(''); }}
         confirmLoading={importLoading} width={600}>
-        <div className="mb-2 text-sm text-gray-400">粘贴从导出功能获得的JSON数据：</div>
+        <div className="mb-2 text-sm text-text-secondary">粘贴从导出功能获得的JSON数据：</div>
         <Input.TextArea rows={12} value={importText} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setImportText(e.target.value)}
           placeholder='{"rooms": [...], "racks": [...], "slots": [...], "pdus": [...]}' className="font-mono text-xs" />
       </Modal>
@@ -1065,9 +1063,9 @@ export default function DataCenterManage() {
       >
         {selectedSlot && (
           <div className="space-y-3">
-            <div className="text-xs text-gray-400 bg-gray-800/50 rounded-lg p-3 space-y-1">
-              <div className="flex justify-between"><span>当前位置</span><span className="text-gray-200">{selectedRack?.name || '-'} U{selectedSlot.start_u}-U{selectedSlot.end_u}</span></div>
-              <div className="flex justify-between"><span>朝向</span><span className="text-gray-200">{selectedSlot.position_face === 'front' ? '前面板' : '后面板'}</span></div>
+            <div className="text-xs text-text-secondary bg-gray-800/50 rounded-lg p-3 space-y-1">
+              <div className="flex justify-between"><span>当前位置</span><span className="text-text-primary">{selectedRack?.name || '-'} U{selectedSlot.start_u}-U{selectedSlot.end_u}</span></div>
+              <div className="flex justify-between"><span>朝向</span><span className="text-text-primary">{selectedSlot.position_face === 'front' ? '前面板' : '后面板'}</span></div>
               <div className="flex justify-between"><span>状态</span>
                 <Tag color={selectedSlot.device_status === 'online' ? 'green' : selectedSlot.device_status === 'warning' ? 'orange' : selectedSlot.device_status === 'critical' ? 'red' : 'default'}>{selectedSlot.device_status || selectedSlot.server_status || '未知'}</Tag>
               </div>

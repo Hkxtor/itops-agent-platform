@@ -174,42 +174,6 @@ export default function Alerts() {
     return labels[severity] || severity;
   };
 
-  useEffect(() => {
-    if (!token) return;
-
-    const socket: Socket = io(wsUrl, {
-      transports: ['websocket', 'polling'],
-      auth: {
-        token: token
-      }
-    });
-
-    const handleConnect = () => {
-      socket.emit('alert:subscribe');
-    };
-
-    const handleAlertNew = (data: Alert) => {
-      console.log('New alert:', data);
-      refetch();
-    };
-
-    const handleAlertUpdated = () => {
-      refetch();
-    };
-
-    socket.on('connect', handleConnect);
-    socket.on('alert:new', handleAlertNew);
-    socket.on('alert:updated', handleAlertUpdated);
-
-    return () => {
-      socket.emit('alert:unsubscribe');
-      socket.off('connect', handleConnect);
-      socket.off('alert:new', handleAlertNew);
-      socket.off('alert:updated', handleAlertUpdated);
-      socket.disconnect();
-    };
-  }, [refetch, token]);
-
   const acknowledgeMutation = useMutation({
     mutationFn: async (alertId: string) => {
       await api.put(`/api/alerts/${alertId}/acknowledge`);

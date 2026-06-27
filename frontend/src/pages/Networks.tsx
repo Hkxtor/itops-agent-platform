@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Network, Trash2, Plus, Search, RefreshCw, Globe,
@@ -86,15 +86,26 @@ export default function Networks() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-slate-400">加载中...</div>
+        <div className="text-text-secondary">加载中...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-red-400">加载失败: {(error as Error).message}</div>
+      <div className="flex flex-col items-center justify-center h-full py-20">
+        <Globe className="w-16 h-16 text-text-tertiary mb-4" />
+        <h3 className="text-lg font-semibold text-text-primary mb-2">Docker 网络不可用</h3>
+        <p className="text-text-secondary text-sm mb-6 text-center max-w-md">
+          当前环境未连接 Docker 引擎，网络管理功能需要 Docker 运行环境支持。
+        </p>
+        <button
+          onClick={() => queryClient.invalidateQueries({ queryKey: ['docker-networks'] })}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          重试
+        </button>
       </div>
     );
   }
@@ -104,13 +115,13 @@ export default function Networks() {
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">网络管理</h1>
-          <p className="text-slate-400 mt-1">管理 Docker 网络</p>
+          <h1 className="text-2xl font-bold text-text-primary">网络管理</h1>
+          <p className="text-text-secondary mt-1">管理 Docker 网络</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['docker-networks'] })}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-text-primary rounded-lg flex items-center gap-2 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             刷新
@@ -127,31 +138,31 @@ export default function Networks() {
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <div className="bg-surface rounded-lg p-4 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">总网络数</p>
-              <p className="text-2xl font-bold text-white mt-1">{networks.length}</p>
+              <p className="text-text-secondary text-sm">总网络数</p>
+              <p className="text-2xl font-bold text-text-primary mt-1">{networks.length}</p>
             </div>
             <Globe className="w-8 h-8 text-blue-500" />
           </div>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <div className="bg-surface rounded-lg p-4 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Bridge 网络</p>
-              <p className="text-2xl font-bold text-white mt-1">
+              <p className="text-text-secondary text-sm">Bridge 网络</p>
+              <p className="text-2xl font-bold text-text-primary mt-1">
                 {networks.filter(n => n.driver === 'bridge').length}
               </p>
             </div>
             <Network className="w-8 h-8 text-green-500" />
           </div>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <div className="bg-surface rounded-lg p-4 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">连接容器</p>
-              <p className="text-2xl font-bold text-white mt-1">
+              <p className="text-text-secondary text-sm">连接容器</p>
+              <p className="text-2xl font-bold text-text-primary mt-1">
                 {networks.reduce((sum, n) => sum + Object.keys(n.containers || {}).length, 0)}
               </p>
             </div>
@@ -162,41 +173,41 @@ export default function Networks() {
 
       {/* 搜索 */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
         <input
           type="text"
           placeholder="搜索网络名称、驱动或ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+          className="w-full pl-10 pr-4 py-2 bg-surface border border-border rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-blue-500"
         />
       </div>
 
       {/* 网络列表 */}
-      <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+      <div className="bg-surface rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-slate-900 border-b border-slate-700">
+            <thead className="bg-background border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                   名称
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                   驱动
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                   子网
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                   网关
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                   容器数
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
                   范围
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
                   操作
                 </th>
               </tr>
@@ -210,23 +221,23 @@ export default function Networks() {
                 return (
                   <tr key={network.id} className="hover:bg-slate-700/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">{network.name}</div>
-                      <div className="text-xs text-slate-400 font-mono">{network.id.substring(0, 12)}</div>
+                      <div className="text-sm font-medium text-text-primary">{network.name}</div>
+                      <div className="text-xs text-text-secondary font-mono">{network.id.substring(0, 12)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-300">{network.driver}</div>
+                      <div className="text-sm text-text-primary">{network.driver}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-300 font-mono">{subnet}</div>
+                      <div className="text-sm text-text-primary font-mono">{subnet}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-300 font-mono">{gateway}</div>
+                      <div className="text-sm text-text-primary font-mono">{gateway}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-300">{containerCount}</div>
+                      <div className="text-sm text-text-primary">{containerCount}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-300">{network.scope}</div>
+                      <div className="text-sm text-text-primary">{network.scope}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
@@ -249,8 +260,8 @@ export default function Networks() {
         </div>
         {filteredNetworks.length === 0 && (
           <div className="text-center py-12">
-            <Globe className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">没有找到网络</p>
+            <Globe className="w-12 h-12 text-text-tertiary mx-auto mb-4" />
+            <p className="text-text-secondary">没有找到网络</p>
           </div>
         )}
       </div>
@@ -258,23 +269,23 @@ export default function Networks() {
       {/* 创建网络模态框 */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b border-slate-700">
-              <h3 className="text-lg font-semibold text-white">创建网络</h3>
+          <div className="bg-surface rounded-lg border border-border w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-lg font-semibold text-text-primary">创建网络</h3>
               <button
                 onClick={() => {
                   setShowCreateModal(false);
                   setNewNetworkName('');
                   setNewNetworkDriver('bridge');
                 }}
-                className="text-slate-400 hover:text-white"
+                className="text-text-secondary hover:text-text-primary"
               >
                 ✕
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-text-primary mb-2">
                   网络名称
                 </label>
                 <input
@@ -282,17 +293,17 @@ export default function Networks() {
                   value={newNetworkName}
                   onChange={(e) => setNewNetworkName(e.target.value)}
                   placeholder="输入网络名称"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-text-primary mb-2">
                   驱动
                 </label>
                 <select
                   value={newNetworkDriver}
                   onChange={(e) => setNewNetworkDriver(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-text-primary focus:outline-none focus:border-blue-500"
                 >
                   <option value="bridge">bridge</option>
                   <option value="host">host</option>
@@ -307,7 +318,7 @@ export default function Networks() {
                     setNewNetworkName('');
                     setNewNetworkDriver('bridge');
                   }}
-                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-text-primary rounded-lg transition-colors"
                 >
                   取消
                 </button>

@@ -4,228 +4,7 @@ import crypto from 'crypto';
 
 const router = Router();
 
-// ==================== 虚拟数据生成器 ====================
 
-function generateMockDCData() {
-  const mockRooms: any[] = [];
-  const mockRacks: any[] = [];
-  const mockSlots: any[] = [];
-
-  const roomConfigs = [
-    { name: 'A区数据中心', label: 'A区', width: 25, depth: 18, sort: 1, temp: 24.5, humid: 45 },
-    { name: 'B区数据中心', label: 'B区', width: 22, depth: 15, sort: 2, temp: 25.2, humid: 50 },
-  ];
-
-  const serverNames = [
-    'web-', 'app-', 'db-', 'cache-', 'mq-', 'log-', 'monitor-', 'proxy-', 'worker-', 'backup-',
-    'k8s-master-', 'k8s-node-', 'hadoop-', 'spark-', 'redis-', 'kafka-', 'es-', 'nginx-', 'gateway-', 'cdn-',
-  ];
-  const serverStatuses = ['online', 'online', 'online', 'online', 'online', 'online', 'warning', 'critical', 'offline'];
-  const networkNames = ['switch-', 'router-', 'firewall-', 'loadbalancer-', 'patchpanel-'];
-
-  for (let ri = 0; ri < roomConfigs.length; ri++) {
-    const rc = roomConfigs[ri];
-    const roomId = crypto.randomUUID();
-    mockRooms.push({
-      id: roomId,
-      name: rc.name,
-      label: rc.label,
-      description: `${rc.name} - 主要生产环境`,
-      width_m: rc.width,
-      depth_m: rc.depth,
-      max_temperature: 28,
-      min_temperature: 18,
-      max_humidity: 70,
-      min_humidity: 30,
-      layout_config: JSON.stringify({ rows: 4, cols: 4 }),
-      sort_order: rc.sort,
-      current_temperature: rc.temp,
-      current_humidity: rc.humid,
-      created_at: new Date(Date.now() - 86400000 * 30).toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-
-    // 每机房4排，每排2个机柜 = 8个机柜/机房
-    for (let row = 1; row <= 4; row++) {
-      for (let col = 1; col <= 2; col++) {
-        const rackId = crypto.randomUUID();
-        const rackName = `${rc.label[0]}-${String(row).padStart(2, '0')}${String.fromCharCode(64 + col)}`;
-        const totalU = 42;
-        const occupiedU = Math.floor(Math.random() * 20) + 15; // 15-35U occupied
-
-        mockRacks.push({
-          id: rackId,
-          room_id: roomId,
-          name: rackName,
-          label: '',
-          row_number: row,
-          position_x: (row - 1) * 5 + (col - 1) * 1.5,
-          position_z: 0,
-          total_u: totalU,
-          pdu_count: 2,
-          max_power_w: 4000,
-          status: occupiedU > 35 ? 'warning' : occupiedU > 30 ? 'warning' : 'normal',
-          sort_order: (row - 1) * 2 + col,
-          device_count: 0,
-          used_u: occupiedU,
-          created_at: new Date(Date.now() - 86400000 * 28).toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-        // 填充U位设备
-        let currentU = 1;
-        const slotDeviceCount = Math.floor(occupiedU / 3) + 1; // 5-12 devices per rack
-        for (let si = 0; si < slotDeviceCount && currentU <= totalU; si++) {
-          const deviceU = Math.min(Math.floor(Math.random() * 3) + 1, totalU - currentU + 1); // 1-4U per device
-          const endU = currentU + deviceU - 1;
-          if (endU > totalU) break;
-
-          const isServer = Math.random() < 0.8; // 80% servers, 20% network devices
-          const deviceId = crypto.randomUUID();
-          const status = serverStatuses[Math.floor(Math.random() * serverStatuses.length)];
-          const cpuUsage = status === 'critical' ? 92 + Math.floor(Math.random() * 8) :
-                           status === 'warning' ? 75 + Math.floor(Math.random() * 15) :
-                           Math.floor(Math.random() * 60) + 20;
-          const memUsage = status === 'critical' ? 88 + Math.floor(Math.random() * 12) :
-                           status === 'warning' ? 70 + Math.floor(Math.random() * 20) :
-                           Math.floor(Math.random() * 50) + 25;
-
-          if (isServer) {
-            const namePrefix = serverNames[Math.floor(Math.random() * serverNames.length)];
-            const hostNum = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-            // Check if rack has existing data — we're building mock data, so we store in memory
-            const slotId = crypto.randomUUID();
-            const deviceName = `${namePrefix}${hostNum}`;
-            mockSlots.push({
-              id: slotId,
-              rack_id: rackId,
-              device_id: deviceId,
-              device_type: 'server',
-              start_u: currentU,
-              end_u: endU,
-              position_face: 'front',
-              device_name: deviceName,
-              server_status: status,
-              ip_address: '10.0.' + (Math.floor(Math.random() * 100) + 1) + '.' + (Math.floor(Math.random() * 254) + 1),
-              cpu_usage: cpuUsage,
-              memory_usage: memUsage,
-              disk_usage: Math.floor(Math.random() * 60) + 30,
-              notes: '',
-              created_at: new Date(Date.now() - 86400000 * 20).toISOString(),
-            });
-          } else {
-            const netName = networkNames[Math.floor(Math.random() * networkNames.length)];
-            const netNum = String(Math.floor(Math.random() * 8) + 1);
-            mockSlots.push({
-              id: crypto.randomUUID(),
-              rack_id: rackId,
-              device_id: deviceId,
-              device_type: 'network_device',
-              start_u: currentU,
-              end_u: endU,
-              position_face: Math.random() > 0.5 ? 'front' : 'back',
-              device_name: `${netName}${netNum}`,
-              server_status: status,
-              ip_address: '10.1.' + (Math.floor(Math.random() * 100) + 1) + '.' + (Math.floor(Math.random() * 254) + 1),
-              cpu_usage: cpuUsage,
-              memory_usage: memUsage,
-              disk_usage: null,
-              notes: '',
-              created_at: new Date(Date.now() - 86400000 * 25).toISOString(),
-            });
-          }
-          currentU = endU + 1;
-        }
-      }
-    }
-  }
-
-  return { rooms: mockRooms, racks: mockRacks, slots: mockSlots };
-}
-
-function hasRealData(): boolean {
-  const roomCount = (db.prepare('SELECT COUNT(*) as c FROM dc_rooms').get() as any)?.c || 0;
-  const rackCount = (db.prepare('SELECT COUNT(*) as c FROM dc_racks').get() as any)?.c || 0;
-  const slotCount = (db.prepare('SELECT COUNT(*) as c FROM dc_rack_slots').get() as any)?.c || 0;
-  return roomCount > 0 || rackCount > 0 || slotCount > 0;
-}
-
-// ==================== 同步虚拟数据 ====================
-
-// POST /api/dc/sync-mock — 当数据库为空时生成虚拟数据
-router.post('/sync-mock', (_req: Request, res: Response) => {
-  try {
-    if (hasRealData()) {
-      return res.json({ success: true, message: '已有真实数据，无需生成虚拟数据', skipped: true });
-    }
-
-    const mock = generateMockDCData();
-
-    // Insert rooms
-    const insertRoom = db.prepare(`
-      INSERT INTO dc_rooms (id, name, label, description, width_m, depth_m, layout_config, sort_order,
-        max_temperature, min_temperature, max_humidity, min_humidity)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 28, 18, 70, 30)
-    `);
-    for (const r of mock.rooms) {
-      insertRoom.run(r.id, r.name, r.label, r.description, r.width_m, r.depth_m, r.layout_config, r.sort_order);
-    }
-
-    // Insert racks
-    const insertRack = db.prepare(`
-      INSERT INTO dc_racks (id, room_id, name, label, row_number, position_x, position_z, total_u, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const r of mock.racks) {
-      insertRack.run(r.id, r.room_id, r.name, r.label, r.row_number, r.position_x, r.position_z, r.total_u, r.sort_order);
-    }
-
-    // 先插入 mock 设备到 servers / network_devices 表，让 JOIN 能查到设备名
-    const insertServer = db.prepare(`
-      INSERT OR IGNORE INTO servers (id, name, hostname, port, username, password, ip_address, os_type, cpu_cores, memory_gb, disk_gb, enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const insertNetDev = db.prepare(`
-      INSERT OR IGNORE INTO network_devices (id, name, ip_address, vendor, model, username, password, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const s of mock.slots) {
-      if (s.device_type === 'server') {
-        insertServer.run(
-          s.device_id, s.device_name, s.device_name.toLowerCase(), 22, 'root', 'mock',
-          `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-          'linux', Math.floor(Math.random() * 16) + 4, Math.floor(Math.random() * 64) + 16,
-          Math.floor(Math.random() * 500) + 200,
-          1
-        );
-      } else if (s.device_type === 'network_device') {
-        insertNetDev.run(
-          s.device_id, s.device_name,
-          `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-          'Cisco', 'Catalyst', 'admin', 'admin',
-          'online'
-        );
-      }
-    }
-
-    // Insert slots
-    const insertSlot = db.prepare(`
-      INSERT INTO dc_rack_slots (id, rack_id, device_id, device_type, start_u, end_u, position_face)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const s of mock.slots) {
-      insertSlot.run(s.id, s.rack_id, s.device_id, s.device_type, s.start_u, s.end_u, s.position_face);
-    }
-
-    res.json({
-      success: true,
-      message: `已生成 ${mock.rooms.length} 个机房, ${mock.racks.length} 个机柜, ${mock.slots.length} 个U位设备`,
-      data: { rooms: mock.rooms.length, racks: mock.racks.length, slots: mock.slots.length },
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 // ==================== 机房管理 ====================
 
@@ -737,202 +516,86 @@ router.delete('/pdus/:id', (req: Request, res: Response) => {
 // ==================== 数据同步接口(供DataRoom 3D场景调用的聚合API) ====================
 
 // GET /api/dc/overview — DataRoom 总览数据
-// 规则：
-//   0 个真实机柜 → 全量虚拟（2 机房 16 机柜 ~120 设备）
-//   1-16 个真实机柜 → 真实+虚拟混合，补齐到 16 个机柜
-//   17+ 个真实机柜 → 全量真实
 router.get('/overview', (_req: Request, res: Response) => {
   try {
-    // ===== 1. 加载真实数据 =====
+    // ===== 1. 检查是否有数据 =====
     const realRooms = db.prepare('SELECT * FROM dc_rooms ORDER BY sort_order').all() as any[];
     const realRackCount = (db.prepare('SELECT COUNT(*) as c FROM dc_racks').get() as any)?.c || 0;
     const realSlotCount = (db.prepare('SELECT COUNT(*) as c FROM dc_rack_slots').get() as any)?.c || 0;
     const hasData = realRackCount > 0 || realSlotCount > 0;
 
-    // ===== 2. 决定虚拟数量 =====
-    let mock = generateMockDCData();
-    let dataRooms: any[] = [];
-    let rackData: any[] = [];
-    let allSlots: any[] = [];
-    let isMock = false;
-    let isPartialMock = false;
-    const MOCK_TARGET = 16;  // mock 数据固定产出 16 个机柜
-
     if (!hasData) {
-      // 场景 A：全虚拟（数据库完全为空）
-      mock = generateMockDCData();
-      rackData = mock.racks.map((r: any) => ({
-        ...r,
-        room_name: mock.rooms.find((rm: any) => rm.id === r.room_id)?.name || '',
-        room_label: mock.rooms.find((rm: any) => rm.id === r.room_id)?.label || '',
-      }));
-      allSlots = mock.slots;
-      dataRooms = mock.rooms.map((rm: any, i: number) => ({
-        ...rm,
-        current_temperature: i === 0 ? 24.5 : 25.2,
-        current_humidity: i === 0 ? 45 : 50,
-        rack_count: 8,
-        device_count: 60,
-      }));
-      isMock = true;
-    } else if (realRackCount >= MOCK_TARGET) {
-      // 场景 B：全真实（17+ 个机柜）
-      isMock = false;
-    } else {
-      // 场景 C：真实+虚拟混合（1-16 个真实机柜，虚拟补齐到 16）
-      isPartialMock = true;
+      // 数据库为空，返回空状态
+      return res.json({
+        success: true,
+        data: {
+          rooms: [],
+          summary: {
+            totalRacks: 0, totalDevices: 0, totalRooms: 0,
+            onlineDevices: 0, warningDevices: 0, criticalDevices: 0, alertDevices: 0,
+            totalPower: 0, coolingPower: 0, itPower: 0, pue: 0,
+            avgTemp: 0, avgHumidity: 0,
+          },
+          rackData: [],
+          slotData: [],
+          isEmpty: true,
+        }
+      });
     }
 
-    if (!isMock && !isPartialMock) {
-      // ===== 纯真实数据 =====
-      rackData = db.prepare(`
-        SELECT r.*, rm.name as room_name, rm.label as room_label,
-          (SELECT COUNT(*) FROM dc_rack_slots WHERE rack_id = r.id) as device_count,
-          (SELECT COALESCE(SUM(end_u - start_u + 1), 0) FROM dc_rack_slots WHERE rack_id = r.id) as used_u,
-          rm.current_temperature, rm.current_humidity
-        FROM dc_racks r
-        JOIN dc_rooms rm ON r.room_id = rm.id
-        ORDER BY rm.sort_order, r.sort_order
-      `).all();
+    // ===== 2. 加载真实数据 =====
+    const rackData = db.prepare(`
+      SELECT r.*, rm.name as room_name, rm.label as room_label,
+        (SELECT COUNT(*) FROM dc_rack_slots WHERE rack_id = r.id) as device_count,
+        (SELECT COALESCE(SUM(end_u - start_u + 1), 0) FROM dc_rack_slots WHERE rack_id = r.id) as used_u,
+        rm.current_temperature, rm.current_humidity
+      FROM dc_racks r
+      JOIN dc_rooms rm ON r.room_id = rm.id
+      ORDER BY rm.sort_order, r.sort_order
+    `).all();
 
-      allSlots = db.prepare(`
-        SELECT s.*,
-          COALESCE(ser.name, nd.name, vm.name) as device_name,
-          CASE WHEN ser.enabled = 1 THEN 'online' ELSE 'offline' END as server_status,
-          COALESCE(ser.ip_address, nd.ip_address, '') as ip_address,
-          NULL as cpu_usage, NULL as memory_usage, NULL as disk_usage,
-          ser.cpu_cores, (ser.memory_gb * 1000) as memory_mb,
-          nd.status as net_status,
-          vm.status as vm_status
-        FROM dc_rack_slots s
-        LEFT JOIN servers ser ON s.device_type='server' AND s.device_id = ser.id
-        LEFT JOIN network_devices nd ON s.device_type='network_device' AND s.device_id = nd.id
-        LEFT JOIN virtual_machines vm ON s.device_type='vm_host' AND s.device_id = vm.id
-      `).all();
+    const allSlots = db.prepare(`
+      SELECT s.*,
+        COALESCE(ser.name, nd.name, vm.name) as device_name,
+        CASE WHEN ser.enabled = 1 THEN 'online' ELSE 'offline' END as server_status,
+        COALESCE(ser.ip_address, nd.ip_address, '') as ip_address,
+        NULL as cpu_usage, NULL as memory_usage, NULL as disk_usage,
+        ser.cpu_cores, (ser.memory_gb * 1000) as memory_mb,
+        nd.status as net_status,
+        vm.status as vm_status
+      FROM dc_rack_slots s
+      LEFT JOIN servers ser ON s.device_type='server' AND s.device_id = ser.id
+      LEFT JOIN network_devices nd ON s.device_type='network_device' AND s.device_id = nd.id
+      LEFT JOIN virtual_machines vm ON s.device_type='vm_host' AND s.device_id = vm.id
+    `).all();
 
-      const rackCounts: Record<string, number> = {};
-      const roomDeviceCounts: Record<string, number> = {};
-      for (const rack of rackData as any[]) {
-        rackCounts[rack.room_id] = (rackCounts[rack.room_id] || 0) + 1;
-      }
-      for (const slot of allSlots as any[]) {
-        const r = (rackData as any[]).find((rk: any) => rk.id === slot.rack_id);
-        if (r) {
-          roomDeviceCounts[r.room_id] = (roomDeviceCounts[r.room_id] || 0) + 1;
-        }
-      }
-      dataRooms = realRooms.map((rm: any) => ({
-        ...rm,
-        rack_count: rackCounts[rm.id] || 0,
-        device_count: roomDeviceCounts[rm.id] || 0,
-      }));
-    } else if (isPartialMock) {
-      // ===== 真实+虚拟混合 =====
-      // 加载真实 rack/slot/room
-      const realRackData = db.prepare(`
-        SELECT r.*, rm.name as room_name, rm.label as room_label,
-          (SELECT COUNT(*) FROM dc_rack_slots WHERE rack_id = r.id) as device_count,
-          (SELECT COALESCE(SUM(end_u - start_u + 1), 0) FROM dc_rack_slots WHERE rack_id = r.id) as used_u,
-          rm.current_temperature, rm.current_humidity
-        FROM dc_racks r
-        LEFT JOIN dc_rooms rm ON r.room_id = rm.id
-        ORDER BY rm.sort_order, r.sort_order
-      `).all() as any[];
-
-      const realSlotData = db.prepare(`
-        SELECT s.*,
-          COALESCE(ser.name, nd.name, vm.name) as device_name,
-          CASE WHEN ser.enabled = 1 THEN 'online' ELSE 'offline' END as server_status,
-          COALESCE(ser.ip_address, nd.ip_address, '') as ip_address,
-          NULL as cpu_usage, NULL as memory_usage, NULL as disk_usage,
-          ser.cpu_cores, (ser.memory_gb * 1000) as memory_mb,
-          nd.status as net_status,
-          vm.status as vm_status
-        FROM dc_rack_slots s
-        LEFT JOIN servers ser ON s.device_type='server' AND s.device_id = ser.id
-        LEFT JOIN network_devices nd ON s.device_type='network_device' AND s.device_id = nd.id
-        LEFT JOIN virtual_machines vm ON s.device_type='vm_host' AND s.device_id = vm.id
-      `).all() as any[];
-
-      // 需要补充的虚拟机柜数量
-      const virtualNeeded = MOCK_TARGET - realRackCount;
-
-      // 从 mock 中取 virtualNeeded 个机柜（从末尾取，避免序号冲突）
-      const mockRacks = (mock as any).racks || [];
-      const mockSlots = (mock as any).slots || [];
-      const mockRooms = (mock as any).rooms || [];
-
-      // 取最后 virtualNeeded 个机柜
-      const virtualRacks = mockRacks.slice(-virtualNeeded);
-      const virtualRackIds = new Set(virtualRacks.map((r: any) => r.id));
-
-      // 这些虚拟机柜所属的房间
-      const virtualRoomIds = new Set(virtualRacks.map((r: any) => r.room_id));
-      const virtualRooms = mockRooms.filter((rm: any) => virtualRoomIds.has(rm.id));
-
-      // 这些虚拟机柜下的 slots
-      const virtualSlots = mockSlots.filter((s: any) => virtualRackIds.has(s.rack_id));
-
-      // 合并真实+虚拟房间（去重）
-      const allRoomIds = new Set<string>();
-      dataRooms = [...realRooms];
-      for (const r of realRooms) allRoomIds.add(r.id);
-      for (const vr of virtualRooms) {
-        if (!allRoomIds.has(vr.id)) {
-          dataRooms.push({
-            ...vr,
-            current_temperature: dataRooms.length === 0 && vr === mockRooms[0] ? 24.5 : 25.0,
-            current_humidity: dataRooms.length === 0 && vr === mockRooms[0] ? 45 : 48,
-          });
-          allRoomIds.add(vr.id);
-        }
-      }
-
-      // 合并真实+虚拟机柜
-      rackData = [...realRackData];
-      for (const vr of virtualRacks) {
-        const room = dataRooms.find((rm: any) => rm.id === vr.room_id);
-        rackData.push({
-          ...vr,
-          room_name: room?.name || '',
-          room_label: room?.label || '',
-        });
-      }
-
-      // 合并真实+虚拟 slots
-      allSlots = [...realSlotData, ...virtualSlots];
-
-      // 计算各房间统计
-      const rackCounts: Record<string, number> = {};
-      const roomDeviceCounts: Record<string, number> = {};
-      for (const rack of rackData) {
-        rackCounts[rack.room_id] = (rackCounts[rack.room_id] || 0) + 1;
-      }
-      for (const slot of allSlots) {
-        const r = rackData.find((rk: any) => rk.id === slot.rack_id);
-        if (r) {
-          roomDeviceCounts[r.room_id] = (roomDeviceCounts[r.room_id] || 0) + 1;
-        }
-      }
-      dataRooms = dataRooms.map((rm: any) => ({
-        ...rm,
-        rack_count: rackCounts[rm.id] || 0,
-        device_count: roomDeviceCounts[rm.id] || 0,
-      }));
+    const rackCounts: Record<string, number> = {};
+    const roomDeviceCounts: Record<string, number> = {};
+    for (const rack of rackData as any[]) {
+      rackCounts[rack.room_id] = (rackCounts[rack.room_id] || 0) + 1;
     }
-
-    // ===== 3. 告警统计（仅真实数据有效） =====
-    let rackAlertCounts: Record<string, number> = {};
-    if (!isMock && !isPartialMock) {
-      const slotsWithAlerts = db.prepare(`
-        SELECT s.rack_id, a.id as alert_id, a.severity, a.status
-        FROM dc_rack_slots s
-        JOIN alerts a ON s.device_id = a.source
-        WHERE a.status != 'resolved'
-      `).all() as any[];
-      for (const sa of slotsWithAlerts) {
-        rackAlertCounts[sa.rack_id] = (rackAlertCounts[sa.rack_id] || 0) + 1;
+    for (const slot of allSlots as any[]) {
+      const r = (rackData as any[]).find((rk: any) => rk.id === slot.rack_id);
+      if (r) {
+        roomDeviceCounts[r.room_id] = (roomDeviceCounts[r.room_id] || 0) + 1;
       }
+    }
+    const dataRooms = realRooms.map((rm: any) => ({
+      ...rm,
+      rack_count: rackCounts[rm.id] || 0,
+      device_count: roomDeviceCounts[rm.id] || 0,
+    }));
+
+    // ===== 3. 告警统计 =====
+    const rackAlertCounts: Record<string, number> = {};
+    const slotsWithAlerts = db.prepare(`
+      SELECT s.rack_id, a.id as alert_id, a.severity, a.status
+      FROM dc_rack_slots s
+      JOIN alerts a ON s.device_id = a.source
+      WHERE a.status != 'resolved'
+    `).all() as any[];
+    for (const sa of slotsWithAlerts) {
+      rackAlertCounts[sa.rack_id] = (rackAlertCounts[sa.rack_id] || 0) + 1;
     }
 
     const finalRackCount = rackData.length;
@@ -947,21 +610,10 @@ router.get('/overview', (_req: Request, res: Response) => {
       s.server_status === 'critical'
     ).length;
 
-    // Power/PUE: 混合模式下基于实际数据计算
-    let totalPower, coolingPower, itPower, pue;
-    if (isMock) {
-      totalPower = 285.6; coolingPower = 128.3; itPower = 157.3; pue = 1.45;
-    } else if (isPartialMock) {
-      totalPower = finalDeviceCount * 0.28;
-      itPower = finalDeviceCount * 0.17;
-      coolingPower = finalDeviceCount * 0.11;
-      pue = 1.48;
-    } else {
-      totalPower = finalDeviceCount * 0.3;
-      itPower = finalDeviceCount * 0.18;
-      coolingPower = finalDeviceCount * 0.12;
-      pue = 1.5;
-    }
+    const totalPower = finalDeviceCount * 0.3;
+    const itPower = finalDeviceCount * 0.18;
+    const coolingPower = finalDeviceCount * 0.12;
+    const pue = 1.5;
 
     const avgTemp = dataRooms.length > 0
       ? (dataRooms as any[]).reduce((s: number, r: any) => s + (r.current_temperature || 24), 0) / dataRooms.length
@@ -994,8 +646,6 @@ router.get('/overview', (_req: Request, res: Response) => {
           alert_count: rackAlertCounts[r.id] || 0,
         })),
         slotData: allSlots,
-        isMock: isMock || isPartialMock,
-        isPartialMock,
       }
     });
   } catch (error: any) {

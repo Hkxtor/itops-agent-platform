@@ -20,29 +20,6 @@ interface SlotInfo {
 
 const RACK_W = 2.3, RACK_D = 2.2, PER_U = 0.04445, GAP_X = 2.2, GAP_Z = 4.0;
 
-/* ========== Mock 默认数据 ========== */
-const MOCK_OVERVIEW = {
-  summary: { totalDevices: 1248, onlineDevices: 1186, alertDevices: 42, offlineDevices: 20, avgTemp: 24.5, avgHumidity: 45, totalRacks: 8 },
-  pue: 1.45, totalPower: 285.6, coolingPower: 128.3, itPower: 157.3,
-};
-const MOCK_RACKS: Rack3D[] = [
-  { id:'mr-0', name:'A-01', roomName:'主数据中心', roomLabel:'A区', row:1, totalU:42, usedU:24, deviceCount:8, alertCount:0, deviceStatus:'normal' },
-  { id:'mr-1', name:'A-02', roomName:'主数据中心', roomLabel:'A区', row:1, totalU:42, usedU:30, deviceCount:10, alertCount:0, deviceStatus:'normal' },
-  { id:'mr-2', name:'A-03', roomName:'主数据中心', roomLabel:'A区', row:1, totalU:42, usedU:38, deviceCount:12, alertCount:2, deviceStatus:'warning' },
-  { id:'mr-3', name:'A-04', roomName:'主数据中心', roomLabel:'A区', row:1, totalU:42, usedU:18, deviceCount:6, alertCount:0, deviceStatus:'normal' },
-  { id:'mr-4', name:'B-01', roomName:'灾备中心', roomLabel:'B区', row:1, totalU:42, usedU:22, deviceCount:7, alertCount:0, deviceStatus:'normal' },
-  { id:'mr-5', name:'B-02', roomName:'灾备中心', roomLabel:'B区', row:1, totalU:42, usedU:32, deviceCount:9, alertCount:1, deviceStatus:'warning' },
-  { id:'mr-6', name:'B-03', roomName:'灾备中心', roomLabel:'B区', row:1, totalU:42, usedU:14, deviceCount:5, alertCount:0, deviceStatus:'normal' },
-  { id:'mr-7', name:'B-04', roomName:'灾备中心', roomLabel:'B区', row:1, totalU:42, usedU:22, deviceCount:7, alertCount:0, deviceStatus:'normal' },
-];
-const MOCK_ALERTS = [
-  { time:'14:32:15', msg:'A-03 机柜温度过高 (45°C)', type:'error' },
-  { time:'14:28:42', msg:'B-07 服务器CPU使用率95%', type:'warn' },
-  { time:'14:25:10', msg:'A-12 机柜磁盘空间不足', type:'warn' },
-  { time:'14:20:33', msg:'B-02 网络延迟异常 (120ms)', type:'warn' },
-  { time:'14:15:08', msg:'UPS-01 电池电量低于20%', type:'error' },
-];
-
 export default function DataRoom3D() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -54,11 +31,11 @@ export default function DataRoom3D() {
   const raycaster = useRef(new THREE.Raycaster());
 
   const [racks, setRacks] = useState<Rack3D[]>([]);
-  const [overview, setOverview] = useState<any>(MOCK_OVERVIEW);
+  const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isReal, setIsReal] = useState(false);
-  const [alerts] = useState(MOCK_ALERTS);
-  const [alertsList, setAlertsList] = useState(MOCK_ALERTS);
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alertsList, setAlertsList] = useState<any[]>([]);
   const [selectedRack, setSelectedRack] = useState<Rack3D | null>(null);
   const [rackSlots, setRackSlots] = useState<SlotInfo[]>([]);
   const [rackSlotsMap, setRackSlotsMap] = useState<Record<string, SlotInfo[]>>({});
@@ -124,10 +101,10 @@ export default function DataRoom3D() {
             deviceStatus: (r.alert_count||0)>0?'warning':'normal',
           })));
         } else {
-          setRacks(MOCK_RACKS);
+          setRacks([]);
         }
       } catch {
-        setRacks(MOCK_RACKS);
+        setRacks([]);
       } finally { setLoading(false); }
     };
     load();
@@ -661,7 +638,7 @@ export default function DataRoom3D() {
     </div>
   );}
 
-  const summary = overview?.summary || MOCK_OVERVIEW.summary;
+  const summary = overview?.summary || { totalDevices: 0, onlineDevices: 0, alertDevices: 0, offlineDevices: 0, avgTemp: 0, avgHumidity: 0, totalRacks: 0 };
 
   return (
     <div className="relative w-full h-full bg-[#0a0f1a] overflow-hidden">
@@ -682,58 +659,70 @@ export default function DataRoom3D() {
       {/* 数据模式标识 */}
       <div className="absolute top-2 left-2 z-20">
         <span className={`text-[10px] px-2 py-0.5 rounded ${isReal ? 'bg-green-500/10 border border-green-500/30 text-green-400' : 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400'}`}>
-          {isReal ? '📡 实时数据' : '🎮 模拟数据'}
+          {isReal ? '📡 实时数据' : '📦 无数据'}
         </span>
       </div>
 
+      {/* 空数据覆盖层 */}
+      {!isReal && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+          <div className="text-center bg-[#0a0e1a]/80 backdrop-blur border border-cyan-500/20 rounded-2xl px-8 py-6">
+            <div className="text-4xl mb-3">🏢</div>
+            <h3 className="text-lg font-bold text-white mb-2">暂无数据中心资产</h3>
+            <p className="text-sm text-text-secondary mb-4">请先在数据中心管理中添加机房和机柜</p>
+            <a href="/dc-manage" className="inline-block px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg text-white text-sm pointer-events-auto hover:opacity-90 transition-opacity">
+              前往数据中心管理
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* 右上角状态 */}
-      <div className="absolute top-2 right-2 z-20 flex items-center gap-3">
+      <div className="absolute top-2 right-[120px] z-20 flex items-center gap-3">
         <div className="flex items-center gap-1.5 bg-[#0a0e1a]/80 backdrop-blur border border-cyan-500/15 rounded-full px-3 py-1">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-xs text-green-400">系统运行正常</span>
+          <span className="text-[10px] text-green-400">系统正常</span>
         </div>
-        <span className="text-[11px] text-gray-500">{uptime}</span>
       </div>
 
       {/* 顶部标题 */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap">
-        <h1 className="text-lg font-bold tracking-[5px] bg-gradient-to-r from-cyan-400 via-white to-green-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(0,150,255,0.3)] animate-gradient">
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap">
+        <h1 className="text-base font-bold tracking-[5px] bg-gradient-to-r from-cyan-400 via-white to-green-400 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(0,150,255,0.3)] animate-gradient">
           ◆ 机房数字孪生监控平台 ◆
         </h1>
       </div>
 
       {/* 时间 */}
-      <div className="absolute top-12 left-2 z-20 text-[11px] text-gray-500 font-mono">
+      <div className="absolute top-10 left-2 z-20 text-[10px] text-text-tertiary font-mono">
         {timeStr} · ☀ 25°C 晴朗
       </div>
 
-      {/* 指标行 — 跟 Demo 一模一样的 10 个指标 */}
-      <div className="absolute bottom-[180px] left-3 right-3 z-20">
-        <div className="grid grid-cols-10 gap-1.5">
+      {/* 底部紧凑指标条 */}
+      <div className="absolute bottom-3 left-3 right-3 z-20">
+        <div className="grid grid-cols-10 gap-1">
           {[
-            { icon:'⚡', label:'PUE', value: (overview?.pue || MOCK_OVERVIEW.pue).toFixed(2), color:'text-cyan-400' },
-            { icon:'🔌', label:'总功耗', value: `${(overview?.totalPower || MOCK_OVERVIEW.totalPower).toFixed(1)} kW`, color:'' },
-            { icon:'❄', label:'制冷功耗', value: `${(overview?.coolingPower || MOCK_OVERVIEW.coolingPower).toFixed(1)} kW`, color:'text-cyan-400' },
-            { icon:'💻', label:'IT功耗', value: `${(overview?.itPower || MOCK_OVERVIEW.itPower).toFixed(1)} kW`, color:'' },
-            { icon:'🌡', label:'平均温度', value: `${(summary.avgTemp||24.5).toFixed(1)}°C`, color:'text-green-400' },
-            { icon:'💧', label:'平均湿度', value: `${summary.avgHumidity||45}%`, color:'text-cyan-400' },
-            { icon:'🖥', label:'设备总数', value: (summary.totalDevices||1248).toLocaleString(), color:'' },
-            { icon:'✅', label:'在线', value: (summary.onlineDevices||1186).toLocaleString(), color:'text-green-400' },
-            { icon:'⚠', label:'告警', value: summary.alertDevices||42, color:'text-orange-400' },
-            { icon:'❌', label:'离线', value: summary.offlineDevices||20, color:'text-red-400' },
+            { icon:'⚡', label:'PUE', value: (overview?.pue || 0).toFixed(2), color:'text-cyan-400' },
+            { icon:'🔌', label:'功耗', value: `${(overview?.totalPower || 0).toFixed(1)}kW`, color:'' },
+            { icon:'❄', label:'制冷', value: `${(overview?.coolingPower || 0).toFixed(1)}kW`, color:'text-cyan-400' },
+            { icon:'💻', label:'IT', value: `${(overview?.itPower || 0).toFixed(1)}kW`, color:'' },
+            { icon:'🌡', label:'温度', value: `${(summary.avgTemp||24.5).toFixed(1)}°C`, color:'text-green-400' },
+            { icon:'💧', label:'湿度', value: `${summary.avgHumidity||45}%`, color:'text-cyan-400' },
+            { icon:'🖥', label:'设备', value: (summary.totalDevices||0).toLocaleString(), color:'' },
+            { icon:'✅', label:'在线', value: (summary.onlineDevices||0).toLocaleString(), color:'text-green-400' },
+            { icon:'⚠', label:'告警', value: summary.alertDevices||0, color:'text-orange-400' },
+            { icon:'❌', label:'离线', value: summary.offlineDevices||0, color:'text-red-400' },
           ].map((m,i) => (
-            <div key={i} className="bg-[#0a0e1a]/60 backdrop-blur border border-cyan-500/10 rounded-lg py-1.5 px-2 text-center">
-              <div className="text-sm">{m.icon}</div>
-              <div className="text-[9px] text-gray-500 uppercase tracking-[0.5px]">{m.label}</div>
-              <div className={`text-sm font-bold ${m.color || 'text-gray-100'}`}>{m.value}</div>
+            <div key={i} className="bg-[#0a0e1a]/70 backdrop-blur border border-cyan-500/10 rounded-md py-1 px-1 text-center">
+              <div className="text-[10px] leading-tight">{m.icon}</div>
+              <div className={`text-xs font-bold ${m.color || 'text-gray-200'}`}>{m.value}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 操作提示 */}
-      <div className="absolute bottom-2 left-3 z-20 bg-[#0a0e1a]/70 backdrop-blur border border-gray-800 rounded-lg px-2.5 py-1.5 text-[10px] text-gray-500">
-        <div>🖱 左键旋转 滚轮缩放 右键平移  |  👆 点击机柜查看设备</div>
+      {/* 操作提示 — 精简 */}
+      <div className="absolute bottom-[52px] left-3 z-20 bg-[#0a0e1a]/70 backdrop-blur border border-gray-800 rounded px-2 py-0.5 text-[9px] text-text-tertiary">
+        🖱 旋转/缩放/平移 | 👆 点击机柜
       </div>
 
       {/* 实时告警条 - 底部 */}
@@ -747,8 +736,8 @@ export default function DataRoom3D() {
           <div className="animate-scroll-up flex gap-4 items-center h-full">
             {alertsList.map((a,i) => (
               <span key={i} className="text-[11px] whitespace-nowrap">
-                <span className="text-gray-500">{a.time}</span>
-                <span className="text-gray-600 mx-1">|</span>
+                <span className="text-text-tertiary">{a.time}</span>
+                <span className="text-text-tertiary mx-1">|</span>
                 <span className={a.type==='error'?'text-red-400':a.type==='warn'?'text-orange-400':'text-cyan-400'}>{a.msg}</span>
               </span>
             ))}
@@ -766,7 +755,7 @@ export default function DataRoom3D() {
                   <span className={`inline-block w-2 h-2 rounded-full ${selectedRack.alertCount>0?'bg-red-500':'bg-green-500'}`} />
                   {selectedRack.name}
                 </h3>
-                <p className="text-[10px] text-gray-500 mt-0.5">{selectedRack.roomName || selectedRack.roomLabel}</p>
+                <p className="text-[10px] text-text-tertiary mt-0.5">{selectedRack.roomName || selectedRack.roomLabel}</p>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-400">
                 <span>已用 {selectedRack.usedU}/{selectedRack.totalU}U</span>
@@ -789,7 +778,7 @@ export default function DataRoom3D() {
                           <div key={u} className="flex items-center px-2 py-0.5 rounded text-xs hover:bg-gray-800/60 border border-transparent hover:border-gray-700/50 cursor-pointer"
                             style={{height:`${Math.max(h*28,28)}px`}}
                             onClick={() => navigate(`/dc-manage?tab=slots&rack=${selectedRack.id}&startU=${slot.startU}&endU=${slot.endU}&deviceName=${encodeURIComponent(slot.deviceName)}`)}>
-                            <span className="w-10 text-[10px] text-gray-500 font-mono shrink-0">U{slot.startU}</span>
+                            <span className="w-10 text-[10px] text-text-tertiary font-mono shrink-0">U{slot.startU}</span>
                             <span className={`px-1 text-[10px] ${slot.deviceType==='server'?'text-blue-400':'text-purple-400'}`}>
                               {slot.deviceType==='server'?'🖥':'🌐'}
                             </span>
@@ -797,7 +786,7 @@ export default function DataRoom3D() {
                             <span className={`ml-auto text-[10px] px-1 py-0.5 rounded ${
                               slot.deviceStatus==='online'||slot.deviceStatus==='normal'?'bg-green-500/20 text-green-400':
                               slot.deviceStatus==='warning'?'bg-yellow-500/20 text-yellow-400':
-                              'bg-gray-500/20 text-gray-400'
+                              'bg-gray-500/20 text-text-secondary'
                             }`}>{slot.deviceStatus||'未知'}</span>
                           </div>
                         );

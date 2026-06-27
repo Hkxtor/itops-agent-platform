@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { dockerService } from '../services/dockerService';
 import { logger } from '../utils/logger';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -40,7 +41,7 @@ router.get('/containers', async (req: Request, res: Response) => {
 });
 
 // 获取容器详情
-router.get('/containers/:id', async (req: Request, res: Response) => {
+router.get('/containers/:id', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const container = await dockerService.getContainer(req.params.id);
     res.json({ success: true, data: container });
@@ -51,7 +52,7 @@ router.get('/containers/:id', async (req: Request, res: Response) => {
 });
 
 // 启动容器
-router.post('/containers/:id/start', async (req: Request, res: Response) => {
+router.post('/containers/:id/start', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     await dockerService.startContainer(req.params.id);
     res.json({ success: true, message: 'Container started successfully' });
@@ -112,7 +113,7 @@ router.get('/containers/:id/logs', async (req: Request, res: Response) => {
 });
 
 // 获取容器统计信息
-router.get('/containers/:id/stats', async (req: Request, res: Response) => {
+router.get('/containers/:id/stats', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const stats = await dockerService.getContainerStats(req.params.id);
     res.json({ success: true, data: stats });
@@ -134,7 +135,7 @@ router.post('/containers/:id/pause', async (req: Request, res: Response) => {
 });
 
 // 恢复容器
-router.post('/containers/:id/unpause', async (req: Request, res: Response) => {
+router.post('/containers/:id/unpause', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     await dockerService.unpauseContainer(req.params.id);
     res.json({ success: true, message: 'Container unpaused successfully' });
@@ -174,7 +175,7 @@ router.post('/images/pull', async (req: Request, res: Response) => {
 });
 
 // 删除镜像
-router.delete('/images/:id', async (req: Request, res: Response) => {
+router.delete('/images/:id', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const force = req.query.force === 'true';
     const noprune = req.query.noprune === 'true';
@@ -200,7 +201,7 @@ router.get('/images/:id', async (req: Request, res: Response) => {
 // ==================== 卷管理 API ====================
 
 // 获取卷列表
-router.get('/volumes', async (_req: Request, res: Response) => {
+router.get('/volumes', requireRole('admin', 'operator'), async (_req: Request, res: Response) => {
   try {
     const volumes = await dockerService.listVolumes();
     res.json({ success: true, data: volumes });
@@ -239,7 +240,7 @@ router.delete('/volumes/:name', async (req: Request, res: Response) => {
 });
 
 // 获取卷详情
-router.get('/volumes/:name', async (req: Request, res: Response) => {
+router.get('/volumes/:name', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const volume = await dockerService.getVolume(req.params.name);
     res.json({ success: true, data: volume });
@@ -279,7 +280,7 @@ router.post('/networks', async (req: Request, res: Response) => {
 });
 
 // 删除网络
-router.delete('/networks/:id', async (req: Request, res: Response) => {
+router.delete('/networks/:id', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     await dockerService.removeNetwork(req.params.id);
     res.json({ success: true, message: 'Network removed successfully' });
@@ -317,7 +318,7 @@ router.post('/networks/:id/connect', async (req: Request, res: Response) => {
 });
 
 // 将容器从网络断开
-router.post('/networks/:id/disconnect', async (req: Request, res: Response) => {
+router.post('/networks/:id/disconnect', requireRole('admin', 'operator'), async (req: Request, res: Response) => {
   try {
     const { containerId } = req.body;
     if (!containerId) {
@@ -335,7 +336,7 @@ router.post('/networks/:id/disconnect', async (req: Request, res: Response) => {
 // ==================== 系统信息 API ====================
 
 // 获取 Docker 系统信息
-router.get('/info', async (_req: Request, res: Response) => {
+router.get('/info', requireRole('admin', 'operator'), async (_req: Request, res: Response) => {
   try {
     const info = await dockerService.getSystemInfo();
     res.json({ success: true, data: info });
@@ -346,7 +347,7 @@ router.get('/info', async (_req: Request, res: Response) => {
 });
 
 // 获取 Docker 版本信息
-router.get('/version', async (_req: Request, res: Response) => {
+router.get('/version', requireRole('admin', 'operator'), async (_req: Request, res: Response) => {
   try {
     const version = await dockerService.getVersion();
     res.json({ success: true, data: version });

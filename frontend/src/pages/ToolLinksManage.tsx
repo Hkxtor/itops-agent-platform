@@ -292,7 +292,7 @@ export default function ToolLinksManage() {
                       <span className="text-xs text-text-tertiary truncate max-w-[200px] block">{tool.url}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300">{tool.category}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700/50 text-text-primary">{tool.category}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

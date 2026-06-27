@@ -488,6 +488,16 @@ router.post('/tencent', (req: Request, res: Response) => {
 router.post('/auto', (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    if (!verifyWebhookSignature(req, 'auto')) {
+      createAuditLog({
+        action: 'webhook_signature_failed',
+        resource_type: 'webhook',
+        details: { source: 'auto', ip: req.ip },
+      });
+      logWebhookInvocation('auto', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
+      return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
+    }
+
     const detectedType = detectSourceType(req.body);
     logger.info(`Auto-detected alert source: ${detectedType}`);
 

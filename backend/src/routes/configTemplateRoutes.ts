@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../models/database';
 import crypto from 'crypto';
+import { requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -68,7 +69,7 @@ router.put('/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /:id
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     db.prepare('DELETE FROM config_templates WHERE id = ?').run(req.params.id);
     res.json({ success: true });
@@ -96,7 +97,7 @@ router.post('/:id/render', (req: Request, res: Response) => {
 });
 
 // POST /:id/apply — 应用到目标
-router.post('/:id/apply', (req: Request, res: Response) => {
+router.post('/:id/apply', requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const tmpl = db.prepare('SELECT * FROM config_templates WHERE id = ?').get(req.params.id) as any;
     if (!tmpl) return res.status(404).json({ success: false, message: '未找到' });
