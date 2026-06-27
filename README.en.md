@@ -4,7 +4,7 @@
 
 **Important License Change Notice (2026-05-27)**
 
-Effective May 27, 2026, all new code submissions are open-sourced under the **Mozilla Public License 2.0 (MPL-2.0)**. Code submitted before 16:00, May 27, 2026 remains under the original MIT license. Closed-source derivative works, packaged sales, and SaaS operations are prohibited. This project is permanently open-source. It belongs to the thousands of dedicated ops engineers, not a single company.
+Effective May 27, 2026, all new code submissions are open-sourced under the **Mozilla Public License 2.0 (MPL-2.0)**. Code submitted before 16:00, May 27, 2026 remains under the original MIT license. Closed-source derivative works, packaged sales, and SaaS operations are prohibited. This project is permanently open-source. It belongs to thousands of engineers who embrace the open-source spirit, not a single company.
 
 👤 Author: Tan Ce | IT Online
 
