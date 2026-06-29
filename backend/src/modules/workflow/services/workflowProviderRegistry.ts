@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
-import { executeCommand } from '../../servers/services/sshService.ts';
+import { executeCommand } from '../../servers/services/sshService';
 import db from '../../../models/database';
-import { notificationService } from '../../infra/services/notificationService.ts';
+import { notificationService } from '../../infra/services/notificationService';
 
 /**
  * 工作流 Provider 接口

@@ -1,5 +1,5 @@
 import { logger } from '../../../utils/logger';
-import { dockerService } from '../../containers/services/dockerService.ts';
+import { dockerService } from '../../containers/services/dockerService';
 import { db } from '../../../models/database';
 
 interface CostItem {

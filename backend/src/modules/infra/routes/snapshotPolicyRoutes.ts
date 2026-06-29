@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { vmSnapshotSchedulerService } from '../../containers/services/vmSnapshotSchedulerService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { vmSnapshotSchedulerService } from '../../containers/services/vmSnapshotSchedulerService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

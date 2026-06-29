@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { registryService } from '../services/registryService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { registryService } from '../services/registryService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

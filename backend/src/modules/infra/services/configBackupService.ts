@@ -3,8 +3,8 @@ import { createHash } from 'crypto';
 import { Client } from 'ssh2';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { createVendorAdapter, VendorType } from '../../network/services/vendorAdapter.ts';
-import { decrypt } from '../../auth/services/encryptionService.ts';
+import { createVendorAdapter, VendorType } from '../../network/services/vendorAdapter';
+import { decrypt } from '../../auth/services/encryptionService';
 
 // ================================================================
 // 网络设备配置备份与对比服务
@@ -131,7 +131,7 @@ class ConfigBackupService {
   /**
    * 获取设备备份历史
    */
-  getBackupHistory(deviceId: string, limit: number = 30): ConfigBackup[] {
+  getBackupHistory(deviceId: string, limit = 30): ConfigBackup[] {
     return db.prepare(`
       SELECT cb.*, nd.name as device_name
       FROM network_config_backups cb
@@ -306,7 +306,7 @@ class ConfigBackupService {
   /**
    * 列出备份列表（通用版本，供 configRepairRoutes 调用）
    */
-  listBackups(deviceId: string, configPath?: string, limit: number = 20): ConfigBackup[] {
+  listBackups(deviceId: string, configPath?: string, limit = 20): ConfigBackup[] {
     return db.prepare(`
       SELECT cb.*, nd.name as device_name
       FROM network_config_backups cb
@@ -358,7 +358,7 @@ class ConfigBackupService {
   /**
    * 通过 SSH 在网络设备上执行命令并返回输出
    */
-  private executeSSHCommand(host: string, port: number, username: string, password: string, command: string, timeout: number = 30000): Promise<string> {
+  private executeSSHCommand(host: string, port: number, username: string, password: string, command: string, timeout = 30000): Promise<string> {
     return new Promise((resolve, reject) => {
       const conn = new Client();
       let isResolved = false;

@@ -7,8 +7,8 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { BaseVMAdapter } from './vmAdapter.ts';
-import {
+import { BaseVMAdapter } from './vmAdapter';
+import type {
   VirtualMachine,
   VMStats,
   VMSnapshot,
@@ -680,7 +680,7 @@ export class KVMAdapter extends BaseVMAdapter {
 
       let maxMemKB = 0;
       let usedMemKB = 0;
-      let vcpus = 0;
+      const vcpus = 0;
       for (const line of dominfo.split('\n')) {
         if (line.includes('Max memory:')) {
           maxMemKB = parseInt(line.replace(/\D/g, '')) || 0;

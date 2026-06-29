@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { backupService } from '../services/backupService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { backupService } from '../services/backupService';
 import { logger } from '../../../utils/logger';
 import { requireRole } from '../../../middleware/auth';
 import multer from 'multer';

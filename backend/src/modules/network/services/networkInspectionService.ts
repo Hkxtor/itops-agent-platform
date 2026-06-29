@@ -2,10 +2,12 @@ import { Client } from 'ssh2';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { createVendorAdapter, VendorType, InspectionType, CommandTemplate } from './vendorAdapter.ts';
-import { getParser, ParsedResult } from './networkResultParser.ts';
-import { decrypt } from '../../auth/services/encryptionService.ts';
-import { networkCommandGenerator } from './networkCommandGenerator.ts';
+import type { VendorType, InspectionType} from './vendorAdapter';
+import { createVendorAdapter, CommandTemplate } from './vendorAdapter';
+import type { ParsedResult } from './networkResultParser';
+import { getParser } from './networkResultParser';
+import { decrypt } from '../../auth/services/encryptionService';
+import { networkCommandGenerator } from './networkCommandGenerator';
 
 export interface DeviceInfo {
   id: string;
@@ -385,13 +387,13 @@ class NetworkInspectionService {
         }
 
         stdin = stream;
-        let cmdQueue = [...commands];   // 待发送的命令队列
+        const cmdQueue = [...commands];   // 待发送的命令队列
         let currentCmd = '';            // 当前正在执行的命令
         let cmdIndex = 0;               // 命令索引
         let paginationCount = 0;        // 分页按空格计数
         let initPhase = true;           // 初始化阶段（先发 screen-length）
         let initSent = false;
-        let angularBracketCount = 0;    // 尖括号计数，用于判断是否收到提示符
+        const angularBracketCount = 0;    // 尖括号计数，用于判断是否收到提示符
 
         // 准备初始化命令（关闭分页）
         const initCmd = device.vendor === 'huawei'

@@ -12,7 +12,7 @@
 
 import db from '../../../../../models/database';
 import { logger } from '../../../../../utils/logger';
-import type { ScheduledTaskConfig, PriorityLevel, ResourceConstraints } from '../types.ts';
+import type { ScheduledTaskConfig, PriorityLevel, ResourceConstraints } from '../types';
 
 interface ScheduledTask extends ScheduledTaskConfig {
   resolve: (value: void) => void;

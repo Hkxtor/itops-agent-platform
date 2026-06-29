@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { getDatabaseStats, getTableIndexes, getQuerySuggestions, performMaintenance } from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import { requireRole } from '../../../middleware/auth';

@@ -16,10 +16,10 @@
  */
 
 import { randomUUID } from 'crypto';
-import db from '../../../models/database';
-import { logger } from '../../../utils/logger';
-import { executeWorkflow } from '../../workflow/services/workflowExecutor.ts';
-import { WorkflowNode, WorkflowEdge, WorkflowParsed } from '../../../types';
+import db from '../../../../models/database';
+import { logger } from '../../../../utils/logger';
+import { executeWorkflow } from '../../../workflow/services/workflowExecutor';
+import type { WorkflowNode, WorkflowEdge, WorkflowParsed } from '../../../../types';
 
 interface AiRemediationInput {
   alertId: string;
@@ -584,7 +584,7 @@ ${commandsText}
   }
 
   /** 获取所有修复记录 */
-  listRecords(limit: number = 50): AiRemediationRecord[] {
+  listRecords(limit = 50): AiRemediationRecord[] {
     this.ensureTable();
     const rows = db.prepare('SELECT * FROM ai_remediations ORDER BY created_at DESC LIMIT ?').all(limit) as any[];
     return rows.map(row => ({

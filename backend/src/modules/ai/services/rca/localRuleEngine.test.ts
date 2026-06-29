@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-vi.mock('../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
-import { localRuleEngine } from './localRuleEngine.ts';
+vi.mock('../../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
+import { localRuleEngine } from './localRuleEngine';
 describe('localRuleEngine', () => {
   beforeEach(() => { vi.clearAllMocks(); });
   it('should be defined', () => { expect(localRuleEngine).toBeDefined(); });

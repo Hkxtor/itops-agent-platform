@@ -9,7 +9,7 @@ import { scheduleJob } from 'node-schedule';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import { env } from '../../../utils/env';
-import { gracefulRestart } from './restartService.ts';
+import { gracefulRestart } from './restartService';
 
 // AES-256-GCM 加密配置（用于备份文件加密，带认证标签）
 const BACKUP_ENC_MAGIC = Buffer.from('ITP_ENC_V2');  // 文件头标记

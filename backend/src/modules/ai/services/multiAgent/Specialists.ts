@@ -1,12 +1,14 @@
 import { logger } from '../../../../utils/logger';
-import { callDoubaoAPI } from '../llmService.ts';
-import { executeAgentNode } from '../agentExecutor.ts';
-import { SpecialistBase } from './SpecialistBase.ts';
-import {
-  SpecialistDomain,
+import { callDoubaoAPI } from '../llm/llmService';
+import { executeAgentNode } from '../agents/agentExecutor';
+import { SpecialistBase } from './SpecialistBase';
+import type {
   TaskContext,
   ExecutionResult
-} from './types.ts';
+} from './types';
+import {
+  SpecialistDomain
+} from './types';
 
 /**
  * 告警处理 Specialist

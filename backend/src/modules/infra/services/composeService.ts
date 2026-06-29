@@ -255,7 +255,7 @@ class ComposeService {
   /**
    * docker compose logs
    */
-  async getLogs(projectId: string, tail: number = 100): Promise<string> {
+  async getLogs(projectId: string, tail = 100): Promise<string> {
     const project = this.getProject(projectId);
     if (!project) throw new Error('项目不存在');
 

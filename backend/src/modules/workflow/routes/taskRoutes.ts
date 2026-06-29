@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
-import { executeWorkflow } from '../services/workflowExecutor.ts';
-import { WorkflowParsed } from '../../../types';
+import { executeWorkflow } from '../services/workflowExecutor';
+import type { WorkflowParsed } from '../../../types';
 
 const router = Router();
 

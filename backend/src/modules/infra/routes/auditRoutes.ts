@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
-export { createAuditLog } from '../services/auditService.ts';
+export { createAuditLog } from '../services/auditService';
 
 const router = Router();
 

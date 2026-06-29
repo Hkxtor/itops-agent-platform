@@ -1,9 +1,10 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { db } from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import { requireRole } from '../../../middleware/auth';
-import { notificationService } from '../services/notificationService.ts';
-import { sendWeCom, sendDingTalk } from '../services/notificationChannels.ts';
+import { notificationService } from '../services/notificationService';
+import { sendWeCom, sendDingTalk } from '../services/notificationChannels';
 import nodemailer from 'nodemailer';
 
 const router = Router();

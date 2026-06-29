@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createVendorAdapter, STANDARD_INSPECTION_TYPES } from './vendorAdapter.ts';
+import { createVendorAdapter, STANDARD_INSPECTION_TYPES } from './vendorAdapter';
 
 describe('vendorAdapter', () => {
   beforeEach(() => { vi.clearAllMocks(); });

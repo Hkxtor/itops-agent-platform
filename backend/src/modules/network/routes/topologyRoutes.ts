@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { topologyService } from '../services/topologyService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { topologyService } from '../services/topologyService';
 
 const router = Router();
 

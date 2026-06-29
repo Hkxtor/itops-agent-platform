@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { randomUUID } from 'crypto';
 import path from 'path';

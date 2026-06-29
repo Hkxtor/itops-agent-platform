@@ -1,7 +1,8 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { randomUUID } from 'crypto';
-import { encrypt } from '../../auth/services/encryptionService.ts';
+import { encrypt } from '../../auth/services/encryptionService';
 import { safeError } from '../../../utils/sensitiveMask';
 import { validateBody, validateParams } from '../../../middleware/validation';
 import { serverSchemas } from '../../../shared/schemas/apiValidation';

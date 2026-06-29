@@ -1,4 +1,4 @@
-import { dockerService } from './dockerService.ts';
+import { dockerService } from './dockerService';
 import { logger } from '../../../utils/logger';
 import type { Server as SocketIOServer } from 'socket.io';
 
@@ -15,7 +15,7 @@ class ContainerMonitorService {
    * @param containerId - Docker 容器 ID
    * @param intervalMs - 采集间隔（毫秒），默认 5000
    */
-  startMonitoring(containerId: string, intervalMs: number = 5000): void {
+  startMonitoring(containerId: string, intervalMs = 5000): void {
     if (this.intervals.has(containerId)) return;
     
     logger.info(`📊 Starting container monitoring: ${containerId}`);

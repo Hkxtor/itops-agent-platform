@@ -61,7 +61,7 @@ vi.mock('../../../shared/websocket/handler.ts', () => ({
   emitToAlerts: vi.fn(),
 }));
 
-import { AlertService, AlertRule } from './alertService.ts';
+import { AlertService, AlertRule } from './alertService';
 
 describe('AlertService', () => {
   let alertService: AlertService;

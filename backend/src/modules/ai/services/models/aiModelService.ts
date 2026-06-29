@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
-import db from '../../../models/database';
-import { logger } from '../../../utils/logger';
-import { getApiKey, getModelId, getApiBase, buildApiEndpoint } from '../../../utils/apiConfig';
+import db from '../../../../models/database';
+import { logger } from '../../../../utils/logger';
+import { getApiKey, getModelId, getApiBase, buildApiEndpoint } from '../../../../utils/apiConfig';
 import axios from 'axios';
 
 export interface AIModel {
@@ -406,7 +406,7 @@ export function migrateOldConfigToAIModels(): void {
   const doubaoModel = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_MODEL') as { value: string } | undefined;
   const doubaoApiBase = db.prepare('SELECT value FROM settings WHERE key = ?').get('DOUBAO_API_BASE') as { value: string } | undefined;
   
-  if (doubaoKey && doubaoKey.value && doubaoKey.value !== 'your-doubao-api-key-here') {
+  if (doubaoKey?.value && doubaoKey.value !== 'your-doubao-api-key-here') {
     createModel({
       name: '火山引擎 (默认)',
       provider_type: 'volcengine',
@@ -422,7 +422,7 @@ export function migrateOldConfigToAIModels(): void {
   const openaiModel = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_MODEL') as { value: string } | undefined;
   const openaiApiBase = db.prepare('SELECT value FROM settings WHERE key = ?').get('OPENAI_API_BASE') as { value: string } | undefined;
   
-  if (openaiKey && openaiKey.value && openaiKey.value !== 'your-openai-api-key-here') {
+  if (openaiKey?.value && openaiKey.value !== 'your-openai-api-key-here') {
     createModel({
       name: 'OpenAI (默认)',
       provider_type: 'openai',
@@ -437,7 +437,7 @@ export function migrateOldConfigToAIModels(): void {
   const localAiApiBase = db.prepare('SELECT value FROM settings WHERE key = ?').get('LOCAL_AI_API_BASE') as { value: string } | undefined;
   const localAiModel = db.prepare('SELECT value FROM settings WHERE key = ?').get('LOCAL_AI_MODEL') as { value: string } | undefined;
   
-  if (localAiApiBase && localAiApiBase.value && localAiApiBase.value !== 'http://host.docker.internal:11434/v1') {
+  if (localAiApiBase?.value && localAiApiBase.value !== 'http://host.docker.internal:11434/v1') {
     createModel({
       name: '本地 AI (默认)',
       provider_type: 'local',

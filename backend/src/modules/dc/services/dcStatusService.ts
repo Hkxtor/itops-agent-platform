@@ -1,6 +1,6 @@
-import { Server as SocketIOServer } from 'socket.io';
+import type { Server as SocketIOServer } from 'socket.io';
 import { db } from '../../../models/database';
-import { emitToDC } from '../../../shared/websocket/handler.ts';
+import { emitToDC } from '../../../shared/websocket/handler';
 import { logger } from '../../../utils/logger';
 
 let intervalId: ReturnType<typeof setInterval> | null = null;

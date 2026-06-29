@@ -1,11 +1,12 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import {
   importServersFromCSV,
   exportServers,
   exportAlerts,
   exportAuditLogs,
   exportReports
-} from '../services/importExportService.ts';
+} from '../services/importExportService';
 import { requireRole } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
 

@@ -1,11 +1,12 @@
 import { Client } from 'ssh2';
 import db from '../../../models/database';
 import { randomUUID } from 'crypto';
-import { decrypt } from '../../auth/services/encryptionService.ts';
-import { generateCompletion } from '../../ai/services/llmService.ts';
+import { decrypt } from '../../auth/services/encryptionService';
+import { generateCompletion } from '../../ai/services/llm/llmService';
 import { withRetry, isRetryableError } from '../../../utils/retry';
 import { logger } from '../../../utils/logger';
-import { getCommandTemplates, OSType } from '../../infra/services/commandDispatcher.ts';
+import type { OSType } from '../../infra/services/commandDispatcher';
+import { getCommandTemplates } from '../../infra/services/commandDispatcher';
 
 interface ServerInfo {
   id: string;
@@ -196,7 +197,7 @@ class SSHConnectionPool {
     throw new Error(`SSH connection pool timeout: unable to acquire connection for server ${serverId} within ${timeout}ms`);
   }
 
-  release(client: Client, success: boolean = true): void {
+  release(client: Client, success = true): void {
     for (const connections of this.pool.values()) {
       for (const conn of connections) {
         if (conn.client === client) {
@@ -423,7 +424,7 @@ function logCommandHistory(
   serverId: string,
   command: string,
   result: CommandResult,
-  executedBy: string = 'system'
+  executedBy = 'system'
 ): void {
   const id = randomUUID();
   db.prepare(`
@@ -756,7 +757,7 @@ export async function runComplianceCheck(
 }
 
 // 获取合规检查历史
-export function getComplianceHistory(serverId: string, limit: number = 20): Array<{
+export function getComplianceHistory(serverId: string, limit = 20): Array<{
   id: string;
   server_id: string;
   check_name: string;
@@ -780,7 +781,7 @@ export function getComplianceHistory(serverId: string, limit: number = 20): Arra
 }
 
 // 获取命令历史
-export function getCommandHistory(serverId: string, limit: number = 50): Array<{
+export function getCommandHistory(serverId: string, limit = 50): Array<{
   id: string;
   server_id: string;
   command: string;
@@ -845,7 +846,7 @@ export async function executeCommandWithRetry(
 
 export async function testConnectionWithRetry(
   serverId: string,
-  maxRetries: number = 2
+  maxRetries = 2
 ): Promise<{ success: boolean; message: string }> {
   try {
     const result = await executeCommandWithRetry(

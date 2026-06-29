@@ -4,11 +4,12 @@
  * =============================================================================
  */
 
-import { Router, Request, Response } from 'express';
-import { alertAutoResponseService } from '../services/alertAutoResponse/alertAutoResponseService.ts';
-import { adaptiveAutomationEngine } from '../services/alertAutoResponse/adaptive/adaptiveAutomation.ts';
-import { strategyRecommender } from '../services/alertAutoResponse/adaptive/strategyRecommender.ts';
-import { resourceAwareScheduler } from '../services/alertAutoResponse/scheduler/resourceAwareScheduler.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { alertAutoResponseService } from '../services/alertAutoResponse/alertAutoResponseService';
+import { adaptiveAutomationEngine } from '../services/alertAutoResponse/adaptive/adaptiveAutomation';
+import { strategyRecommender } from '../services/alertAutoResponse/adaptive/strategyRecommender';
+import { resourceAwareScheduler } from '../services/alertAutoResponse/scheduler/resourceAwareScheduler';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
 

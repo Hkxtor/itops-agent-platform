@@ -58,6 +58,7 @@ export interface OverviewSummary {
   avgTemp: number;
   avgHumidity: number;
   totalRacks: number;
+  usedU?: number;
 }
 
 export interface OverviewData {

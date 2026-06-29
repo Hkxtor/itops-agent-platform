@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { alertCorrelationService } from '../services/alertCorrelationService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { alertCorrelationService } from '../services/alertCorrelationService';
 import { requireRole } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
 

@@ -10,13 +10,13 @@
  * =============================================================================
  */
 
-import { generateCompletion } from '../../../../ai/services/llmService.ts';
+import { generateCompletion } from '../../../../ai/services/llm/llmService';
 import db from '../../../../../models/database';
 import { logger } from '../../../../../utils/logger';
-import { strategyRecommender } from '../adaptive/strategyRecommender.ts';
-import { probeExecutor } from './probeExecutor.ts';
-import { PROBE_INDEX } from '../probeUnit.ts';
-import type { ProbeUnit, ProbeResult, DeviceRuntimeProfile } from '../types.ts';
+import { strategyRecommender } from '../adaptive/strategyRecommender';
+import { probeExecutor } from './probeExecutor';
+import { PROBE_INDEX } from '../probeUnit';
+import type { ProbeUnit, ProbeResult, DeviceRuntimeProfile } from '../types';
 
 export interface SnmpDiagnosisResult {
   probeResults: ProbeResult[];

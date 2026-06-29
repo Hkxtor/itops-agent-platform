@@ -2,12 +2,12 @@
  * Providers 模块
  */
 
-export * from './types.ts';
-export * from './ProviderRegistry.ts';
-export * from './builtins.ts';
-export * from './extended.ts';
+export * from './types';
+export * from './ProviderRegistry';
+export * from './builtins';
+export * from './extended';
 
-import { providerRegistry } from './ProviderRegistry.ts';
+import { providerRegistry } from './ProviderRegistry';
 import {
   httpProvider,
   httpMethods,
@@ -17,10 +17,10 @@ import {
   scriptMethods,
   databaseProvider,
   databaseMethods
-} from './builtins.ts';
+} from './builtins';
 import {
   registerExtendedProviders
-} from './extended.ts';
+} from './extended';
 
 /**
  * 初始化所有内置 Provider

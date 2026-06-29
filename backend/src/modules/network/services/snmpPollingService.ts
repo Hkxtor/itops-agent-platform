@@ -15,8 +15,9 @@
 
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { decrypt } from '../../auth/services/encryptionService.ts';
-import { snmpService, SnmpVersion } from './snmpService.ts';
+import { decrypt } from '../../auth/services/encryptionService';
+import type { SnmpVersion } from './snmpService';
+import { snmpService } from './snmpService';
 
 // ====================== 类型定义 ======================
 

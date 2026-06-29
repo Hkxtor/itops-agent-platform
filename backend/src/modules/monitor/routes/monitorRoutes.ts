@@ -1,7 +1,8 @@
-import { Router, Request, Response } from 'express';
-import { containerMonitorService } from '../../containers/services/containerMonitorService.ts';
-import { containerLogService } from '../../containers/services/containerLogService.ts';
-import { dockerService } from '../../containers/services/dockerService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { containerMonitorService } from '../../containers/services/containerMonitorService';
+import { containerLogService } from '../../containers/services/containerLogService';
+import { dockerService } from '../../containers/services/dockerService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

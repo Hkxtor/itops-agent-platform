@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
 import { db } from '../../../models/database';
-import { dockerService } from '../../containers/services/dockerService.ts';
+import { dockerService } from '../../containers/services/dockerService';
 
 interface ScaleRule {
   id: string;
@@ -204,7 +204,7 @@ class AutoScaleService {
     db.prepare('DELETE FROM auto_scale_rules WHERE id = ?').run(ruleId);
   }
 
-  getHistory(page: number = 1, pageSize: number = 20, ruleId?: string): { data: ScaleHistory[]; total: number } {
+  getHistory(page = 1, pageSize = 20, ruleId?: string): { data: ScaleHistory[]; total: number } {
     let where = '';
     const params: any[] = [];
     if (ruleId) { where = 'WHERE rule_id = ?'; params.push(ruleId); }

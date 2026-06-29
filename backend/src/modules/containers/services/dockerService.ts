@@ -9,7 +9,7 @@ import { logger } from '../../../utils/logger';
 
 class DockerService {
   private docker: Docker;
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     // 默认通过 /var/run/docker.sock 连接（Linux）或 npipe（Windows）
@@ -44,7 +44,7 @@ class DockerService {
   /**
    * 获取所有容器列表
    */
-  async listContainers(all: boolean = true): Promise<any[]> {
+  async listContainers(all = true): Promise<any[]> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const containers = await this.docker.listContainers({ all });
@@ -125,7 +125,7 @@ class DockerService {
   /**
    * 停止容器
    */
-  async stopContainer(id: string, timeout: number = 10): Promise<void> {
+  async stopContainer(id: string, timeout = 10): Promise<void> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const container = this.docker.getContainer(id);
@@ -136,7 +136,7 @@ class DockerService {
   /**
    * 重启容器
    */
-  async restartContainer(id: string, timeout: number = 10): Promise<void> {
+  async restartContainer(id: string, timeout = 10): Promise<void> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const container = this.docker.getContainer(id);
@@ -147,7 +147,7 @@ class DockerService {
   /**
    * 删除容器
    */
-  async removeContainer(id: string, force: boolean = false, v: boolean = false): Promise<void> {
+  async removeContainer(id: string, force = false, v = false): Promise<void> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const container = this.docker.getContainer(id);
@@ -158,7 +158,7 @@ class DockerService {
   /**
    * 获取容器日志
    */
-  async getContainerLogs(id: string, tail: number = 100, timestamps: boolean = true): Promise<string> {
+  async getContainerLogs(id: string, tail = 100, timestamps = true): Promise<string> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const container = this.docker.getContainer(id);
@@ -277,7 +277,7 @@ class DockerService {
   /**
    * 删除镜像
    */
-  async removeImage(id: string, force: boolean = false, noprune: boolean = false): Promise<void> {
+  async removeImage(id: string, force = false, noprune = false): Promise<void> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const image = this.docker.getImage(id);
@@ -329,7 +329,7 @@ class DockerService {
   /**
    * 创建卷
    */
-  async createVolume(name: string, driver: string = 'local', labels: Record<string, string> = {}): Promise<any> {
+  async createVolume(name: string, driver = 'local', labels: Record<string, string> = {}): Promise<any> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const volume = await this.docker.createVolume({
@@ -350,7 +350,7 @@ class DockerService {
   /**
    * 删除卷
    */
-  async removeVolume(name: string, force: boolean = false): Promise<void> {
+  async removeVolume(name: string, force = false): Promise<void> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const volume = this.docker.getVolume(name);
@@ -405,7 +405,7 @@ class DockerService {
   /**
    * 创建网络
    */
-  async createNetwork(name: string, driver: string = 'bridge', options: any = {}): Promise<any> {
+  async createNetwork(name: string, driver = 'bridge', options: any = {}): Promise<any> {
     if (!this.initialized) throw new Error('Docker service not available');
     
     const network = await this.docker.createNetwork({

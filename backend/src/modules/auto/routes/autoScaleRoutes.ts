@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { autoScaleService } from '../services/autoScaleService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { autoScaleService } from '../services/autoScaleService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

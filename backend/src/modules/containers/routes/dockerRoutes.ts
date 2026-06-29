@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { dockerService } from '../services/dockerService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { dockerService } from '../services/dockerService';
 import { logger } from '../../../utils/logger';
 import { requireRole } from '../../../middleware/auth';
 

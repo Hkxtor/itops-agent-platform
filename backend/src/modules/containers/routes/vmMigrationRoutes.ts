@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { vmMigrationService } from '../services/vmMigrationService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { vmMigrationService } from '../services/vmMigrationService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

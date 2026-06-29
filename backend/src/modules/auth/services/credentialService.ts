@@ -352,7 +352,7 @@ export class CredentialService {
         }
 
         const settingRecord = db.prepare('SELECT value FROM settings WHERE key = ?').get(settingKey) as { value: string } | undefined;
-        if (!settingRecord || !settingRecord.value) {
+        if (!settingRecord?.value) {
           skipped++;
           continue;
         }
@@ -395,7 +395,7 @@ export class CredentialService {
       const existingCred = db.prepare('SELECT provider FROM credentials WHERE provider = ?').get('alert_email') as CredentialRecord | undefined;
       if (!existingCred) {
         const notificationEmailConfig = db.prepare('SELECT value FROM settings WHERE key = ?').get('notification_email_config') as { value: string } | undefined;
-        if (notificationEmailConfig && notificationEmailConfig.value) {
+        if (notificationEmailConfig?.value) {
           try {
             const config = JSON.parse(notificationEmailConfig.value);
             if (config.user || config.password) {

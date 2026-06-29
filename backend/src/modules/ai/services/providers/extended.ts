@@ -1,5 +1,5 @@
 import { logger } from '../../../../utils/logger';
-import { Provider, ProviderResult } from './types.ts';
+import type { Provider, ProviderResult } from './types';
 
 /**
  * Prometheus Provider
@@ -207,7 +207,7 @@ export const elasticsearchProvider: Provider = {
 export const elasticsearchMethods = {
   async search(params: any): Promise<ProviderResult> {
     try {
-      let url = `${params.url}/${params.index}/_search`;
+      const url = `${params.url}/${params.index}/_search`;
       const body: any = { query: params.query };
       if (params.size) body.size = params.size;
       if (params.from !== undefined) body.from = params.from;
@@ -264,7 +264,7 @@ export const elasticsearchMethods = {
 
   async count(params: any): Promise<ProviderResult> {
     try {
-      let url = `${params.url}/${params.index}/_count`;
+      const url = `${params.url}/${params.index}/_count`;
       const body = params.query ? { query: params.query } : undefined;
 
       const response = await fetch(url, {

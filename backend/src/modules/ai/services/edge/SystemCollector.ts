@@ -1,11 +1,11 @@
 import { logger } from '../../../../utils/logger';
-import {
+import type {
   HostInfo,
   HostLoad,
   ProcessListResponse,
   CollectorOutput,
   PromSample
-} from './types.ts';
+} from './types';
 
 /**
  * 系统指标收集器
@@ -129,7 +129,7 @@ export class SystemCollector {
   /**
    * 获取进程列表
    */
-  async getProcessList(topN: number = 20, sortBy: string = 'cpu'): Promise<ProcessListResponse> {
+  async getProcessList(topN = 20, sortBy = 'cpu'): Promise<ProcessListResponse> {
     // 简化实现，返回空列表
     return {
       sampledAt: Math.floor(Date.now() / 1000),

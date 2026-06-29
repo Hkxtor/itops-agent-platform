@@ -4,7 +4,7 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
-import { credentialService } from '../../auth/services/credentialService.ts';
+import { credentialService } from '../../auth/services/credentialService';
 
 interface NotificationDB {
   id: string;
@@ -42,7 +42,7 @@ interface TaskRecord {
 
 class NotificationService {
   private config: NotificationConfig | null = null;
-  private initialized: boolean = false;
+  private initialized = false;
   private transporter: Transporter | null = null;
 
   constructor() {
@@ -350,7 +350,7 @@ class NotificationService {
   }
 
   // 获取通知历史
-  getNotificationHistory(limit: number = 50) {
+  getNotificationHistory(limit = 50) {
     return db.prepare(`
       SELECT * FROM notifications 
       ORDER BY created_at DESC 

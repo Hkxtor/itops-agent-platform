@@ -30,7 +30,7 @@ export default function AlertPanel({ alerts }: Props) {
   if (alerts.length === 0) return null;
 
   return (
-    <div className="absolute top-16 right-4 z-20 w-[280px] bg-[#0a1420]/90 backdrop-blur-md border border-red-500/15 rounded-xl overflow-hidden shadow-lg shadow-red-500/5">
+    <div className="absolute top-28 right-4 z-20 w-[260px] bg-[#0a1420]/90 backdrop-blur-md border border-red-500/15 rounded-xl overflow-hidden shadow-lg shadow-red-500/5">
       <div className="flex items-center gap-2 px-3 py-2 bg-red-500/5 border-b border-red-500/10">
         <span className="text-xs">🔔</span>
         <span className="text-xs font-semibold text-red-400">实时告警</span>

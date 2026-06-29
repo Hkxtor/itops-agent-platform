@@ -2,7 +2,7 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
 import { db } from '../../../models/database';
-import { credentialService } from '../../auth/services/credentialService.ts';
+import { credentialService } from '../../auth/services/credentialService';
 
 interface RegistryConfig {
   id: string;

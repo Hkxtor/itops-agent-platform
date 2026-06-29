@@ -1,6 +1,6 @@
-import db from '../../../models/database';
-import { logger } from '../../../utils/logger';
-import { callDoubaoAPI, callOpenAIAPI, callLocalAIAPI, checkLLMAvailability, generateCompletion } from './llmService.ts';
+import db from '../../../../models/database';
+import { logger } from '../../../../utils/logger';
+import { callDoubaoAPI, callOpenAIAPI, callLocalAIAPI, checkLLMAvailability, generateCompletion } from '../llm/llmService';
 import { randomUUID } from 'crypto';
 
 interface CopilotMessage {
@@ -36,7 +36,7 @@ const COPILOT_SYSTEM_PROMPT = `你是一个专业的 IT 运维助手（ITOps Cop
 
 class CopilotService {
   private conversations: Map<string, Conversation> = new Map();
-  private initialized: boolean = false;
+  private initialized = false;
   private readonly MAX_CONVERSATIONS = 1000;
   private readonly CONVERSATION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
   private cleanupInterval: NodeJS.Timeout | null = null;
@@ -152,7 +152,7 @@ class CopilotService {
     );
   }
 
-  createConversation(userId: string = 'default'): Conversation {
+  createConversation(userId = 'default'): Conversation {
     this.ensureInitialized();
     this.enforceConversationLimit();
     const id = randomUUID();
@@ -174,7 +174,7 @@ class CopilotService {
     return this.conversations.get(id) || null;
   }
 
-  getUserConversations(userId: string = 'default'): Conversation[] {
+  getUserConversations(userId = 'default'): Conversation[] {
     this.ensureInitialized();
     return Array.from(this.conversations.values())
       .filter(c => c.user_id === userId)
@@ -193,7 +193,7 @@ class CopilotService {
   async processNaturalLanguage(
     conversationId: string,
     userInput: string,
-    userId: string = 'default'
+    userId = 'default'
   ): Promise<string> {
     this.ensureInitialized();
     let conversation = this.getConversation(conversationId);

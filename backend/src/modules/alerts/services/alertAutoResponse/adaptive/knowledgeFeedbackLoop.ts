@@ -13,9 +13,9 @@
 import db from '../../../../../models/database';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../../../../utils/logger';
-import { strategyRecommender } from './strategyRecommender.ts';
-import { adaptiveAutomationEngine } from './adaptiveAutomation.ts';
-import type { DeviceRuntimeProfile, ProbeResult, VerificationChainResult, RemediationPlan } from '../types.ts';
+import { strategyRecommender } from './strategyRecommender';
+import { adaptiveAutomationEngine } from './adaptiveAutomation';
+import type { DeviceRuntimeProfile, ProbeResult, VerificationChainResult, RemediationPlan } from '../types';
 
 class KnowledgeFeedbackLoop {
   /**

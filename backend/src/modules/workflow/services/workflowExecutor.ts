@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto';
 import db, { getIOInstance } from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { executeAgentNode, getThinkingSteps } from '../../ai/services/agentExecutor.ts';
-import { reportService } from '../../infra/services/reportService.ts';
-import { notificationService } from '../../infra/services/notificationService.ts';
-import { createAuditLog } from '../../infra/services/auditService.ts';
-import {
+import { executeAgentNode, getThinkingSteps } from '../../ai/services/agents/agentExecutor';
+import { reportService } from '../../infra/services/reportService';
+import { notificationService } from '../../infra/services/notificationService';
+import { createAuditLog } from '../../infra/services/auditService';
+import type {
   WorkflowNode,
   WorkflowEdge,
   NodeResult,
@@ -22,7 +22,7 @@ function calculateTextSimilarity(text1: string, text2: string): number {
   return union.size === 0 ? 1 : intersection.size / union.size;
 }
 
-function isDuplicateKnowledgeBase(content: string, similarityThreshold: number = 0.7): string | null {
+function isDuplicateKnowledgeBase(content: string, similarityThreshold = 0.7): string | null {
   try {
     const existing = db.prepare('SELECT id, content FROM knowledge_base WHERE category = ? ORDER BY created_at DESC LIMIT 50').all('故障处理') as Array<{ id: string; content: string }>;
     const targetError = content.toLowerCase();
@@ -60,7 +60,7 @@ export async function executeWorkflow(
 ) {
   const io = getIOInstance();
   const MAX_EXECUTION_DEPTH = 50;
-  let executionDepth = 0;
+  const executionDepth = 0;
   const nodeResults: Record<string, NodeResult> = {};
   let nodes: WorkflowNode[] = [];
   let edges: WorkflowEdge[] = [];
@@ -338,7 +338,7 @@ export async function resumeWorkflow(
   const io = getIOInstance();
 
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId) as { status: string; context?: string; workflow_id?: string } | undefined;
-  if (!task || task.status !== 'waiting_approval') {
+  if (task?.status !== 'waiting_approval') {
     throw new Error(`Task ${taskId} is not waiting for approval`);
   }
 

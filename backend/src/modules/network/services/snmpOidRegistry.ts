@@ -2,7 +2,7 @@
 // 标准 / 厂商专用 SNMP OID 定义
 // ================================================================
 
-import { VendorType } from './vendorAdapter.ts';
+import type { VendorType } from './vendorAdapter';
 
 /**
  * 标准系统 OID (RFC 1213 / RFC 4293)

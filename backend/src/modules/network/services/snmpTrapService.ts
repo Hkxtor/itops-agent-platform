@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import dgram from 'dgram';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { alertService } from '../../alerts/services/alertService.ts';
+import { alertService } from '../../alerts/services/alertService';
 
 // ================================================================
 // SNMP Trap 接收器
@@ -30,12 +30,12 @@ export interface TrapEvent {
 
 class SnmpTrapService {
   private receivers: Map<string, snmp.Receiver> = new Map();
-  private running: boolean = false;
+  private running = false;
 
   /**
    * 启动 Trap 监听（默认 UDP 162 端口）
    */
-  start(port: number = 162, address: string = '0.0.0.0'): void {
+  start(port = 162, address = '0.0.0.0'): void {
     if (this.running) {
       logger.warn('SNMP Trap receiver is already running');
       return;
@@ -224,7 +224,7 @@ class SnmpTrapService {
   /**
    * 获取 Trap 历史
    */
-  getTrapHistory(limit: number = 50, sourceIp?: string): TrapEvent[] {
+  getTrapHistory(limit = 50, sourceIp?: string): TrapEvent[] {
     let query: string;
     let params: any[];
 

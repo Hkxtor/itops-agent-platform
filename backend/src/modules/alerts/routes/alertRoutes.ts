@@ -1,17 +1,18 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID, createHash } from 'crypto';
 import db, { getIOInstance } from '../../../models/database';
-import { notificationService } from '../../infra/services/notificationService.ts';
-import { alertNoiseReductionService } from '../services/alertNoiseReductionService.ts';
-import { remediationService } from '../../auto/services/remediationService.ts';
-import { rootCauseAnalysisService } from '../../ai/services/rootCauseAnalysisService.ts';
-import { alertService } from '../services/alertService.ts';
-import { alertAutoAnalyzer } from '../services/alertAutoAnalyzer.ts';
-import { alertWorkflowMappingService } from '../services/alertWorkflowMappingService.ts';
-import { emitToAlerts } from '../../../shared/websocket/handler.ts';
+import { notificationService } from '../../infra/services/notificationService';
+import { alertNoiseReductionService } from '../services/alertNoiseReductionService';
+import { remediationService } from '../../auto/services/remediationService';
+import { rootCauseAnalysisService } from '../../ai/services/rca/rootCauseAnalysisService';
+import { alertService } from '../services/alertService';
+import { alertAutoAnalyzer } from '../services/alertAutoAnalyzer';
+import { alertWorkflowMappingService } from '../services/alertWorkflowMappingService';
+import { emitToAlerts } from '../../../shared/websocket/handler';
 import { logger } from '../../../utils/logger';
 import { requireRole } from '../../../middleware/auth';
-import { alertProviderRegistry } from '../services/alertProviderRegistry.ts';
+import { alertProviderRegistry } from '../services/alertProviderRegistry';
 
 const router = Router();
 
@@ -158,7 +159,7 @@ router.post('/', async (req: Request, res: Response) => {
       }
 
       const alert = db.prepare('SELECT * FROM alerts WHERE id = ?').get(id) as { id: string; metadata?: string; title: string; severity: string; content: string; source: string; [key: string]: unknown } | undefined;
-      if (alert && alert.metadata) {
+      if (alert?.metadata) {
         try {
           alert.metadata = JSON.parse(alert.metadata);
         } catch {
@@ -408,7 +409,7 @@ router.post('/:id/process', async (req: Request, res: Response) => {
 
     // 同步匹配：确认有哪些修复策略匹配了
     let matchedPolicies: Array<{ id: string; name: string; execution_mode: string }> = [];
-    let executionIds: string[] = [];
+    const executionIds: string[] = [];
     let mappingTasks: Array<{ taskId: string; mappingId: string; workflowId: string; workflowName: string }> = [];
     let errorMsg: string | null = null;
 

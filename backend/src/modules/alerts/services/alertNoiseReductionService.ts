@@ -192,7 +192,7 @@ class AlertNoiseReductionService {
     return result.changes > 0;
   }
 
-  cleanupOldRecords(daysToKeep: number = 30): number {
+  cleanupOldRecords(daysToKeep = 30): number {
     const cutoffDate = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
     const result = db.prepare(
       `DELETE FROM alert_noise_reduction WHERE last_occurrence < ?`
@@ -200,7 +200,7 @@ class AlertNoiseReductionService {
     return result.changes;
   }
 
-  manuallySuppressAlert(fingerprint: string, reason: string, durationMinutes: number = 60): boolean {
+  manuallySuppressAlert(fingerprint: string, reason: string, durationMinutes = 60): boolean {
     const now = new Date();
     const suppressionUntil = new Date(now.getTime() + durationMinutes * 60 * 1000);
     const result = db.prepare(

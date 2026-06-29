@@ -1,5 +1,5 @@
 import snmp from 'net-snmp';
-import { decrypt } from '../../auth/services/encryptionService.ts';
+import { decrypt } from '../../auth/services/encryptionService';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import {
@@ -10,8 +10,8 @@ import {
   VENDOR_OIDS,
   IANA_IF_TYPE,
   INTERFACE_THRESHOLDS,
-} from './snmpOidRegistry.ts';
-import { VendorType } from './vendorAdapter.ts';
+} from './snmpOidRegistry';
+import { VendorType } from './vendorAdapter';
 
 // ================================================================
 // 类型定义
@@ -205,7 +205,7 @@ class SnmpService {
   /**
    * SNMP GET 单 OID
    */
-  async get(host: string, port: number, version: SnmpVersion = 'v2c', community: string = 'public',
+  async get(host: string, port: number, version: SnmpVersion = 'v2c', community = 'public',
     user?: string, authProtocol?: string, authKey?: string, privProtocol?: string, privKey?: string,
     oid: string = SYSTEM_OIDS.sysName): Promise<SnmpResult | null> {
     return new Promise((resolve) => {
@@ -269,7 +269,7 @@ class SnmpService {
    * SNMP WALK
    */
   async walk(host: string, port: number, version: SnmpVersion, community: string,
-    oid: string, maxRepetitions: number = 25): Promise<SnmpResult[]> {
+    oid: string, maxRepetitions = 25): Promise<SnmpResult[]> {
     return new Promise((resolve) => {
       const session = this.createSession(host, port, version, community);
 
@@ -301,7 +301,7 @@ class SnmpService {
   /**
    * 获取系统基本信息
    */
-  async getSystemInfo(host: string, port: number = 161, version: SnmpVersion = 'v2c', community: string = 'public'): Promise<{
+  async getSystemInfo(host: string, port = 161, version: SnmpVersion = 'v2c', community = 'public'): Promise<{
     sysName: string;
     sysDescr: string;
     sysUptime: number;
@@ -330,7 +330,7 @@ class SnmpService {
   /**
    * 获取接口列表（全量）
    */
-  async getInterfaces(host: string, port: number = 161, version: SnmpVersion = 'v2c', community: string = 'public'): Promise<InterfaceInfo[]> {
+  async getInterfaces(host: string, port = 161, version: SnmpVersion = 'v2c', community = 'public'): Promise<InterfaceInfo[]> {
     const walkScopes = [
       IF_MIB_OIDS.ifName,
       IF_MIB_OIDS.ifDescr,
@@ -513,7 +513,7 @@ class SnmpService {
   /**
    * 测试设备 SNMP 连通性
    */
-  async testConnection(host: string, port: number = 161, version: SnmpVersion = 'v2c', community: string = 'public'): Promise<boolean> {
+  async testConnection(host: string, port = 161, version: SnmpVersion = 'v2c', community = 'public'): Promise<boolean> {
     const result = await this.get(host, port, version, community, undefined, undefined, undefined, undefined, undefined, SYSTEM_OIDS.sysName);
     return result !== null && !!result.value;
   }
@@ -521,7 +521,7 @@ class SnmpService {
   /**
    * 从网段自动发现 SNMP 设备（snmpwalk 联合发现）
    */
-  async discoverDevices(subnet: string, community: string = 'public', version: SnmpVersion = 'v2c', port: number = 161): Promise<Array<{ ip: string; sysName: string; sysDescr: string }>> {
+  async discoverDevices(subnet: string, community = 'public', version: SnmpVersion = 'v2c', port = 161): Promise<Array<{ ip: string; sysName: string; sysDescr: string }>> {
     // 简单实现：探索给定网段
     const results: Array<{ ip: string; sysName: string; sysDescr: string }> = [];
 

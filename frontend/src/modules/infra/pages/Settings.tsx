@@ -1,152 +1,55 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Database, Shield, Loader2, CheckCircle2, AlertCircle, Sun, Moon, Lock, BookOpen, Upload, FileText, Globe, Wifi, Brain, Eye, EyeOff, Languages } from 'lucide-react';
+import { Bell, Database, Shield, Loader2, CheckCircle2, AlertCircle, BookOpen, Upload, FileText, Globe, Wifi, Brain } from 'lucide-react';
 import clsx from 'clsx';
-import { useTheme } from '../../../hooks/useTheme';
 import { useTranslation } from 'react-i18next';
 import api from '../../../lib/api';
-import { useAuth } from '../../../contexts/AuthContext';
-import { validatePassword, getPasswordStrength } from '../../../utils/passwordValidator';
-import AIModels from '../../ai/pages/AIModels';
-
-interface Backup {
-  id: string;
-  filename: string;
-  size: number;
-  createdAt: string;
-}
+import ModelSettings from './settings/ModelSettings';
+import NotificationSettings from './settings/NotificationSettings';
+import BackupSettings from './settings/BackupSettings';
+import SecuritySettings from './settings/SecuritySettings';
+import GeneralSettings from './settings/GeneralSettings';
 
 export default function Settings() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('models');
   const queryClient = useQueryClient();
-  const { theme, toggleTheme } = useTheme();
-  const { user, login, updateUser } = useAuth();
-  const navigate = useNavigate();
 
-  // 创建备份 mutation
-  const createBackupMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.post('/api/backups/create');
-      return res.data;
-    },
-    onSuccess: () => {
-      alert('备份创建成功！');
-      queryClient.invalidateQueries({ queryKey: ['backupHistory'] });
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.error || err.response?.data?.message || '备份创建失败');
+  // 如果是强制修改密码，自动切换到安全设置标签
+  useEffect(() => {
+    if (searchParams.get('changePassword') === 'true') {
+      setActiveTab('security');
     }
-  });
+  }, [searchParams]);
 
-  // 备份历史查询
-  const { data: backupHistoryData } = useQuery({
-    queryKey: ['backupHistory'],
-    queryFn: async () => {
-      const res = await api.get('/api/backups/history');
-      return res.data.data;
-    }
-  });
-  const backupHistory = (backupHistoryData || []) as Backup[];
+  // ========== QAnything 配置（保留在主入口） ==========
 
-  // 恢复备份 mutation
-  const restoreBackupMutation = useMutation({
-    mutationFn: async (backupId: string) => {
-      const res = await api.post(`/api/backups/restore/${backupId}`);
-      return res.data;
-    },
-    onSuccess: () => {
-      alert('备份恢复成功！系统将自动重启...');
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.error || err.response?.data?.message || '备份恢复失败');
-    }
+  const [qanythingConfig, setQanythingConfig] = useState({
+    enabled: false,
+    apiBase: '',
+    apiKey: '',
+    kbId: '',
+    mode: 'cloud' as 'cloud' | 'local',
+    topK: 5,
   });
+  const [qanythingSaveStatus, setQanythingSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [qanythingTestStatus, setQanythingTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [qanythingTestMessage, setQanythingTestMessage] = useState('');
 
-  // 删除备份 mutation
-  const deleteBackupMutation = useMutation({
-    mutationFn: async (backupId: string) => {
-      const res = await api.delete(`/api/backups/${backupId}`);
-      return res.data;
-    },
-    onSuccess: () => {
-      alert('备份删除成功！');
-      queryClient.invalidateQueries({ queryKey: ['backupHistory'] });
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.error || err.response?.data?.message || '备份删除失败');
-    }
-  });
+  // 文档上传状态
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  // 上传备份 mutation
-  const uploadBackupMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('backup', file);
-      const res = await api.post('/api/backups/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data;
-    },
-    onSuccess: () => {
-      alert('备份上传成功！');
-      queryClient.invalidateQueries({ queryKey: ['backupHistory'] });
-    },
-    onError: (err: any) => {
-      alert(err.response?.data?.error || err.response?.data?.message || '备份上传失败');
-    }
-  });
-  
-  // 密码修改状态
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordStatus, setPasswordStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [passwordError, setPasswordError] = useState('');
-  
-  // 通知配置本地状态
-  const [showWechatUrl, setShowWechatUrl] = useState(false);
-  const [showDingtalkUrl, setShowDingtalkUrl] = useState(false);
-  const [notificationConfig, setNotificationConfig] = useState({
-    webhook_enabled: true,
-    webhook_url: '',
-    email_enabled: false,
-    email_config: {
-      smtp_host: '',
-      smtp_port: 465,
-      user: '',
-      password: '',
-    },
-    wechat_enabled: false,
-    wechat_config: {
-      webhook_url: '',
-    },
-    dingtalk_enabled: false,
-    dingtalk_config: {
-      webhook_url: '',
-    },
-    alert_notification: {
-      critical: true,
-      warning: true,
-      info: false,
-    },
-    task_notification: {
-      success: true,
-      failed: true,
-      running: false,
-    },
-  });
-
-  // QAnything 配置查询
   useQuery({
     queryKey: ['qanythingConfig'],
     queryFn: async () => {
       const res = await api.get('/api/knowledge/qanything/config');
       if (res.data.data) {
-        // 保留前端已有的真实 apiKey，防止被后端脱敏值覆盖
         const backendData = res.data.data;
         if (backendData.apiKey?.includes('****')) {
           backendData.apiKey = qanythingConfig.apiKey;
@@ -157,7 +60,6 @@ export default function Settings() {
     },
   });
 
-  // QAnything 配置保存
   const qanythingConfigMutation = useMutation({
     mutationFn: async (config: any) => {
       const res = await api.post('/api/knowledge/qanything/config', config);
@@ -183,7 +85,6 @@ export default function Settings() {
     },
   });
 
-  // QAnything 连接测试
   const qanythingTestMutation = useMutation({
     mutationFn: async () => {
       const res = await api.post('/api/knowledge/qanything/test');
@@ -200,6 +101,34 @@ export default function Settings() {
     onError: (err: any) => {
       setQanythingTestStatus('error');
       setQanythingTestMessage(err.response?.data?.error || err.response?.data?.message || '连接失败');
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (files: File[]) => {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      const res = await api.post('/api/knowledge/qanything/upload-batch', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data;
+    },
+    onMutate: () => {
+      setUploadStatus('uploading');
+      setUploadMessage('');
+    },
+    onSuccess: (data) => {
+      setUploadStatus('success');
+      setUploadMessage(`成功上传 ${data.summary?.success || 0} 个文件，失败 ${data.summary?.failed || 0} 个`);
+      setUploadFiles([]);
+      setTimeout(() => setUploadStatus('idle'), 5000);
+    },
+    onError: (err: any) => {
+      setUploadStatus('error');
+      setUploadMessage(err.response?.data?.error || '上传失败');
+      setTimeout(() => setUploadStatus('idle'), 5000);
     },
   });
 
@@ -229,132 +158,35 @@ export default function Settings() {
     uploadMutation.mutate(uploadFiles);
   };
 
-  // 文档上传
-  const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append('files', file);
-      });
-      const res = await api.post('/api/knowledge/qanything/upload-batch', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return res.data;
-    },
-    onMutate: () => {
-      setUploadStatus('uploading');
-      setUploadMessage('');
-    },
-    onSuccess: (data) => {
-      setUploadStatus('success');
-      setUploadMessage(`成功上传 ${data.summary?.success || 0} 个文件，失败 ${data.summary?.failed || 0} 个`);
-      setUploadFiles([]);
-      setTimeout(() => setUploadStatus('idle'), 5000);
-    },
-    onError: (err: any) => {
-      setUploadStatus('error');
-      setUploadMessage(err.response?.data?.error || '上传失败');
-      setTimeout(() => setUploadStatus('idle'), 5000);
-    },
-  });
-  // 密码显示状态
-  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
-
-  // 通知渠道测试状态
-  const [testStatus, setTestStatus] = useState<Record<string, 'idle' | 'testing' | 'success' | 'error'>>({
-    email: 'idle',
-    wechat: 'idle',
-    dingtalk: 'idle',
-  });
-  const [testMessage, setTestMessage] = useState<Record<string, string>>({});
-
-  const [notificationSaveStatus, setNotificationSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-  // 发送测试通知
-  const testNotificationChannel = async (channel: string) => {
-    setTestStatus(prev => ({ ...prev, [channel]: 'testing' }));
-    setTestMessage(prev => ({ ...prev, [channel]: '' }));
-
-    try {
-      let body: any = {};
-
-      if (channel === 'email') {
-        if (!notificationConfig.email_config.smtp_host || !notificationConfig.email_config.user) {
-          setTestStatus(prev => ({ ...prev, [channel]: 'error' }));
-          setTestMessage(prev => ({ ...prev, [channel]: '请先填写 SMTP 服务器和邮箱账号' }));
-          setTimeout(() => setTestStatus(prev => ({ ...prev, [channel]: 'idle' })), 3000);
-          return;
-        }
-        body = {
-          smtp_host: notificationConfig.email_config.smtp_host,
-          smtp_port: notificationConfig.email_config.smtp_port,
-          user: notificationConfig.email_config.user,
-          password: notificationConfig.email_config.password,
-          to: notificationConfig.email_config.user,
-        };
-      } else if (channel === 'wechat') {
-        if (!notificationConfig.wechat_config.webhook_url) {
-          setTestStatus(prev => ({ ...prev, [channel]: 'error' }));
-          setTestMessage(prev => ({ ...prev, [channel]: '请先填写企业微信 Webhook URL' }));
-          setTimeout(() => setTestStatus(prev => ({ ...prev, [channel]: 'idle' })), 3000);
-          return;
-        }
-        body = { webhook_url: notificationConfig.wechat_config.webhook_url };
-      } else if (channel === 'dingtalk') {
-        if (!notificationConfig.dingtalk_config.webhook_url) {
-          setTestStatus(prev => ({ ...prev, [channel]: 'error' }));
-          setTestMessage(prev => ({ ...prev, [channel]: '请先填写钉钉 Webhook URL' }));
-          setTimeout(() => setTestStatus(prev => ({ ...prev, [channel]: 'idle' })), 3000);
-          return;
-        }
-        body = { webhook_url: notificationConfig.dingtalk_config.webhook_url };
+  const handleSaveQAnythingConfig = () => {
+    if (qanythingConfig.enabled) {
+      if (!qanythingConfig.apiBase.trim()) {
+        setQanythingSaveStatus('error');
+        setQanythingTestMessage('API 地址不能为空');
+        setQanythingTestStatus('error');
+        setTimeout(() => setQanythingSaveStatus('idle'), 3000);
+        setTimeout(() => setQanythingTestStatus('idle'), 3000);
+        return;
       }
-
-      const res = await api.post(
-        `/api/notification-config/test/${channel}`,
-        body
-      );
-
-      if (res.data.success) {
-        setTestStatus(prev => ({ ...prev, [channel]: 'success' }));
-        setTestMessage(prev => ({ ...prev, [channel]: res.data.message || '测试发送成功' }));
-      } else {
-        setTestStatus(prev => ({ ...prev, [channel]: 'error' }));
-        setTestMessage(prev => ({ ...prev, [channel]: res.data.error || '测试发送失败' }));
+      if (!qanythingConfig.kbId.trim()) {
+        setQanythingSaveStatus('error');
+        setQanythingTestMessage('知识库 ID 不能为空');
+        setQanythingTestStatus('error');
+        setTimeout(() => setQanythingSaveStatus('idle'), 3000);
+        setTimeout(() => setQanythingTestStatus('idle'), 3000);
+        return;
       }
-    } catch (err: any) {
-      setTestStatus(prev => ({ ...prev, [channel]: 'error' }));
-      setTestMessage(prev => ({ ...prev, [channel]: err.response?.data?.error || err.message || '测试发送失败' }));
+      if (qanythingConfig.mode === 'cloud' && !qanythingConfig.apiKey.trim()) {
+        setQanythingSaveStatus('error');
+        setQanythingTestMessage('API Key 不能为空');
+        setQanythingTestStatus('error');
+        setTimeout(() => setQanythingSaveStatus('idle'), 3000);
+        setTimeout(() => setQanythingTestStatus('idle'), 3000);
+        return;
+      }
     }
-
-    setTimeout(() => setTestStatus(prev => ({ ...prev, [channel]: 'idle' })), 5000);
+    qanythingConfigMutation.mutate(qanythingConfig);
   };
-
-  // QAnything 配置本地状态
-  const [qanythingConfig, setQanythingConfig] = useState({
-    enabled: false,
-    apiBase: '',
-    apiKey: '',
-    kbId: '',
-    mode: 'cloud' as 'cloud' | 'local',
-    topK: 5,
-  });
-  const [qanythingSaveStatus, setQanythingSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [qanythingTestStatus, setQanythingTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [qanythingTestMessage, setQanythingTestMessage] = useState('');
-
-  // 文档上传状态
-  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [isDragOver, setIsDragOver] = useState(false);
-
-  // 如果是强制修改密码，自动切换到安全设置标签
-  useEffect(() => {
-    if (searchParams.get('changePassword') === 'true') {
-      setActiveTab('security');
-    }
-  }, [searchParams]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -385,119 +217,7 @@ export default function Settings() {
     setUploadFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSaveQAnythingConfig = () => {
-    if (qanythingConfig.enabled) {
-      if (!qanythingConfig.apiBase.trim()) {
-        setQanythingSaveStatus('error');
-        setQanythingTestMessage('API 地址不能为空');
-        setQanythingTestStatus('error');
-        setTimeout(() => setQanythingSaveStatus('idle'), 3000);
-        setTimeout(() => setQanythingTestStatus('idle'), 3000);
-        return;
-      }
-      if (!qanythingConfig.kbId.trim()) {
-        setQanythingSaveStatus('error');
-        setQanythingTestMessage('知识库 ID 不能为空');
-        setQanythingTestStatus('error');
-        setTimeout(() => setQanythingSaveStatus('idle'), 3000);
-        setTimeout(() => setQanythingTestStatus('idle'), 3000);
-        return;
-      }
-      // 云端模式要求 API Key，本地模式可不填
-      if (qanythingConfig.mode === 'cloud' && !qanythingConfig.apiKey.trim()) {
-        setQanythingSaveStatus('error');
-        setQanythingTestMessage('API Key 不能为空');
-        setQanythingTestStatus('error');
-        setTimeout(() => setQanythingSaveStatus('idle'), 3000);
-        setTimeout(() => setQanythingTestStatus('idle'), 3000);
-        return;
-      }
-    }
-    qanythingConfigMutation.mutate(qanythingConfig);
-  };
-
-  // 密码修改处理
-  const handlePasswordChange = async () => {
-    setPasswordError('');
-    setPasswordStatus('saving');
-    
-    if (newPassword !== confirmPassword) {
-      setPasswordError('两次输入的新密码不一致');
-      setPasswordStatus('error');
-      setTimeout(() => setPasswordStatus('idle'), 3000);
-      return;
-    }
-    
-    const passwordCheck = validatePassword(newPassword);
-    if (!passwordCheck.valid) {
-      setPasswordError(passwordCheck.message);
-      setPasswordStatus('error');
-      setTimeout(() => setPasswordStatus('idle'), 3000);
-      return;
-    }
-    
-    try {
-      const response = await api.post('/api/auth/change-password', {
-        currentPassword,
-        newPassword
-      });
-      
-      if (response.data.success) {
-        setPasswordStatus('saved');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        
-        if (user) {
-          const updatedUser = { ...user, passwordMustChange: false };
-          updateUser(updatedUser);
-        }
-        
-        // 清除 URL 中的 changePassword 参数
-        navigate('/settings', { replace: true });
-        
-        setTimeout(() => setPasswordStatus('idle'), 3000);
-      } else {
-        setPasswordError(response.data.error || response.data.message || '密码修改失败');
-        setPasswordStatus('error');
-        setTimeout(() => setPasswordStatus('idle'), 3000);
-      }
-    } catch (err: any) {
-      setPasswordError(err.response?.data?.error || err.response?.data?.message || '密码修改失败');
-      setPasswordStatus('error');
-      setTimeout(() => setPasswordStatus('idle'), 3000);
-    }
-  };
-
-  useQuery({
-    queryKey: ['notificationConfig'],
-    queryFn: async () => {
-      const res = await api.get('/api/notification-config');
-      if (res.data.data) {
-        setNotificationConfig(res.data.data);
-      }
-      return res.data.data;
-    },
-  });
-
-  const notificationConfigMutation = useMutation({
-    mutationFn: async (config: any) => {
-      const res = await api.put('/api/notification-config', config);
-      return res.data;
-    },
-    onMutate: () => {
-      setNotificationSaveStatus('saving');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notificationConfig'] });
-      setNotificationSaveStatus('saved');
-      setTimeout(() => setNotificationSaveStatus('idle'), 2000);
-    },
-    onError: () => {
-      setNotificationSaveStatus('error');
-      setTimeout(() => setNotificationSaveStatus('idle'), 3000);
-    },
-  });
+  // ========== Tab 定义 ==========
 
   const tabs = [
     { id: 'models', name: t('settings.models'), icon: Brain },
@@ -541,8 +261,10 @@ export default function Settings() {
             </div>
 
             <div className="flex-1 p-6">
-              {activeTab === 'models' && <AIModels />}
+              {/* ========== AI 模型配置 ========== */}
+              {activeTab === 'models' && <ModelSettings />}
 
+              {/* ========== QAnything 知识库 ========== */}
               {activeTab === 'qanything' && (
                 <div className="space-y-6">
                   <div>
@@ -849,546 +571,13 @@ export default function Settings() {
                 </div>
               )}
 
-              {activeTab === 'notifications' && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                      <Bell className="w-5 h-5" />
-                      通知设置
-                    </h3>
-                    <p className="text-sm text-text-secondary mb-6">
-                      配置告警通知和任务状态通知的方式，支持邮件、企业微信和钉钉
-                    </p>
-                  </div>
+              {/* ========== 通知配置 ========== */}
+              {activeTab === 'notifications' && <NotificationSettings />}
 
-                  <div className="space-y-6">
-                    {/* ==================== 通知渠道配置 ==================== */}
-                    <div className="bg-background rounded-lg p-5 space-y-5">
-                      <h4 className="font-medium text-text-primary">通知渠道</h4>
+              {/* ========== 数据库/备份 ========== */}
+              {activeTab === 'database' && <BackupSettings />}
 
-                      {/* ── Webhook ── */}
-                      <div className="space-y-3 pb-4 border-b border-border last:border-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">Webhook</p>
-                            <p className="text-xs text-text-secondary">通过 HTTP Webhook 接收通知</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.webhook_enabled}
-                              onChange={(e) => setNotificationConfig({...notificationConfig, webhook_enabled: e.target.checked})}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                        {notificationConfig.webhook_enabled && (
-                          <div>
-                            <label className="block text-xs text-text-secondary mb-1.5">Webhook URL</label>
-                            <input type="url"
-                              placeholder="https://hooks.example.com/webhook"
-                              value={notificationConfig.webhook_url}
-                              onChange={(e) => setNotificationConfig({...notificationConfig, webhook_url: e.target.value})}
-                              className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* ── 邮件 ── */}
-                      <div className="space-y-3 pb-4 border-b border-border last:border-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">邮件 (SMTP)</p>
-                            <p className="text-xs text-text-secondary">通过 SMTP 邮件服务器发送通知</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.email_enabled}
-                              onChange={(e) => setNotificationConfig({...notificationConfig, email_enabled: e.target.checked})}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-
-                        {notificationConfig.email_enabled && (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="col-span-2 sm:col-span-1">
-                              <label className="block text-xs text-text-secondary mb-1.5">SMTP 服务器</label>
-                              <input type="text" placeholder="smtp.qq.com"
-                                value={notificationConfig.email_config.smtp_host}
-                                onChange={(e) => setNotificationConfig({
-                                  ...notificationConfig,
-                                  email_config: {...notificationConfig.email_config, smtp_host: e.target.value}
-                                })}
-                                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                              />
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <label className="block text-xs text-text-secondary mb-1.5">SMTP 端口</label>
-                              <input type="number" min="1" max="65535"
-                                value={notificationConfig.email_config.smtp_port}
-                                onChange={(e) => setNotificationConfig({
-                                  ...notificationConfig,
-                                  email_config: {...notificationConfig.email_config, smtp_port: parseInt(e.target.value) || 465}
-                                })}
-                                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                              />
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <label className="block text-xs text-text-secondary mb-1.5">邮箱账号</label>
-                              <input type="email" placeholder="admin@example.com"
-                                value={notificationConfig.email_config.user}
-                                onChange={(e) => setNotificationConfig({
-                                  ...notificationConfig,
-                                  email_config: {...notificationConfig.email_config, user: e.target.value}
-                                })}
-                                className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                              />
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <label className="block text-xs text-text-secondary mb-1.5">SMTP 密码/授权码</label>
-                              <div className="relative">
-                                <input type={showSmtpPassword ? 'text' : 'password'}
-                                  value={notificationConfig.email_config.password}
-                                  onChange={(e) => setNotificationConfig({
-                                    ...notificationConfig,
-                                    email_config: {...notificationConfig.email_config, password: e.target.value}
-                                  })}
-                                  className="w-full px-3 py-2 pr-10 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setShowSmtpPassword(!showSmtpPassword)}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary transition-colors text-xs"
-                                >
-                                  {showSmtpPassword ? '隐藏' : '显示'}
-                                </button>
-                              </div>
-                              <p className="text-xs text-text-tertiary mt-1">QQ邮箱/163邮箱请使用授权码</p>
-                            </div>
-                            <div className="col-span-2 flex items-center gap-3 pt-1">
-                              <button
-                                type="button"
-                                onClick={() => testNotificationChannel('email')}
-                                disabled={testStatus.email === 'testing'}
-                                className="px-3 py-1.5 text-xs bg-surface border border-border text-text-secondary rounded-lg hover:bg-surface/80 transition-all disabled:opacity-50 flex items-center gap-1.5"
-                              >
-                                {testStatus.email === 'testing' ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Bell className="w-3.5 h-3.5" />
-                                )}
-                                {testStatus.email === 'testing' ? '发送中...' : '发送测试邮件'}
-                              </button>
-                              {testStatus.email === 'success' && (
-                                <span className="text-xs text-status-success flex items-center gap-1">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  {testMessage.email || '测试邮件发送成功'}
-                                </span>
-                              )}
-                              {testStatus.email === 'error' && (
-                                <span className="text-xs text-status-failed flex items-center gap-1">
-                                  <AlertCircle className="w-3.5 h-3.5" />
-                                  {testMessage.email || '发送失败'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* ── 企业微信 ── */}
-                      <div className="space-y-3 pb-4 border-b border-border last:border-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">企业微信</p>
-                            <p className="text-xs text-text-secondary">通过企业微信机器人 Webhook 发送通知</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.wechat_enabled}
-                              onChange={(e) => setNotificationConfig({...notificationConfig, wechat_enabled: e.target.checked})}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-
-                        {notificationConfig.wechat_enabled && (
-                          <div>
-                            <label className="block text-xs text-text-secondary mb-1.5">Webhook URL</label>
-                            <div className="relative">
-                              <input
-                                type={showWechatUrl ? 'url' : 'password'}
-                                placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
-                                value={notificationConfig.wechat_config.webhook_url}
-                                onChange={(e) => setNotificationConfig({
-                                  ...notificationConfig,
-                                  wechat_config: {...notificationConfig.wechat_config, webhook_url: e.target.value}
-                                })}
-                                className="w-full px-3 py-2 pr-10 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowWechatUrl(!showWechatUrl)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-tertiary hover:text-text-secondary transition-colors"
-                                tabIndex={-1}
-                              >
-                                {showWechatUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-3 mt-2">
-                              <button
-                                type="button"
-                                onClick={() => testNotificationChannel('wechat')}
-                                disabled={testStatus.wechat === 'testing'}
-                                className="px-3 py-1.5 text-xs bg-surface border border-border text-text-secondary rounded-lg hover:bg-surface/80 transition-all disabled:opacity-50 flex items-center gap-1.5"
-                              >
-                                {testStatus.wechat === 'testing' ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Bell className="w-3.5 h-3.5" />
-                                )}
-                                {testStatus.wechat === 'testing' ? '发送中...' : '发送测试消息'}
-                              </button>
-                              {testStatus.wechat === 'success' && (
-                                <span className="text-xs text-status-success flex items-center gap-1">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  {testMessage.wechat || '测试消息发送成功'}
-                                </span>
-                              )}
-                              {testStatus.wechat === 'error' && (
-                                <span className="text-xs text-status-failed flex items-center gap-1">
-                                  <AlertCircle className="w-3.5 h-3.5" />
-                                  {testMessage.wechat || '发送失败'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* ── 钉钉 ── */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">钉钉</p>
-                            <p className="text-xs text-text-secondary">通过钉钉机器人 Webhook 发送通知</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.dingtalk_enabled}
-                              onChange={(e) => setNotificationConfig({...notificationConfig, dingtalk_enabled: e.target.checked})}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-
-                        {notificationConfig.dingtalk_enabled && (
-                          <div>
-                            <label className="block text-xs text-text-secondary mb-1.5">Webhook URL</label>
-                            <div className="relative">
-                              <input
-                                type={showDingtalkUrl ? 'url' : 'password'}
-                                placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"
-                                value={notificationConfig.dingtalk_config.webhook_url}
-                                onChange={(e) => setNotificationConfig({
-                                  ...notificationConfig,
-                                  dingtalk_config: {...notificationConfig.dingtalk_config, webhook_url: e.target.value}
-                                })}
-                                className="w-full px-3 py-2 pr-10 bg-surface border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowDingtalkUrl(!showDingtalkUrl)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-tertiary hover:text-text-secondary transition-colors"
-                                tabIndex={-1}
-                              >
-                                {showDingtalkUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-3 mt-2">
-                              <button
-                                type="button"
-                                onClick={() => testNotificationChannel('dingtalk')}
-                                disabled={testStatus.dingtalk === 'testing'}
-                                className="px-3 py-1.5 text-xs bg-surface border border-border text-text-secondary rounded-lg hover:bg-surface/80 transition-all disabled:opacity-50 flex items-center gap-1.5"
-                              >
-                                {testStatus.dingtalk === 'testing' ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Bell className="w-3.5 h-3.5" />
-                                )}
-                                {testStatus.dingtalk === 'testing' ? '发送中...' : '发送测试消息'}
-                              </button>
-                              {testStatus.dingtalk === 'success' && (
-                                <span className="text-xs text-status-success flex items-center gap-1">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  {testMessage.dingtalk || '测试消息发送成功'}
-                                </span>
-                              )}
-                              {testStatus.dingtalk === 'error' && (
-                                <span className="text-xs text-status-failed flex items-center gap-1">
-                                  <AlertCircle className="w-3.5 h-3.5" />
-                                  {testMessage.dingtalk || '发送失败'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ==================== 告警通知过滤 ==================== */}
-                    <div className="bg-background rounded-lg p-4">
-                      <h4 className="font-medium text-text-primary mb-4">告警通知</h4>
-                      <p className="text-xs text-text-secondary mb-3">选择需要发送通知的告警等级</p>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-text-secondary">严重告警 (Critical)</p>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.alert_notification.critical}
-                              onChange={(e) => setNotificationConfig({
-                                ...notificationConfig,
-                                alert_notification: {...notificationConfig.alert_notification, critical: e.target.checked}
-                              })}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-text-secondary">警告告警 (Warning)</p>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.alert_notification.warning}
-                              onChange={(e) => setNotificationConfig({
-                                ...notificationConfig,
-                                alert_notification: {...notificationConfig.alert_notification, warning: e.target.checked}
-                              })}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-text-secondary">信息通知 (Info)</p>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.alert_notification.info}
-                              onChange={(e) => setNotificationConfig({
-                                ...notificationConfig,
-                                alert_notification: {...notificationConfig.alert_notification, info: e.target.checked}
-                              })}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ==================== 任务通知过滤 ==================== */}
-                    <div className="bg-background rounded-lg p-4">
-                      <h4 className="font-medium text-text-primary mb-4">任务通知</h4>
-                      <p className="text-xs text-text-secondary mb-3">选择需要发送通知的任务状态</p>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-text-secondary">任务成功</p>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.task_notification.success}
-                              onChange={(e) => setNotificationConfig({
-                                ...notificationConfig,
-                                task_notification: {...notificationConfig.task_notification, success: e.target.checked}
-                              })}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-text-secondary">任务失败</p>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.task_notification.failed}
-                              onChange={(e) => setNotificationConfig({
-                                ...notificationConfig,
-                                task_notification: {...notificationConfig.task_notification, failed: e.target.checked}
-                              })}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-text-secondary">任务运行中</p>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer"
-                              checked={notificationConfig.task_notification.running}
-                              onChange={(e) => setNotificationConfig({
-                                ...notificationConfig,
-                                task_notification: {...notificationConfig.task_notification, running: e.target.checked}
-                              })}
-                            />
-                            <div className="w-11 h-6 bg-border rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ==================== 保存按钮 ==================== */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {notificationSaveStatus === 'saving' && (
-                          <Loader2 className="w-4 h-4 animate-spin text-text-secondary" />
-                        )}
-                        {notificationSaveStatus === 'saved' && (
-                          <p className="text-xs text-status-success flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" />
-                            已保存
-                          </p>
-                        )}
-                        {notificationSaveStatus === 'error' && (
-                          <p className="text-xs text-status-failed flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
-                            保存失败
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => notificationConfigMutation.mutate(notificationConfig)}
-                        disabled={notificationSaveStatus === 'saving'}
-                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {notificationSaveStatus === 'saving' && (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        )}
-                        保存通知配置
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'database' && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                      <Database className="w-5 h-5" />
-                      数据库设置
-                    </h3>
-                    <p className="text-sm text-text-secondary mb-6">
-                      数据库配置和备份设置
-                    </p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-background rounded-lg p-4">
-                      <h4 className="font-medium text-text-primary mb-2">数据库类型</h4>
-                      <p className="text-sm text-text-secondary">SQLite (当前)</p>
-                    </div>
-
-                    <div className="bg-background rounded-lg p-4">
-                      <h4 className="font-medium text-text-primary mb-2">数据路径</h4>
-                      <p className="text-sm text-text-secondary">./data/app.db</p>
-                    </div>
-
-                    <div className="bg-background rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-medium text-text-primary">数据备份</h4>
-                        <div className="flex gap-2">
-                          <label className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-2">
-                            <Upload className="w-4 h-4" />
-                            上传备份
-                            <input 
-                              type="file" 
-                              accept=".db,.db.gz"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  uploadBackupMutation.mutate(file);
-                                  e.target.value = '';
-                                }
-                              }}
-                            />
-                          </label>
-                          <button
-                            onClick={() => createBackupMutation.mutate()}
-                            disabled={createBackupMutation.isPending}
-                            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
-                          >
-                            {createBackupMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {createBackupMutation.isPending ? '创建中...' : '创建备份'}
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* 备份历史列表 */}
-                      {backupHistory.length > 0 ? (
-                        <div className="space-y-2">
-                          {backupHistory.map((backup) => (
-                            <div key={backup.id} className="flex items-center justify-between p-3 bg-surface rounded-lg">
-                              <div>
-                                <p className="text-sm font-medium text-text-primary">{backup.filename}</p>
-                                <p className="text-xs text-text-secondary">
-                                  {new Date(backup.createdAt).toLocaleString()} • {formatFileSize(backup.size)}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      const token = localStorage.getItem('token');
-                                      const response = await fetch(`/api/backups/download/${backup.id}`, {
-                                        headers: {
-                                          'Authorization': `Bearer ${token}`
-                                        }
-                                      });
-                                      
-                                      if (!response.ok) {
-                                        throw new Error('下载失败');
-                                      }
-                                      
-                                      const blob = await response.blob();
-                                      const url = window.URL.createObjectURL(blob);
-                                      const a = document.createElement('a');
-                                      a.href = url;
-                                      a.download = backup.filename || `backup-${backup.id}.db`;
-                                      document.body.appendChild(a);
-                                      a.click();
-                                      window.URL.revokeObjectURL(url);
-                                      document.body.removeChild(a);
-                                    } catch (err) {
-                                      alert('下载失败：' + (err as Error).message);
-                                    }
-                                  }}
-                                  className="px-3 py-1 text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded transition-colors"
-                                >
-                                  下载
-                                </button>
-                                <button
-                                  onClick={() => restoreBackupMutation.mutate(backup.id)}
-                                  disabled={restoreBackupMutation.isPending}
-                                  className="px-3 py-1 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded transition-colors"
-                                >
-                                  恢复
-                                </button>
-                                <button
-                                  onClick={() => deleteBackupMutation.mutate(backup.id)}
-                                  disabled={deleteBackupMutation.isPending}
-                                  className="px-3 py-1 text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded transition-colors"
-                                >
-                                  删除
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-text-secondary">暂无备份</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              {/* ========== 安全设置 + 通用设置 ========== */}
               {activeTab === 'security' && (
                 <div className="space-y-6">
                   <div>
@@ -1401,185 +590,8 @@ export default function Settings() {
                     </p>
                   </div>
 
-                  {/* 修改密码 */}
-                  <div className="bg-background rounded-lg p-6">
-                    <h4 className="font-medium text-text-primary mb-4 flex items-center gap-2">
-                      <Lock className="w-5 h-5" />
-                      修改密码
-                    </h4>
-                    {searchParams.get('changePassword') === 'true' && (
-                      <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-start gap-2 text-yellow-300">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium">首次登录需要修改密码</p>
-                          <p className="text-xs mt-1">为了您的账户安全，请修改默认密码后继续使用</p>
-                        </div>
-                      </div>
-                    )}
-                    <div className="space-y-4 max-w-md">
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">当前密码</label>
-                        <input
-                          type="password"
-                          value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
-                          placeholder="请输入当前密码"
-                          className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">新密码</label>
-                        <input
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="请输入新密码（至少8位）"
-                          className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                        />
-                        {newPassword && (
-                          <div className="mt-2 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-text-secondary">密码强度</span>
-                              <span className={`text-sm font-medium ${getPasswordStrength(newPassword).color}`}>
-                                {getPasswordStrength(newPassword).label}
-                              </span>
-                            </div>
-                            <div className="flex gap-1">
-                              {[1, 2, 3, 4, 5].map((i) => (
-                                <div
-                                  key={i}
-                                  className={`h-1 flex-1 rounded-full ${
-                                    i <= getPasswordStrength(newPassword).score
-                                      ? getPasswordStrength(newPassword).color.replace('text-', 'bg-')
-                                      : 'bg-border'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-2 gap-1 text-xs">
-                              {Object.entries(validatePassword(newPassword).details).map(([key, value]) => (
-                                <div key={key} className={`flex items-center gap-1 ${value ? 'text-status-success' : 'text-text-tertiary'}`}>
-                                  {value ? <CheckCircle2 className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-current" />}
-                                  <span>
-                                    {key === 'minLength' && '至少8位'}
-                                    {key === 'uppercase' && '大写字母'}
-                                    {key === 'lowercase' && '小写字母'}
-                                    {key === 'number' && '数字'}
-                                    {key === 'special' && '特殊字符'}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">确认新密码</label>
-                        <input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="请再次输入新密码"
-                          className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                        />
-                        {confirmPassword && newPassword && (
-                          <div className="mt-1 flex items-center gap-1 text-xs">
-                            {newPassword === confirmPassword ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 text-status-success" />
-                                <span className="text-status-success">密码匹配</span>
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="w-3 h-3 text-status-failed" />
-                                <span className="text-status-failed">密码不匹配</span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {passwordError && (
-                        <p className="text-sm text-status-failed flex items-center gap-1">
-                          <AlertCircle className="w-4 h-4" />
-                          {passwordError}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2">
-                        {passwordStatus === 'saving' && (
-                          <Loader2 className="w-4 h-4 animate-spin text-text-secondary" />
-                        )}
-                        {passwordStatus === 'saved' && (
-                          <p className="text-sm text-status-success flex items-center gap-1">
-                            <CheckCircle2 className="w-4 h-4" />
-                            密码修改成功
-                          </p>
-                        )}
-                        <button
-                          onClick={handlePasswordChange}
-                          disabled={passwordStatus === 'saving'}
-                          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {passwordStatus === 'saving' && (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          )}
-                          修改密码
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-background rounded-lg">
-                      <div>
-                        <h4 className="font-medium text-text-primary">{t('settings.language')}</h4>
-                        <p className="text-sm text-text-secondary">
-                          {t('settings.languageDesc')}
-                        </p>
-                      </div>
-                      <select
-                        value={i18n.language}
-                        onChange={(e) => i18n.changeLanguage(e.target.value)}
-                        className="px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary text-sm"
-                      >
-                        <option value="zh-CN">中文</option>
-                        <option value="en">English</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-background rounded-lg">
-                      <div>
-                        <h4 className="font-medium text-text-primary">{t('settings.theme')}</h4>
-                        <p className="text-sm text-text-secondary">
-                          {t('settings.themeDesc')}
-                        </p>
-                      </div>
-                      <button
-                        onClick={toggleTheme}
-                        className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-lg hover:bg-surface/80 transition-colors"
-                      >
-                        {theme === 'dark' ? (
-                          <Moon className="w-5 h-5" />
-                        ) : (
-                          <Sun className="w-5 h-5" />
-                        )}
-                        <span className="text-sm text-text-primary">
-                          {theme === 'dark' ? '深色主题' : '浅色主题'}
-                        </span>
-                      </button>
-                    </div>
-
-                    <div className="bg-background rounded-lg p-4">
-                      <h4 className="font-medium text-text-primary mb-2">CORS配置</h4>
-                      <p className="text-sm text-text-secondary mb-3">
-                        允许的前端域名
-                      </p>
-                      <input
-                        type="text"
-                        defaultValue="http://localhost:3000"
-                        className="w-full px-4 py-2 bg-surface border border-border rounded-lg text-text-primary focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                  </div>
+                  <SecuritySettings />
+                  <GeneralSettings />
                 </div>
               )}
             </div>

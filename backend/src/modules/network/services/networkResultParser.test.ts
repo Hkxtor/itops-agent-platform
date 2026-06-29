@@ -9,7 +9,7 @@ import {
   parseRoutes,
   parseLogBuffer,
   getParser
-} from './networkResultParser.ts';
+} from './networkResultParser';
 
 describe('networkResultParser', () => {
   describe('parseHuaweiCpu', () => {

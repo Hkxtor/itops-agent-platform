@@ -1,5 +1,5 @@
 import { tokenBlacklist } from '../../modules/auth/services/tokenBlacklist';
-import { Server as SocketIOServer, Socket } from 'socket.io';
+import type { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { env } from '../../utils/env';
 import { logger } from '../../utils/logger';
@@ -35,7 +35,7 @@ function authenticateSocket(socket: Socket, next: (err?: Error) => void) {
     
     const user = db.prepare('SELECT id, username, email, role, enabled FROM users WHERE id = ?').get(decoded.id) as User | undefined;
     
-    if (!user || !user.enabled) {
+    if (!user?.enabled) {
       logger.error('❌ WebSocket 认证失败: 用户不存在或已禁用');
       return next(new Error('用户不存在或已禁用'));
     }

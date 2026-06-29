@@ -24,7 +24,7 @@ import '@xyflow/react/dist/style.css';
 import { 
   Save, Trash2, ArrowLeft, Play, Download, Upload, 
   Copy, Undo, Redo, Settings, AlertCircle,
-  Layers, Shield
+  Layers, Shield, Zap, Wrench
 } from 'lucide-react';
 import api from '../../../lib/api';
 import { useToast } from '../../../contexts/ToastContext';
@@ -119,9 +119,54 @@ const ApprovalNode = ({ data, selected }: { data: any; selected: boolean }) => {
   );
 };
 
+const ProviderNode = ({ data, selected }: { data: any; selected: boolean }) => {
+  const typeColors: Record<string, string> = {
+    notification: 'border-blue-500 bg-blue-500/10',
+    action: 'border-green-500 bg-green-500/10',
+    script: 'border-purple-500 bg-purple-500/10',
+    alert: 'border-red-500 bg-red-500/10',
+  };
+  const typeIcons: Record<string, string> = {
+    notification: '🔔',
+    action: '⚡',
+    script: '📜',
+    alert: '🚨',
+  };
+  const tc = typeColors[data.providerType] || 'border-gray-500 bg-gray-500/10';
+  const ti = typeIcons[data.providerType] || '🔧';
+
+  return (
+    <div
+      className={`
+        px-4 py-3 rounded-lg shadow-md border-2 min-w-[200px]
+        ${selected ? `ring-2 ring-primary/30 ${tc}` : tc}
+        transition-all duration-200
+      `}
+    >
+      <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary" />
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xl">{ti}</span>
+        <span className="font-semibold text-text-primary text-sm">{data.label || 'Provider'}</span>
+      </div>
+      {data.providerName && (
+        <div className="text-xs text-text-secondary mb-1">
+          {data.providerName}
+        </div>
+      )}
+      {data.method && (
+        <div className="text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/30">
+          {data.method}
+        </div>
+      )}
+      <Handle type="source" position={Position.Right} className="w-3 h-3 bg-primary" />
+    </div>
+  );
+};
+
 const nodeTypes: NodeTypes = {
   agent: AgentNode,
   approval: ApprovalNode,
+  provider: ProviderNode,
 };
 
 function WorkflowEditorContent() {
@@ -147,6 +192,14 @@ function WorkflowEditorContent() {
     queryFn: async () => {
       const res = await api.get('/api/agents');
       return res.data.data as Agent[];
+    },
+  });
+
+  const { data: providers } = useQuery({
+    queryKey: ['workflow-providers'],
+    queryFn: async () => {
+      const res = await api.get('/api/workflows/providers/list');
+      return (res.data.data || []) as { id: string; name: string; type: string; configSchema: any }[];
     },
   });
 
@@ -303,6 +356,31 @@ function WorkflowEditorContent() {
               timeoutAction: 'reject',
               approvers: ['admin'],
             },
+          },
+          connectable: true,
+        };
+        setNodes((nds) => nds.concat(newNode));
+        return;
+      }
+
+      // Provider 节点
+      if (nodeType === 'provider') {
+        const providerId = event.dataTransfer.getData('application/reactflow/providerId');
+        const providerName = event.dataTransfer.getData('application/reactflow/providerName');
+        const providerType = event.dataTransfer.getData('application/reactflow/providerType');
+        const providerSchema = event.dataTransfer.getData('application/reactflow/providerSchema');
+        const newNode: Node = {
+          id: `node-${Date.now()}`,
+          type: 'provider',
+          position,
+          data: {
+            label: providerName || 'Provider',
+            providerId,
+            providerName,
+            providerType,
+            configSchema: providerSchema ? JSON.parse(providerSchema) : null,
+            method: '',
+            config: {},
           },
           connectable: true,
         };
@@ -666,6 +744,50 @@ function WorkflowEditorContent() {
                   <p className="text-xs">暂无可用Agent</p>
                 </div>
               )}
+
+              {/* Provider 节点列表 */}
+              <div className="pt-3 border-t border-border">
+                <div className="text-xs font-semibold text-text-secondary mb-2">Provider 节点（执行动作）</div>
+              </div>
+              {(providers || []).map((provider) => (
+                <div
+                  key={provider.id}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('application/reactflow/nodeType', 'provider');
+                    event.dataTransfer.setData('application/reactflow/providerId', provider.id);
+                    event.dataTransfer.setData('application/reactflow/providerName', provider.name);
+                    event.dataTransfer.setData('application/reactflow/providerType', provider.type);
+                    event.dataTransfer.setData('application/reactflow/providerSchema', JSON.stringify(provider.configSchema));
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  className="p-3 rounded-lg border border-border bg-background hover:border-primary hover:bg-primary/5 cursor-move transition-all"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">
+                      {provider.type === 'notification' ? '🔔' : provider.type === 'action' ? '⚡' : provider.type === 'script' ? '📜' : provider.type === 'alert' ? '🚨' : '🔧'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-text-primary text-sm truncate">{provider.name}</div>
+                      <div className="text-xs text-text-secondary truncate">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          provider.type === 'notification' ? 'bg-blue-500/20 text-blue-400' :
+                          provider.type === 'action' ? 'bg-green-500/20 text-green-400' :
+                          provider.type === 'script' ? 'bg-purple-500/20 text-purple-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {provider.type}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {(providers || []).length === 0 && (
+                <div className="text-center py-4 text-text-secondary">
+                  <p className="text-xs">暂无可用Provider</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -816,8 +938,106 @@ function WorkflowEditorContent() {
                   </div>
                 )}
 
+                {/* Provider 节点配置 */}
+                {selectedNode.type === 'provider' && (
+                  <div className="pt-3 border-t border-border">
+                    <h4 className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-green-500" />
+                      Provider 配置
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm text-text-secondary mb-1">Provider</label>
+                        <select
+                          value={(selectedNode.data?.providerId as string) || ''}
+                          onChange={(e) => {
+                            const pid = e.target.value;
+                            const p = (providers || []).find(p => p.id === pid);
+                            setNodes((nds) =>
+                              nds.map((n) =>
+                                n.id === selectedNode.id
+                                  ? { ...n, data: { ...n.data, providerId: pid, providerName: p?.name || '', providerType: p?.type || '', configSchema: p?.configSchema || null, method: '', config: {} } }
+                                  : n
+                              )
+                            );
+                            setSelectedNode((prev) => prev ? { ...prev, data: { ...prev.data, providerId: pid, providerName: p?.name || '', providerType: p?.type || '', configSchema: p?.configSchema || null, method: '', config: {} } } : null);
+                          }}
+                          className="w-full px-3 py-2 rounded bg-background border border-border focus:border-primary focus:outline-none text-sm"
+                        >
+                          <option value="">选择 Provider...</option>
+                          {(providers || []).map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.type})</option>
+                          ))}
+                        </select>
+                      </div>
+                      {selectedNode.data?.configSchema?.properties && (
+                        <div>
+                          <label className="block text-sm text-text-secondary mb-2">配置参数</label>
+                          <div className="space-y-2">
+                            {Object.entries(selectedNode.data.configSchema.properties as Record<string, any>).map(([key, schema]: [string, any]) => (
+                              <div key={key}>
+                                <label className="block text-xs text-text-secondary mb-1">
+                                  {schema.title || key}
+                                  {schema.description && <span className="text-text-tertiary ml-1">({schema.description})</span>}
+                                </label>
+                                {schema.type === 'boolean' ? (
+                                  <input
+                                    type="checkbox"
+                                    checked={!!(selectedNode.data?.config as any)?.[key]}
+                                    onChange={(e) => {
+                                      const newConfig = { ...(selectedNode.data?.config as any || {}), [key]: e.target.checked };
+                                      setNodes((nds) => nds.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, config: newConfig } } : n));
+                                      setSelectedNode((prev) => prev ? { ...prev, data: { ...prev.data, config: newConfig } } : null);
+                                    }}
+                                    className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                                  />
+                                ) : schema.enum ? (
+                                  <select
+                                    value={(selectedNode.data?.config as any)?.[key] || ''}
+                                    onChange={(e) => {
+                                      const newConfig = { ...(selectedNode.data?.config as any || {}), [key]: e.target.value };
+                                      setNodes((nds) => nds.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, config: newConfig } } : n));
+                                      setSelectedNode((prev) => prev ? { ...prev, data: { ...prev.data, config: newConfig } } : null);
+                                    }}
+                                    className="w-full px-3 py-2 rounded bg-background border border-border focus:border-primary focus:outline-none text-sm"
+                                  >
+                                    <option value="">选择...</option>
+                                    {schema.enum.map((v: string) => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type={schema.type === 'number' ? 'number' : 'text'}
+                                    value={(selectedNode.data?.config as any)?.[key] || ''}
+                                    onChange={(e) => {
+                                      const val = schema.type === 'number' ? Number(e.target.value) : e.target.value;
+                                      const newConfig = { ...(selectedNode.data?.config as any || {}), [key]: val };
+                                      setNodes((nds) => nds.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, config: newConfig } } : n));
+                                      setSelectedNode((prev) => prev ? { ...prev, data: { ...prev.data, config: newConfig } } : null);
+                                    }}
+                                    placeholder={schema.default || ''}
+                                    className="w-full px-3 py-2 rounded bg-background border border-border focus:border-primary focus:outline-none text-sm"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t border-border">
+                        <div className="text-xs text-text-secondary space-y-1">
+                          <p>• ID: {String(selectedNode.id)}</p>
+                          <p>• Provider: {String(selectedNode.data?.providerName || '-')}</p>
+                          <p>• 类型: {String(selectedNode.data?.providerType || '-')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Agent 节点配置 */}
-                {selectedNode.type !== 'approval' && (
+                {selectedNode.type !== 'approval' && selectedNode.type !== 'provider' && (
                   <>
                     {/* 输入输出配置 */}
                     <div className="pt-3 border-t border-border">

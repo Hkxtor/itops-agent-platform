@@ -1,16 +1,16 @@
-import db from '../../../models/database';
-import { logger } from '../../../utils/logger';
-import { executeAgentWithLLM } from './llmService.ts';
-import { executeCommand, runComplianceCheck } from '../../servers/services/sshService.ts';
-import { AGENT_NAMES } from '../../../constants/agentNames';
-import { decrypt } from '../../auth/services/encryptionService.ts';
+import db from '../../../../models/database';
+import { logger } from '../../../../utils/logger';
+import { executeAgentWithLLM } from '../llm/llmService';
+import { executeCommand, runComplianceCheck } from '../../../servers/services/sshService';
+import { AGENT_NAMES } from '../../../../constants/agentNames';
+import { decrypt } from '../../../auth/services/encryptionService';
 import {
   executeDbskiter,
   inferDatabaseOperation,
   formatResultToMarkdown,
-} from '../../database/services/dbskiterService.ts';
-import { agentToolRegistry, AgentTool } from './agentToolRegistry.ts';
-import type { Agent, Server } from '../../../types';
+} from '../../../database/services/dbskiterService';
+import { agentToolRegistry, AgentTool } from './agentToolRegistry';
+import type { Agent, Server } from '../../../../types';
 
 /**
  * 工具调用结果
@@ -158,7 +158,7 @@ export async function executeAgentNode(
   logger.info(`🤖 Calling LLM for agent ${agentName} with tool support`);
   
   let currentInput = input;
-  let conversationHistory: string[] = [];
+  const conversationHistory: string[] = [];
   const maxToolCalls = 3; // 最多尝试 3 次工具调用
 
   // 先尝试工具调用

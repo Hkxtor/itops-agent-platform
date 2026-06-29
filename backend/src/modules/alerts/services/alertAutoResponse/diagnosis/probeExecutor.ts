@@ -11,12 +11,12 @@
  */
 
 import db from '../../../../../models/database';
-import { decrypt } from '../../../../auth/services/encryptionService.ts';
+import { decrypt } from '../../../../auth/services/encryptionService';
 import { withRetry } from '../../../../../utils/retry';
 import { logger } from '../../../../../utils/logger';
 import { Client } from 'ssh2';
-import { getProbeById } from '../probeUnit.ts';
-import type { ProbeUnit, ProbeResult, DeviceRuntimeProfile } from '../types.ts';
+import { getProbeById } from '../probeUnit';
+import type { ProbeUnit, ProbeResult, DeviceRuntimeProfile } from '../types';
 
 // SSDP 执行并发池
 const MAX_CONCURRENT = 5;

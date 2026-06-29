@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
-import { reportService } from '../../infra/services/reportService.ts';
+import { reportService } from '../../infra/services/reportService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

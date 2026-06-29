@@ -1,9 +1,9 @@
 import { logger } from '../../../../utils/logger';
-import { SpecialistBase } from './SpecialistBase.ts';
-import {
+import type { SpecialistBase } from './SpecialistBase';
+import type {
   SpecialistDomain,
   SpecialistRegistryEntry
-} from './types.ts';
+} from './types';
 
 /**
  * Specialist 注册器

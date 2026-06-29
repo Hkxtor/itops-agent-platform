@@ -2,8 +2,9 @@ import { Client } from 'ssh2';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { createVendorAdapter, VendorType, InspectionType } from './vendorAdapter.ts';
-import { decrypt } from '../../auth/services/encryptionService.ts';
+import type { VendorType} from './vendorAdapter';
+import { createVendorAdapter, InspectionType } from './vendorAdapter';
+import { decrypt } from '../../auth/services/encryptionService';
 
 // ================================================================
 // LLDP/CDP 邻居发现拓扑服务
@@ -135,7 +136,7 @@ class LldpDiscoveryService {
   /**
    * 获取完整的设备影响路径（BFS 遍历，最多 3 跳）
    */
-  getImpactPath(deviceId: string, maxHops: number = 3): string[] {
+  getImpactPath(deviceId: string, maxHops = 3): string[] {
     const visited = new Set<string>();
     const queue: Array<{ id: string; hop: number }> = [{ id: deviceId, hop: 0 }];
     visited.add(deviceId);
@@ -340,7 +341,7 @@ class LldpDiscoveryService {
   /**
    * 通过 SSH 在网络设备上执行命令
    */
-  private executeSSHCommand(host: string, port: number, username: string, password: string, command: string, timeout: number = 30000): Promise<string> {
+  private executeSSHCommand(host: string, port: number, username: string, password: string, command: string, timeout = 30000): Promise<string> {
     return new Promise((resolve, reject) => {
       const conn = new Client();
       let isResolved = false;

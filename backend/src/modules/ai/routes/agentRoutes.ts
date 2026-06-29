@@ -1,10 +1,11 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
-import { executeAgentWithLLM } from '../services/llmService.ts';
-import { executeAgentNode } from '../services/agentExecutor.ts';
+import { executeAgentWithLLM } from '../services/llm/llmService';
+import { executeAgentNode } from '../services/agents/agentExecutor';
 import { requireRole } from '../../../middleware/auth';
-import { agentToolRegistry } from '../services/agentToolRegistry.ts';
+import { agentToolRegistry } from '../services/agents/agentToolRegistry';
 
 const router = Router();
 

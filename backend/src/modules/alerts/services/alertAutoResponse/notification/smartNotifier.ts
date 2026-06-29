@@ -10,10 +10,10 @@
  * =============================================================================
  */
 
-import { notificationService } from '../../../../infra/services/notificationService.ts';
+import { notificationService } from '../../../../infra/services/notificationService';
 import db from '../../../../../models/database';
 import { logger } from '../../../../../utils/logger';
-import type { DeviceRuntimeProfile } from '../types.ts';
+import type { DeviceRuntimeProfile } from '../types';
 
 export type NotificationReason =
   | 'diagnosis_complete'

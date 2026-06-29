@@ -256,7 +256,7 @@ class NetworkDiscoveryService {
 
     return new Promise(resolve => {
       const results: Record<string, any> = {};
-      let pending = 3;
+      const pending = 3;
 
       const oids = [
         '1.3.6.1.2.1.1.1.0',   // sysDescr

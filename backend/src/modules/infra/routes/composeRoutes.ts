@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { composeService } from '../services/composeService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { composeService } from '../services/composeService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

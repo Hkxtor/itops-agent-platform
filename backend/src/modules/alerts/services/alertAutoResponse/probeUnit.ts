@@ -9,7 +9,7 @@
  * =============================================================================
  */
 
-import type { ProbeUnit } from './types.ts';
+import type { ProbeUnit } from './types';
 
 /**
  * 全量探针编目

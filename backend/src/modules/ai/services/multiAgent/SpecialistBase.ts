@@ -1,13 +1,14 @@
 import { randomUUID } from 'crypto';
 import { logger } from '../../../../utils/logger';
-import {
+import type {
   SpecialistDomain,
   AgentCapability,
   TaskContext,
   ExecutionResult,
-  SpecialistRegistryEntry,
+  SpecialistRegistryEntry} from './types';
+import {
   TaskStatus
-} from './types.ts';
+} from './types';
 
 /**
  * Specialist 基类
@@ -27,7 +28,7 @@ export abstract class SpecialistBase {
     domain: SpecialistDomain,
     capabilities: AgentCapability,
     systemPrompt: string,
-    temperature: number = 0.7,
+    temperature = 0.7,
     id?: string
   ) {
     this.id = id || randomUUID();

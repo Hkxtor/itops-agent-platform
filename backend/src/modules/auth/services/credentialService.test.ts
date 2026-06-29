@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock("../../../models/database", () => ({ default: {}, db: {}, initializeDatabase: vi.fn(), performMaintenance: vi.fn(), getIOInstance: vi.fn() }));
-import { credentialService } from './credentialService.ts';
+import { credentialService } from './credentialService';
 
 describe('credentialService', () => {
   beforeEach(() => { vi.clearAllMocks(); });

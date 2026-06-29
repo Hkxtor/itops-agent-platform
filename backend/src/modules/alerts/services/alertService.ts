@@ -1,9 +1,9 @@
 import { logger } from '../../../utils/logger';
 import { env } from '../../../utils/env';
 import db from '../../../models/database';
-import { rootCauseAnalysisService } from '../../ai/services/rootCauseAnalysisService.ts';
-import { circuitBreakers } from '../../ai/services/llmService.ts';
-import { credentialService } from '../../auth/services/credentialService.ts';
+import { rootCauseAnalysisService } from '../../ai/services/rca/rootCauseAnalysisService';
+import { circuitBreakers } from '../../ai/services/llm/llmService';
+import { credentialService } from '../../auth/services/credentialService';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 export type AlertChannel = 'email' | 'webhook' | 'log';
@@ -94,7 +94,7 @@ export class AlertService {
   private rules: Map<string, AlertRule> = new Map();
   private alertHistory: AlertNotification[] = [];
   private maxHistorySize = 1000;
-  private webhookUrl: string = '';
+  private webhookUrl = '';
   private emailConfig?: { host: string; port: number; user: string; pass: string; to: string };
   private initialized = false;
 
@@ -397,7 +397,7 @@ export class AlertService {
     }
   }
 
-  getHistory(limit: number = 50): AlertNotification[] {
+  getHistory(limit = 50): AlertNotification[] {
     return this.alertHistory.slice(0, limit);
   }
 

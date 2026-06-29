@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
-import { configBackupService } from '../../infra/services/configBackupService.ts';
-import { lldpDiscoveryService } from '../services/lldpDiscoveryService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { configBackupService } from '../../infra/services/configBackupService';
+import { lldpDiscoveryService } from '../services/lldpDiscoveryService';
 import { logger } from '../../../utils/logger';
 
 const router = Router();

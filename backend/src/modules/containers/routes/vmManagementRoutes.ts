@@ -4,10 +4,11 @@
  * =============================================================================
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { logger } from '../../../utils/logger';
 import { vmManagementService } from '../services/vmManagement';
-import {
+import type {
   CreateVMRequest,
   CloneVMRequest,
   CreateSnapshotRequest,

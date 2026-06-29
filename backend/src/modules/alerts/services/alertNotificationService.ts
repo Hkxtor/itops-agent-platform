@@ -1,7 +1,7 @@
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import { env } from '../../../utils/env';
-import { credentialService } from '../../auth/services/credentialService.ts';
+import { credentialService } from '../../auth/services/credentialService';
 
 export type AlertLevel = 'info' | 'warning' | 'critical';
 export type AlertChannel = 'email' | 'webhook' | 'database';
@@ -212,7 +212,7 @@ export class AlertNotificationService {
   ): Promise<AlertNotification | null> {
     try {
       const config = this.getConfigs().find(c => c.name === alertName);
-      if (!config || !config.enabled) {
+      if (!config?.enabled) {
         return null;
       }
 
@@ -390,7 +390,7 @@ export class AlertNotificationService {
     }
   }
 
-  getNotifications(limit: number = 50): AlertNotification[] {
+  getNotifications(limit = 50): AlertNotification[] {
     try {
       const rows = db.prepare(`
         SELECT * FROM alert_notifications
@@ -425,7 +425,7 @@ export class AlertNotificationService {
     }
   }
 
-  clearOldNotifications(olderThanDays: number = 30): number {
+  clearOldNotifications(olderThanDays = 30): number {
     try {
       const result = db.prepare(`
         DELETE FROM alert_notifications

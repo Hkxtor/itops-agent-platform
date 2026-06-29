@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express';
-import { networkDeviceService } from '../services/networkDeviceService.ts';
-import { networkInspectionService } from '../services/networkInspectionService.ts';
-import { networkCommandGenerator } from '../services/networkCommandGenerator.ts';
-import { snmpPollingService } from '../services/snmpPollingService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { networkDeviceService } from '../services/networkDeviceService';
+import { networkInspectionService } from '../services/networkInspectionService';
+import { networkCommandGenerator } from '../services/networkCommandGenerator';
+import { snmpPollingService } from '../services/snmpPollingService';
 import { logger } from '../../../utils/logger';
 import { requireRole } from '../../../middleware/auth';
 

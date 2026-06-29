@@ -1,8 +1,8 @@
-import { Server } from 'http';
-import { Server as SocketIOServer } from 'socket.io';
+import type { Server } from 'http';
+import type { Server as SocketIOServer } from 'socket.io';
 import { logger } from '../../../utils/logger';
-import { schedulerService } from '../../workflow/services/schedulerService.ts';
-import { backupService } from './backupService.ts';
+import { schedulerService } from '../../workflow/services/schedulerService';
+import { backupService } from './backupService';
 
 let httpServer: Server | null = null;
 let ioInstance: SocketIOServer | null = null;

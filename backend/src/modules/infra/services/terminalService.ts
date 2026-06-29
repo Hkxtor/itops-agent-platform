@@ -1,6 +1,7 @@
-import { Client, ClientChannel } from 'ssh2';
+import type { ClientChannel } from 'ssh2';
+import { Client } from 'ssh2';
 import db from '../../../models/database';
-import { decrypt } from '../../auth/services/encryptionService.ts';
+import { decrypt } from '../../auth/services/encryptionService';
 import { logger } from '../../../utils/logger';
 import { checkCommandSafety } from '../../../middleware/commandFilter';
 

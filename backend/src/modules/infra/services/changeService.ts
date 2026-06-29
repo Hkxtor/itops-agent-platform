@@ -179,7 +179,7 @@ class ChangeService {
     return this.getById(id)!;
   }
 
-  getRecentByServer(serverId: string, hours: number = 24): ChangeRecord[] {
+  getRecentByServer(serverId: string, hours = 24): ChangeRecord[] {
     const records = db.prepare(`
       SELECT * FROM change_records 
       WHERE server_id = ? 

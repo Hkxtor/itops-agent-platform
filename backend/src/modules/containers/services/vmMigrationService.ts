@@ -112,7 +112,7 @@ class VmMigrationService {
 
   cancelMigration(migrationId: string): boolean {
     const task = this.activeMigrations.get(migrationId);
-    if (!task || task.status !== 'running') return false;
+    if (task?.status !== 'running') return false;
 
     const interval = this.progressIntervals.get(migrationId);
     if (interval) {

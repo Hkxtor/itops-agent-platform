@@ -1643,6 +1643,381 @@ GET    /api/remediation-audits                    # 获取修复审计记录
 GET    /api/remediation-audits/:id                # 获取审计详情
 ```
 
+## 数据中心基础设施管理（DC 模块）
+
+> 借鉴 NetBox DCIM 数据模型，管理机房、机柜、U位分配、设备制造商、设备型号、配电系统、线缆拓扑。  
+> **Base Path**: `/api/dc`（同时挂载 `/api/dc-infrastructure`）
+
+### 机房管理
+
+```http
+GET    /api/dc/rooms          # 获取机房列表
+POST   /api/dc/rooms          # 创建机房
+PUT    /api/dc/rooms/:id      # 更新机房（含 layout_config 3D布局配置）
+DELETE /api/dc/rooms/:id      # 删除机房（级联删除机柜）
+```
+
+**创建机房:**
+```http
+POST /api/dc/rooms
+Content-Type: application/json
+
+{
+  "name": "A01",
+  "label": "核心机房A",
+  "description": "主数据中心",
+  "width_m": 20,
+  "depth_m": 15,
+  "sort_order": 1
+}
+```
+
+### 机柜管理
+
+```http
+GET    /api/dc/racks          # 获取机柜列表（支持筛选）
+POST   /api/dc/racks          # 创建机柜
+PUT    /api/dc/racks/:id      # 更新机柜
+DELETE /api/dc/racks/:id      # 删除机柜（级联删除U位）
+```
+
+**查询参数:**
+```
+?room_id=<uuid>     # 按机房筛选
+?status=normal      # 按状态筛选（normal/warning/critical）
+?search=关键词       # 按名称模糊搜索
+```
+
+**创建机柜:**
+```http
+POST /api/dc/racks
+Content-Type: application/json
+
+{
+  "name": "Rack-A01-01",
+  "room_id": "room-uuid",
+  "row_number": 1,
+  "total_u": 42,
+  "sort_order": 1,
+  "position_x": 0,
+  "position_z": 0
+}
+```
+
+### U位管理
+
+```http
+GET    /api/dc/slots              # 获取所有U位数据（DataRoom 3D 调用）
+GET    /api/dc/slots/:rackId      # 获取指定机柜的U位
+POST   /api/dc/slots              # 分配U位（上架设备，自动检测冲突）
+PUT    /api/dc/slots/:id          # 更新U位（移位设备）
+DELETE /api/dc/slots/:id          # 移除U位（下架设备）
+```
+
+**分配U位（上架设备）:**
+```http
+POST /api/dc/slots
+Content-Type: application/json
+
+{
+  "rack_id": "rack-uuid",
+  "device_id": "server-uuid",
+  "device_type": "server",
+  "device_type_id": "device-type-uuid",
+  "start_u": 10,
+  "end_u": 12,
+  "position_face": "front",
+  "lifecycle_notes": "上线部署"
+}
+```
+
+**冲突处理:** U位范围重叠时返回 `409 Conflict`，超出机柜容量返回 `400 Bad Request`。  
+**自动高度计算:** 若提供 `device_type_id`，`end_u` 会自动从设备型号的 `u_height` 推导。
+
+### 设备分布
+
+```http
+GET /api/dc/devices              # 按机房/机柜分组的设备分布
+GET /api/dc/devices/unallocated  # 未分配（未上架）的设备
+```
+
+**未分配设备查询参数:**
+```
+?search=关键词   # 按名称/IP搜索
+```
+
+### 3D 总览
+
+```http
+GET /api/dc/overview   # DataRoom 3D 总览数据（聚合机房、机柜、设备、环境数据）
+```
+
+**响应包含:** rooms 列表、summary 统计、rackData（含设备数、警告数）、slotData（设备与关联状态）、环境温湿度、PUE。
+
+### 设备制造商（NetBox-inspired）
+
+```http
+GET    /api/dc/manufacturers       # 获取全部制造商列表
+GET    /api/dc/manufacturers/:id   # 获取单个制造商（含关联设备型号数）
+POST   /api/dc/manufacturers       # 创建制造商
+PUT    /api/dc/manufacturers/:id   # 更新制造商
+DELETE /api/dc/manufacturers/:id   # 删除制造商（有关联型号时禁止删除）
+```
+
+**创建制造商:**
+```http
+POST /api/dc/manufacturers
+Content-Type: application/json
+
+{
+  "name": "Huawei",
+  "slug": "huawei",
+  "description": "华为技术有限公司",
+  "logo_url": "https://example.com/huawei.png",
+  "sort_order": 1
+}
+```
+
+### 设备型号（NetBox-inspired）
+
+```http
+GET    /api/dc/device-types                      # 获取型号列表（可按制造商筛选）
+GET    /api/dc/device-types/:id                  # 获取单个型号（含槽位定义 + 实例数）
+POST   /api/dc/device-types                      # 创建型号
+PUT    /api/dc/device-types/:id                  # 更新型号
+DELETE /api/dc/device-types/:id                  # 删除型号（有实例引用时禁止删除）
+```
+
+**查询参数:**
+```
+?manufacturer_id=<uuid>   # 按制造商筛选
+```
+
+**创建设备型号:**
+```http
+POST /api/dc/device-types
+Content-Type: application/json
+
+{
+  "manufacturer_id": "manufacturer-uuid",
+  "model": "RH2288H V5",
+  "slug": "rh2288h-v5",
+  "part_number": "02311KAV",
+  "u_height": 2,
+  "is_full_depth": 1,
+  "subdevice_role": null,
+  "airflow": "front-to-rear",
+  "weight_kg": 25.5,
+  "max_power_w": 800,
+  "description": "2U 通用服务器"
+}
+```
+
+### 配电柜（NetBox-inspired）
+
+```http
+GET    /api/dc/power-panels       # 获取配电柜列表（含关联机房 + 馈线数）
+GET    /api/dc/power-panels/:id   # 获取单个配电柜详情（含供电线路列表）
+POST   /api/dc/power-panels       # 创建配电柜
+PUT    /api/dc/power-panels/:id   # 更新配电柜
+DELETE /api/dc/power-panels/:id   # 删除配电柜（有关联馈线时禁止删除）
+```
+
+**创建配电柜:**
+```http
+POST /api/dc/power-panels
+Content-Type: application/json
+
+{
+  "room_id": "room-uuid",
+  "name": "PP-A01-01",
+  "location_label": "A01机房东侧",
+  "panel_type": "rpp",
+  "voltage": 220,
+  "amperage": 63,
+  "phase_count": 3,
+  "description": "A01机房主配电柜",
+  "sort_order": 1
+}
+```
+
+### 供电线路（NetBox-inspired）
+
+```http
+GET    /api/dc/power-feeds                  # 获取全部供电线路（可按配电柜筛选）
+GET    /api/dc/power-feeds/rack/:rackId     # 获取指定机柜的所有供电线路
+GET    /api/dc/power-feeds/:id              # 单条供电线路详情
+POST   /api/dc/power-feeds                  # 创建供电线路
+PUT    /api/dc/power-feeds/:id              # 更新供电线路
+DELETE /api/dc/power-feeds/:id              # 删除供电线路
+```
+
+**查询参数:**
+```
+?power_panel_id=<uuid>   # 按配电柜筛选
+```
+
+**创建供电线路:**
+```http
+POST /api/dc/power-feeds
+Content-Type: application/json
+
+{
+  "power_panel_id": "panel-uuid",
+  "rack_id": "rack-uuid",
+  "name": "Feed-A",
+  "status": "active",
+  "feed_type": "primary",
+  "supply": "ac",
+  "voltage": 220,
+  "amperage": 16,
+  "max_utilization_pct": 80,
+  "current_load_w": 1200,
+  "description": "机柜主供电"
+}
+```
+
+### 线缆管理（NetBox-inspired）
+
+```http
+GET    /api/dc/cables                     # 获取线缆列表（可按设备/状态筛选）
+GET    /api/dc/cables/scene               # 获取带3D坐标的全部线缆（DataRoom3D 渲染）
+GET    /api/dc/cables/topology/:rackId    # 机柜内部设备连接拓扑
+POST   /api/dc/cables                     # 创建线缆连接
+PUT    /api/dc/cables/:id                 # 更新线缆
+DELETE /api/dc/cables/:id                 # 删除线缆
+```
+
+**查询参数:**
+```
+?device_id=<uuid>   # 按设备筛选（匹配 A端 或 B端）
+?status=connected   # 按状态筛选（connected/disconnected/planned）
+```
+
+**创建线缆连接:**
+```http
+POST /api/dc/cables
+Content-Type: application/json
+
+{
+  "name": "CBL-001",
+  "cable_type": "cat6",
+  "cable_color": "蓝色",
+  "length_m": 3.5,
+  "status": "connected",
+  "a_device_id": "server-uuid",
+  "a_device_type": "server",
+  "a_port_name": "eth0",
+  "b_device_id": "switch-uuid",
+  "b_device_type": "network_device",
+  "b_port_name": "GE0/0/1",
+  "description": "服务器到交换机"
+}
+```
+
+**Scene 端点:** 自动计算每条线缆两端的 3D 坐标（机柜位置 + U位高度），返回 `a_position` / `b_position` 的 `[x, y, z]` 坐标数组，前端 DataRoom3D 可直接渲染。
+
+### PDU/UPS 管理
+
+```http
+GET    /api/dc/pdus          # 获取PDU/UPS列表
+POST   /api/dc/pdus          # 创建PDU/UPS
+PUT    /api/dc/pdus/:id      # 更新PDU/UPS
+DELETE /api/dc/pdus/:id      # 删除PDU/UPS
+```
+
+**创建PDU:**
+```http
+POST /api/dc/pdus
+Content-Type: application/json
+
+{
+  "name": "PDU-A01-01A",
+  "type": "pdu",
+  "status": "active",
+  "rack_id": "rack-uuid",
+  "power_capacity_w": 5000,
+  "current_load_w": 2500,
+  "input_voltage": 220,
+  "output_sockets": 24,
+  "model": "AP8858",
+  "ip_address": "192.168.1.200",
+  "snmp_community": "public"
+}
+```
+
+### 设备生命周期
+
+```http
+GET /api/dc/lifecycle     # 获取生命周期记录（自动记录上架/移位/下架）
+```
+
+**查询参数:**
+```
+?action=mounted   # 按操作类型筛选（mounted/moved/unmounted）
+?limit=100         # 返回条数限制（默认500）
+```
+
+### 数据导入导出
+
+```http
+GET  /api/dc/export   # 导出完整数据中心数据（机房/机柜/U位/PDU/生命周期）
+POST /api/dc/import    # 导入数据中心数据（先清空后导入）
+```
+
+**导入请求体:**
+```http
+POST /api/dc/import
+Content-Type: application/json
+
+{
+  "rooms": [],
+  "racks": [],
+  "slots": [],
+  "pdus": [],
+  "lifecycles": []
+}
+```
+
+### 健康检查
+
+```http
+GET /api/dc/health
+```
+
+**响应:**
+```json
+{ "success": true, "message": "DC routes OK" }
+```
+
+### WebSocket 事件
+
+#### 服务端 → 客户端
+
+| 事件 | 说明 |
+|------|------|
+| `dc:status` | 每 5 秒推送一次 DC 概览状态 |
+
+**`dc:status` 数据格式:**
+```json
+{
+  "timestamp": 1700000000000,
+  "summary": {
+    "totalRacks": 20,
+    "totalSlots": 840,
+    "totalDevices": 156,
+    "onlineDevices": 142,
+    "alertDevices": 3
+  },
+  "rackUtil": [
+    { "id": "...", "name": "Rack-A01-01", "used_u": 24, "total_u": 42, "device_count": 12 }
+  ],
+  "roomEnv": [
+    { "id": "...", "name": "A01", "label": "核心机房A", "current_temperature": 23.5, "current_humidity": 48.2 }
+  ]
+}
+```
+
 ## 错误响应
 
 所有API在出错时返回统一格式：

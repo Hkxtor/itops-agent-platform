@@ -1,9 +1,10 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
-import { encrypt, decrypt } from '../../auth/services/encryptionService.ts';
+import { encrypt, decrypt } from '../../auth/services/encryptionService';
 import { requireRole } from '../../../middleware/auth';
-import { executeDbskiter } from '../services/dbskiterService.ts';
+import { executeDbskiter } from '../services/dbskiterService';
 
 const router = Router();
 

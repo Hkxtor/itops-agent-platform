@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
-import {
+import type {
   ConfigTemplate,
   ConfigAnalysis,
   ConfigIssue,
@@ -14,8 +14,8 @@ import {
   RepairRecord,
   ConfigChange,
 } from '../../../types/configRepair';
-import { ConfigParser } from './configParser.ts';
-import { configBackupService } from './configBackupService.ts';
+import { ConfigParser } from './configParser';
+import { configBackupService } from './configBackupService';
 import db from '../../../models/database';
 
 export class ConfigRepairService {
@@ -413,7 +413,7 @@ export class ConfigRepairService {
   /**
    * 获取修复记录列表
    */
-  listRepairRecords(deviceId?: string, limit: number = 50): RepairRecord[] {
+  listRepairRecords(deviceId?: string, limit = 50): RepairRecord[] {
     try {
       let query = 'SELECT * FROM config_repair_records';
       const params: any[] = [];

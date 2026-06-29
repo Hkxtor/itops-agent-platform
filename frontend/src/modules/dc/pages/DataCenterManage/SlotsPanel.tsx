@@ -1,5 +1,5 @@
-import { Tag, Empty } from 'antd';
-import { CuboidIcon as Cube } from 'lucide-react';
+import { Tag, Empty, Button } from 'antd';
+import { CuboidIcon as Cube, Plus } from 'lucide-react';
 import type { Slot, Rack } from './types';
 import { typeLabelMap } from './types';
 
@@ -7,9 +7,10 @@ interface Props {
   rack: Rack | null;
   slots: Slot[];
   onSelectSlot: (slot: Slot) => void;
+  onAddDevice?: () => void;
 }
 
-export default function SlotsPanel({ rack, slots, onSelectSlot }: Props) {
+export default function SlotsPanel({ rack, slots, onSelectSlot, onAddDevice }: Props) {
   if (!rack) {
     return (
       <div className="flex items-center justify-center h-64 text-text-tertiary">
@@ -105,6 +106,11 @@ export default function SlotsPanel({ rack, slots, onSelectSlot }: Props) {
               style={{ width: `${utilPercent}%` }}
             />
           </div>
+          {onAddDevice && (
+            <Button type="primary" size="small" icon={<Plus size={12} />} onClick={onAddDevice}>
+              分配设备
+            </Button>
+          )}
         </div>
       </div>
 

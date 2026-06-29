@@ -3,15 +3,15 @@
  * Coordinator + Specialist
  */
 
-export * from './types.ts';
-export * from './SpecialistBase.ts';
-export * from './SpecialistRegistry.ts';
-export * from './Coordinator.ts';
-export * from './Specialists.ts';
+export * from './types';
+export * from './SpecialistBase';
+export * from './SpecialistRegistry';
+export * from './Coordinator';
+export * from './Specialists';
 
-import { Coordinator } from './Coordinator.ts';
-import { specialistRegistry } from './SpecialistRegistry.ts';
-import { registerAllSpecialists } from './Specialists.ts';
+import { Coordinator } from './Coordinator';
+import { specialistRegistry } from './SpecialistRegistry';
+import { registerAllSpecialists } from './Specialists';
 import { logger } from '../../../../utils/logger';
 
 let globalCoordinator: Coordinator | null = null;

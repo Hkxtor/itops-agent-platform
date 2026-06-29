@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
-import db from '../../../models/database';
-import { logger } from '../../../utils/logger';
-import { callDoubaoAPI } from './llmService.ts';
-import EnhancedRAGService from './enhancedRAGService.ts';
+import db from '../../../../models/database';
+import { logger } from '../../../../utils/logger';
+import { callDoubaoAPI } from '../llm/llmService';
+import EnhancedRAGService from '../remediation/enhancedRAGService';
 
 interface AgentDB {
   id: string;
@@ -34,10 +34,10 @@ interface CollaborationMessage {
 
 class MultiAgentOrchestrator {
   private context: AgentCollaborationContext;
-  private maxRounds: number = 10;
+  private maxRounds = 10;
   private maxThinkingTime: number = 5 * 60 * 1000;
-  private maxConversationHistory: number = 50;
-  private trimTargetSize: number = 30;
+  private maxConversationHistory = 50;
+  private trimTargetSize = 30;
   private abortController: AbortController;
 
   constructor(taskId: string, initialContext: Record<string, unknown> = {}) {
@@ -141,9 +141,9 @@ ${agentDescriptions}
     for (const rule of ruleMappings) {
       if (rule.keywords.some(k => queryLower.includes(k))) {
         const matchedAgent = availableAgents.find(a => 
-          (a.role && a.role.toLowerCase().includes(rule.agentRole)) ||
+          (a.role?.toLowerCase().includes(rule.agentRole)) ||
           (a.name && a.name.toLowerCase().includes(rule.agentRole)) ||
-          (a.description && a.description.toLowerCase().includes(rule.agentRole))
+          (a.description?.toLowerCase().includes(rule.agentRole))
         );
         if (matchedAgent) {
           logger.info(`✅ [Rule Router] Matched agent: ${matchedAgent.name} for query`);
@@ -543,7 +543,7 @@ ${this.context.conversationHistory.slice(0, 5).map(msg =>
   /**
    * 将Agent协作结果存入知识库
    */
-  async saveToKnowledgeBase(title: string, category: string = '协作案例'): Promise<string> {
+  async saveToKnowledgeBase(title: string, category = '协作案例'): Promise<string> {
     const conversationText = this.context.conversationHistory.map(msg => 
       `**${msg.name || msg.role}** (${new Date(msg.timestamp).toLocaleString()}):\n${msg.content}\n`
     ).join('\n');

@@ -1,7 +1,8 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { requireRole } from '../../../middleware/auth';
-import { resumeWorkflow, rejectWorkflow } from '../../workflow/services/workflowExecutor.ts';
+import { resumeWorkflow, rejectWorkflow } from '../../workflow/services/workflowExecutor';
 import type { ApprovalRequest } from '../../../types';
 
 const router = Router();

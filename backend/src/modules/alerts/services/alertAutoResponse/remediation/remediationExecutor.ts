@@ -13,16 +13,16 @@
 
 import { Client } from 'ssh2';
 import db from '../../../../../models/database';
-import { decrypt } from '../../../../auth/services/encryptionService.ts';
+import { decrypt } from '../../../../auth/services/encryptionService';
 import { withRetry, isRetryableError } from '../../../../../utils/retry';
 import { logger } from '../../../../../utils/logger';
-import { verificationGates } from './verificationGates.ts';
-import { knowledgeFeedbackLoop } from '../adaptive/knowledgeFeedbackLoop.ts';
-import { adaptiveAutomationEngine } from '../adaptive/adaptiveAutomation.ts';
+import { verificationGates } from './verificationGates';
+import { knowledgeFeedbackLoop } from '../adaptive/knowledgeFeedbackLoop';
+import { adaptiveAutomationEngine } from '../adaptive/adaptiveAutomation';
 import type {
   DeviceRuntimeProfile, RemediationPlan, RemediationCommand,
   ProbeResult, VerificationChainResult, AlertResponseLog,
-} from '../types.ts';
+} from '../types';
 
 export interface ExecutionResult {
   success: boolean;

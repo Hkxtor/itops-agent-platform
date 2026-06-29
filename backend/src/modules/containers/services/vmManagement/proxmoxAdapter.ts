@@ -7,8 +7,8 @@
  */
 
 import https from 'https';
-import { BaseVMAdapter } from './vmAdapter.ts';
-import {
+import { BaseVMAdapter } from './vmAdapter';
+import type {
   VirtualMachine,
   VMStats,
   VMSnapshot,
@@ -822,7 +822,7 @@ export class ProxmoxAdapter extends BaseVMAdapter {
       const memPercent = maxMem > 0 ? (usedMem / maxMem) * 100 : 0;
 
       // 获取磁盘信息
-      let diskUsage = 0;
+      const diskUsage = 0;
       let diskTotal = 0;
 
       try {
@@ -1088,7 +1088,7 @@ export class ProxmoxAdapter extends BaseVMAdapter {
 
   private async waitForTask(
     upid: string,
-    timeout: number = 30000
+    timeout = 30000
   ): Promise<void> {
     const startTime = Date.now();
     const pollInterval = 1000;

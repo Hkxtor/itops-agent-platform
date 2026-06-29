@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
 
@@ -20,7 +21,7 @@ router.get('/inspection-center', (req: Request, res: Response) => {
       if (assoc) deviceId = assoc.device_id;
     }
 
-    let results: any[] = [];
+    const results: any[] = [];
 
     // 1. SNMP 巡检 + SSH 巡检（来自 network_inspection_history）
     let historyFilter = '';

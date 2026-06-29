@@ -13,7 +13,7 @@
  * 需要 Redis 6.2+ 运行
  */
 
-import type { QueueJob, QueueAdapter, QueueStats } from './queueService.ts';
+import type { QueueJob, QueueAdapter, QueueStats } from './queueService';
 
 // 延迟导入，仅在启用 Redis 时加载
 let Bull: any;

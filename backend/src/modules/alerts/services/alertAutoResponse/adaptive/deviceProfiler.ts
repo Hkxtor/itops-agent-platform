@@ -10,9 +10,9 @@
  */
 
 import db from '../../../../../models/database';
-import { decrypt } from '../../../../auth/services/encryptionService.ts';
+import { decrypt } from '../../../../auth/services/encryptionService';
 import { logger } from '../../../../../utils/logger';
-import type { DeviceRuntimeProfile, DeviceCategory, MetricsBaseline } from '../types.ts';
+import type { DeviceRuntimeProfile, DeviceCategory, MetricsBaseline } from '../types';
 
 interface IdentificationSource {
   name: string;
@@ -156,7 +156,7 @@ class DeviceProfiler {
       LIMIT 1
     `).get(ip, ip, ip) as { id: string; name: string; hostname: string; username: string; password: string; port: number } | undefined;
 
-    if (server && server.username) {
+    if (server?.username) {
       return {
         type: 'server',
         access: 'ssh',
@@ -173,7 +173,7 @@ class DeviceProfiler {
       LIMIT 1
     `).get(ip) as { id: string; name: string; ip_address: string; username: string; password: string } | undefined;
 
-    if (ndSsh && ndSsh.username) {
+    if (ndSsh?.username) {
       return {
         type: 'network_device',
         access: 'both',

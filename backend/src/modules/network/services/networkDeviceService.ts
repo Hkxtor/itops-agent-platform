@@ -2,8 +2,8 @@ import { randomUUID } from 'crypto';
 import { Client } from 'ssh2';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { encrypt, decrypt } from '../../auth/services/encryptionService.ts';
-import { VendorType } from './vendorAdapter.ts';
+import { encrypt, decrypt } from '../../auth/services/encryptionService';
+import type { VendorType } from './vendorAdapter';
 
 export interface NetworkDevice {
   id: string;
@@ -187,7 +187,7 @@ class NetworkDeviceService {
         'SELECT auth_type, username, password FROM ssh_keys WHERE id = ?'
       ).get(data.ssh_key_id) as { auth_type: string; username: string; password: string } | undefined;
 
-      if (credential && credential.auth_type === 'password') {
+      if (credential?.auth_type === 'password') {
         updates.push({ column: 'username', value: credential.username || '' });
         updates.push({ column: 'password', value: encrypt(credential.password ? decrypt(credential.password) : '') });
       }
@@ -304,7 +304,7 @@ class NetworkDeviceService {
     }
   }
 
-  getInspectionHistory(deviceId: string, limit: number = 20): Array<any> {
+  getInspectionHistory(deviceId: string, limit = 20): Array<any> {
     return db.prepare(
       'SELECT * FROM network_inspection_history WHERE device_id = ? ORDER BY created_at DESC LIMIT ?'
     ).all(deviceId, limit) as Array<any>;
@@ -333,8 +333,8 @@ class NetworkDeviceService {
    */
   private runProbeCommand(
     conn: Client,
-    command: string = 'display version',
-    timeoutMs: number = 30000
+    command = 'display version',
+    timeoutMs = 30000
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const hardTimeout = setTimeout(() => {

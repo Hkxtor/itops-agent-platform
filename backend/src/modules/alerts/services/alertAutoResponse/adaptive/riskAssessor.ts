@@ -14,7 +14,7 @@
  */
 
 import { logger } from '../../../../../utils/logger';
-import type { RiskAssessment, RiskDimensions, RemediationPlan, RemediationCommand } from '../types.ts';
+import type { RiskAssessment, RiskDimensions, RemediationPlan, RemediationCommand } from '../types';
 
 // 工作日时间窗口
 const BUSINESS_START_HOUR = 9;
@@ -203,7 +203,7 @@ class RiskAssessor {
   private computeDynamicThresholds(confidence: RiskDimensions['confidenceScore']): RiskAssessment['thresholds'] {
     let autoThreshold = 0.25;
     let approveThreshold = 0.55;
-    let manualThreshold = 0.80;
+    const manualThreshold = 0.80;
 
     // 置信度 > 0.7 → 更激进
     if (confidence.score > 0.7) {

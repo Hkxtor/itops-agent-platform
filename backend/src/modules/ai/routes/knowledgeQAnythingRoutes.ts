@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import multer from 'multer';
-import { qanythingService } from '../services/qanythingService.ts';
+import { qanythingService } from '../services/knowledge/qanythingService';
 import { authenticateToken } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
 import db from '../../../models/database';
@@ -25,14 +26,14 @@ interface QAnythingConfig {
 
 function validateQAnythingConfig(config: QAnythingConfig): string | null {
   if (config.enabled) {
-    if (!config.apiBase || !config.apiBase.trim()) {
+    if (!config.apiBase?.trim()) {
       return 'API 地址不能为空';
     }
-    if (!config.kbId || !config.kbId.trim()) {
+    if (!config.kbId?.trim()) {
       return '知识库 ID 不能为空';
     }
     // 本地部署模式可以不要求 API Key
-    if (config.mode === 'cloud' && (!config.apiKey || !config.apiKey.trim())) {
+    if (config.mode === 'cloud' && (!config.apiKey?.trim())) {
       return 'API Key 不能为空';
     }
   }

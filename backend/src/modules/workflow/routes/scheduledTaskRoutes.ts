@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { randomUUID } from 'crypto';
-import { createAuditLog } from '../../infra/services/auditService.ts';
-import { schedulerService } from '../services/schedulerService.ts';
+import { createAuditLog } from '../../infra/services/auditService';
+import { schedulerService } from '../services/schedulerService';
 import { requireRole } from '../../../middleware/auth';
 
 interface ScheduledTaskRecord {

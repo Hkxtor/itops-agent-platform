@@ -1,7 +1,7 @@
 import db from '../../../models/database';
 import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
-import { executeCommand } from '../../servers/services/sshService.ts';
+import { executeCommand } from '../../servers/services/sshService';
 
 export interface DependencyInput {
   source_server_id: string;

@@ -4,10 +4,11 @@
  * =============================================================================
  */
 
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { logger } from '../../../utils/logger';
-import { configRepairService } from '../services/configRepairService.ts';
-import { configBackupService } from '../services/configBackupService.ts';
+import { configRepairService } from '../services/configRepairService';
+import { configBackupService } from '../services/configBackupService';
 import {
   AnalyzeConfigRequest,
   AnalyzeConfigResponse,

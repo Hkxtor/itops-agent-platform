@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
-import { dockerService } from '../services/dockerService.ts';
-import { multiHostDockerService } from '../services/multiHostDockerService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { dockerService } from '../services/dockerService';
+import { multiHostDockerService } from '../services/multiHostDockerService';
 import { requireRole } from '../../../middleware/auth';
 import Docker from 'dockerode';
 import { logger } from '../../../utils/logger';

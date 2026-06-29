@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { kubernetesService } from '../services/kubernetesService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { kubernetesService } from '../services/kubernetesService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

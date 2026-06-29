@@ -14,22 +14,22 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from '../../../../models/database';
 import { logger } from '../../../../utils/logger';
-import { generateCompletion } from '../../../ai/services/llmService.ts';
-import { deviceProfiler } from './adaptive/deviceProfiler.ts';
-import { sshDiagnosisEngine } from './diagnosis/sshDiagnosisEngine.ts';
-import { snmpDiagnosisEngine } from './diagnosis/snmpDiagnosisEngine.ts';
-import { riskAssessor } from './adaptive/riskAssessor.ts';
-import { adaptiveAutomationEngine } from './adaptive/adaptiveAutomation.ts';
-import { remediationExecutor } from './remediation/remediationExecutor.ts';
-import { knowledgeFeedbackLoop } from './adaptive/knowledgeFeedbackLoop.ts';
-import { resourceAwareScheduler } from './scheduler/resourceAwareScheduler.ts';
-import { smartNotifier } from './notification/smartNotifier.ts';
-import { escalationEngine } from './adaptive/escalationEngine.ts';
-import { baselineAnomalyDetector } from './adaptive/baselineAnomalyDetector.ts';
+import { generateCompletion } from '../../../ai/services/llm/llmService';
+import { deviceProfiler } from './adaptive/deviceProfiler';
+import { sshDiagnosisEngine } from './diagnosis/sshDiagnosisEngine';
+import { snmpDiagnosisEngine } from './diagnosis/snmpDiagnosisEngine';
+import { riskAssessor } from './adaptive/riskAssessor';
+import { adaptiveAutomationEngine } from './adaptive/adaptiveAutomation';
+import { remediationExecutor } from './remediation/remediationExecutor';
+import { knowledgeFeedbackLoop } from './adaptive/knowledgeFeedbackLoop';
+import { resourceAwareScheduler } from './scheduler/resourceAwareScheduler';
+import { smartNotifier } from './notification/smartNotifier';
+import { escalationEngine } from './adaptive/escalationEngine';
+import { baselineAnomalyDetector } from './adaptive/baselineAnomalyDetector';
 import type {
   DeviceRuntimeProfile, AlertResponseLog, ResponseLogStatus,
   SshDiagnosisResult, SnmpDiagnosisResult,
-} from './types.ts';
+} from './types';
 
 class AlertAutoResponseService {
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -287,7 +287,7 @@ class AlertAutoResponseService {
       await this.saveLog(logId, alertId, device, 'analyzing');
 
       // 风险评估（如果还没有）
-      if (!sshResult.remediationPlan.risk || !sshResult.remediationPlan.risk.suggestedAction) {
+      if (!sshResult.remediationPlan.risk?.suggestedAction) {
         sshResult.remediationPlan.risk = riskAssessor.assess(
           sshResult.remediationPlan, alert.severity, alert.title
         );

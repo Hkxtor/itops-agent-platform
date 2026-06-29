@@ -1,9 +1,10 @@
-import { Client } from 'ssh2';
+import type { Client } from 'ssh2';
 import db from '../../../models/database';
-import { sshPool } from './sshService.ts';
+import { sshPool } from './sshService';
 import { logger } from '../../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
-import { getCommandTemplates, detectOSType, OSType } from '../../infra/services/commandDispatcher.ts';
+import type { OSType } from '../../infra/services/commandDispatcher';
+import { getCommandTemplates, detectOSType } from '../../infra/services/commandDispatcher';
 
 interface ServerInfo {
   id: string;
@@ -56,7 +57,7 @@ class ServerInfoCollector {
   async collectServerInfo(serverId: string): Promise<ServerInfoResult> {
     const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(serverId) as ServerInfo | undefined;
 
-    if (!server || !server.enabled) {
+    if (!server?.enabled) {
       return { success: false, error: 'Server not found or disabled' };
     }
 
@@ -192,7 +193,7 @@ class ServerInfoCollector {
   async collectServerMetrics(serverId: string): Promise<ServerMetricsResult> {
     const server = db.prepare('SELECT * FROM servers WHERE id = ?').get(serverId) as ServerInfo & { os_type?: string } | undefined;
 
-    if (!server || !server.enabled) {
+    if (!server?.enabled) {
       return { success: false, error: 'Server not found or disabled' };
     }
 

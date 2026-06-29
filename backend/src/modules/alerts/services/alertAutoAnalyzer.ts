@@ -25,9 +25,9 @@ import { Client } from 'ssh2';
 import crypto from 'crypto';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { decrypt } from '../../auth/services/encryptionService.ts';
-import { generateCompletion } from '../../ai/services/llmService.ts';
-import { remediationService } from '../../auto/services/remediationService.ts';
+import { decrypt } from '../../auth/services/encryptionService';
+import { generateCompletion } from '../../ai/services/llm/llmService';
+import { remediationService } from '../../auto/services/remediationService';
 
 // ====================== 类型定义 ======================
 
@@ -204,7 +204,7 @@ class AlertAutoAnalyzer {
           SELECT id, name, ip_address, username, password, ssh_port, enable_password
           FROM network_devices WHERE id = ?
         `).get(assoc.device_id) as any;
-        if (nd && nd.username) {
+        if (nd?.username) {
           return {
             id: nd.id, name: nd.name, ip_address: nd.ip_address,
             username: nd.username,
@@ -218,7 +218,7 @@ class AlertAutoAnalyzer {
       } else {
         // server
         const sv = db.prepare('SELECT id, name, hostname, username, password, port AS ssh_port FROM servers WHERE id = ?').get(assoc.device_id) as any;
-        if (sv && sv.username) {
+        if (sv?.username) {
           return {
             id: sv.id, name: sv.name, ip_address: sv.hostname,
             username: sv.username,
@@ -304,7 +304,7 @@ class AlertAutoAnalyzer {
   }
 
   /** 通过 SSH 执行一条命令，返回 stdout */
-  private sshExec(device: DeviceInfo, command: string, timeoutMs: number = 15000): Promise<string> {
+  private sshExec(device: DeviceInfo, command: string, timeoutMs = 15000): Promise<string> {
     return new Promise((resolve, reject) => {
       const conn = new Client();
       let output = '';
@@ -699,7 +699,7 @@ ${rawOutput.substring(0, 8000)}
           logger.info(`🔧 [AI Remediation] AI 建议了 ${remediationCommands.length} 条修复命令，创建修复工作流`);
 
           // 动态导入避免循环依赖
-          const { aiRemediationService } = await import('../../ai/services/aiRemediationService.ts');
+          const { aiRemediationService } = await import('../../ai/services/remediation/aiRemediationService.ts');
 
           const remediation = await aiRemediationService.createAndExecute({
             alertId,
@@ -826,7 +826,7 @@ ${rawOutput.substring(0, 8000)}
   }
 
   /** 获取分析记录列表 */
-  getAnalysisHistory(limit: number = 50): AutoAnalysisResult[] {
+  getAnalysisHistory(limit = 50): AutoAnalysisResult[] {
     return db.prepare(`
       SELECT * FROM alert_auto_analysis ORDER BY created_at DESC LIMIT ?
     `).all(limit) as AutoAnalysisResult[];

@@ -59,7 +59,7 @@ class TokenBlacklistService {
       const decoded = jwt.decode(token) as { exp?: number } | null;
       let expiresAt: Date;
       
-      if (decoded && decoded.exp) {
+      if (decoded?.exp) {
         expiresAt = new Date(decoded.exp * 1000);
       } else {
         expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

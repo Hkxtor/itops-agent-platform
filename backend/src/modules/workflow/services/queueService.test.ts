@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
-import { queueService, QueueJobType } from './queueService.ts';
+import { queueService, QueueJobType } from './queueService';
 describe('queueService', () => {
   beforeEach(() => { vi.clearAllMocks(); });
   it('should initialize without error', () => { expect(() => queueService.init()).not.toThrow(); });

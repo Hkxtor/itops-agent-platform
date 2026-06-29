@@ -1,7 +1,7 @@
 import axios from 'axios';
 import FormData from 'form-data';
-import { logger } from '../../../utils/logger';
-import db from '../../../models/database';
+import { logger } from '../../../../utils/logger';
+import db from '../../../../models/database';
 
 interface QAnythingConfig {
   enabled: boolean;
@@ -47,7 +47,7 @@ class QAnythingService {
    * 获取标准化后的 apiBase（去除末尾斜杠）
    */
   private normalizeApiBase(apiBase: string): string {
-    if (!apiBase || !apiBase.trim()) {
+    if (!apiBase?.trim()) {
       throw new Error('API base URL is not configured. Please configure it in Settings.');
     }
     const normalized = apiBase.trim().replace(/\/+$/, '');
@@ -100,7 +100,7 @@ class QAnythingService {
    */
   async queryKnowledge(question: string, topK?: number): Promise<string> {
     const config = this.getConfig();
-    if (!config || !config.enabled) {
+    if (!config?.enabled) {
       throw new Error('QAnything is not enabled');
     }
 
@@ -150,7 +150,7 @@ class QAnythingService {
         const data = response.data.data;
         let context = '';
 
-        if (data && data.response) {
+        if (data?.response) {
           // 处理字符串响应
           if (typeof data.response === 'string') {
             context = data.response.trim();
@@ -203,7 +203,7 @@ class QAnythingService {
    */
   async uploadDocument(file: Buffer, fileName: string): Promise<{ fileId: string; status: string }> {
     const config = this.getConfig();
-    if (!config || !config.enabled) {
+    if (!config?.enabled) {
       throw new Error('QAnything is not enabled');
     }
 
@@ -259,7 +259,7 @@ class QAnythingService {
    */
   async getDocumentStatus(fileId: string): Promise<{ status: string; fileName: string }> {
     const config = this.getConfig();
-    if (!config || !config.enabled) {
+    if (!config?.enabled) {
       throw new Error('QAnything is not enabled');
     }
 
@@ -297,7 +297,7 @@ class QAnythingService {
    */
   async deleteDocument(fileId: string): Promise<void> {
     const config = this.getConfig();
-    if (!config || !config.enabled) {
+    if (!config?.enabled) {
       throw new Error('QAnything is not enabled');
     }
 
@@ -331,7 +331,7 @@ class QAnythingService {
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {
     const config = this.getConfig();
-    if (!config || !config.enabled) {
+    if (!config?.enabled) {
       return { success: false, message: 'QAnything is not enabled' };
     }
 

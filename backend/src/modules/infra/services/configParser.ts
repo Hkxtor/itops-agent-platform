@@ -5,7 +5,7 @@
  * =============================================================================
  */
 
-import { ConfigBlock, ConfigIssue, ConfigTemplate } from '../../../types/configRepair';
+import type { ConfigBlock, ConfigIssue, ConfigTemplate } from '../../../types/configRepair';
 
 export class ConfigParser {
   private template: ConfigTemplate;
@@ -478,7 +478,7 @@ export class ConfigParser {
    * 应用变更并生成新配置
    */
   applyChanges(content: string, changes: any[]): string {
-    let lines = content.split('\n');
+    const lines = content.split('\n');
     
     for (const change of changes) {
       if (change.type === 'modify' && change.lineNumber) {

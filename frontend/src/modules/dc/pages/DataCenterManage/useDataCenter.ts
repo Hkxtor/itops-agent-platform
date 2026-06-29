@@ -61,6 +61,35 @@ export default function useDataCenter() {
   const [deviceGroupLoading, setDeviceGroupLoading] = useState(false);
   const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({});
 
+  // ===== NetBox 功能：制造商/型号/配电柜/供电线路/线缆 =====
+  const [manufacturers, setManufacturers] = useState<any[]>([]);
+  const [deviceTypes, setDeviceTypes] = useState<any[]>([]);
+  const [powerPanels, setPowerPanels] = useState<any[]>([]);
+  const [powerFeeds, setPowerFeeds] = useState<any[]>([]);
+  const [cables, setCables] = useState<any[]>([]);
+  const [mfLoading, setMfLoading] = useState(false);
+  const [dtLoading, setDtLoading] = useState(false);
+  const [ppLoading, setPpLoading] = useState(false);
+  const [pfLoading, setPfLoading] = useState(false);
+  const [cableLoading, setCableLoading] = useState(false);
+
+  // ===== NetBox Modal 状态 =====
+  const [mfModalOpen, setMfModalOpen] = useState(false);
+  const [editingMf, setEditingMf] = useState<any>(null);
+  const [mfForm] = Form.useForm();
+  const [dtModalOpen, setDtModalOpen] = useState(false);
+  const [editingDt, setEditingDt] = useState<any>(null);
+  const [dtForm] = Form.useForm();
+  const [ppModalOpen, setPpModalOpen] = useState(false);
+  const [editingPp, setEditingPp] = useState<any>(null);
+  const [ppForm] = Form.useForm();
+  const [pfModalOpen, setPfModalOpen] = useState(false);
+  const [editingPf, setEditingPf] = useState<any>(null);
+  const [pfForm] = Form.useForm();
+  const [cableModalOpen, setCableModalOpen] = useState(false);
+  const [editingCable, setEditingCable] = useState<any>(null);
+  const [cableForm] = Form.useForm();
+
   // ===== 搜索过滤器 =====
   const [roomSearch, setRoomSearch] = useState('');
   const [rackSearch, setRackSearch] = useState('');
@@ -122,6 +151,11 @@ export default function useDataCenter() {
     if (key === 'pdus') loadPdus();
     if (key === 'export') loadExport();
     if (key === 'devices') loadDeviceGroups();
+    if (key === 'manufacturers') loadManufacturers();
+    if (key === 'deviceTypes') loadDeviceTypes();
+    if (key === 'powerPanels') loadPowerPanels();
+    if (key === 'powerFeeds') loadPowerFeeds();
+    if (key === 'cables') loadCables();
   };
 
   // ===== 设备导航 =====
@@ -182,11 +216,153 @@ export default function useDataCenter() {
     }
   };
 
+  // ===== NetBox 功能加载 =====
+  const loadManufacturers = async () => {
+    setMfLoading(true);
+    try {
+      const res = await api.get('/api/dc/manufacturers');
+      setManufacturers(res.data.data || []);
+    } catch { setManufacturers([]); }
+    finally { setMfLoading(false); }
+  };
+
+  const loadDeviceTypes = async () => {
+    setDtLoading(true);
+    try {
+      const res = await api.get('/api/dc/device-types');
+      setDeviceTypes(res.data.data || []);
+    } catch { setDeviceTypes([]); }
+    finally { setDtLoading(false); }
+  };
+
+  const loadPowerPanels = async () => {
+    setPpLoading(true);
+    try {
+      const res = await api.get('/api/dc/power-panels');
+      setPowerPanels(res.data.data || []);
+    } catch { setPowerPanels([]); }
+    finally { setPpLoading(false); }
+  };
+
+  const loadPowerFeeds = async () => {
+    setPfLoading(true);
+    try {
+      const res = await api.get('/api/dc/power-feeds');
+      setPowerFeeds(res.data.data || []);
+    } catch { setPowerFeeds([]); }
+    finally { setPfLoading(false); }
+  };
+
+  const loadCables = async () => {
+    setCableLoading(true);
+    try {
+      const res = await api.get('/api/dc/cables');
+      setCables(res.data.data || []);
+    } catch { setCables([]); }
+    finally { setCableLoading(false); }
+  };
+
+  // ===== NetBox CRUD =====
+  const saveManufacturer = async () => {
+    try {
+      const values = await mfForm.validateFields();
+      if (editingMf) {
+        await api.put(`/api/dc/manufacturers/${editingMf.id}`, values);
+        message.success('制造商更新成功');
+      } else {
+        await api.post('/api/dc/manufacturers', values);
+        message.success('制造商创建成功');
+      }
+      setMfModalOpen(false); mfForm.resetFields(); setEditingMf(null);
+      loadManufacturers();
+    } catch { /* antd 自动提示 */ }
+  };
+  const deleteManufacturer = async (id: string) => {
+    try { await api.delete(`/api/dc/manufacturers/${id}`); message.success('已删除'); loadManufacturers(); }
+    catch { message.error('删除失败'); }
+  };
+
+  const saveDeviceType = async () => {
+    try {
+      const values = await dtForm.validateFields();
+      if (editingDt) {
+        await api.put(`/api/dc/device-types/${editingDt.id}`, values);
+        message.success('设备型号更新成功');
+      } else {
+        await api.post('/api/dc/device-types', values);
+        message.success('设备型号创建成功');
+      }
+      setDtModalOpen(false); dtForm.resetFields(); setEditingDt(null);
+      loadDeviceTypes();
+    } catch { /* antd 自动提示 */ }
+  };
+  const deleteDeviceType = async (id: string) => {
+    try { await api.delete(`/api/dc/device-types/${id}`); message.success('已删除'); loadDeviceTypes(); }
+    catch { message.error('删除失败'); }
+  };
+
+  const savePowerPanel = async () => {
+    try {
+      const values = await ppForm.validateFields();
+      if (editingPp) {
+        await api.put(`/api/dc/power-panels/${editingPp.id}`, values);
+        message.success('配电柜更新成功');
+      } else {
+        await api.post('/api/dc/power-panels', values);
+        message.success('配电柜创建成功');
+      }
+      setPpModalOpen(false); ppForm.resetFields(); setEditingPp(null);
+      loadPowerPanels();
+    } catch { /* antd 自动提示 */ }
+  };
+  const deletePowerPanel = async (id: string) => {
+    try { await api.delete(`/api/dc/power-panels/${id}`); message.success('已删除'); loadPowerPanels(); }
+    catch { message.error('删除失败'); }
+  };
+
+  const savePowerFeed = async () => {
+    try {
+      const values = await pfForm.validateFields();
+      if (editingPf) {
+        await api.put(`/api/dc/power-feeds/${editingPf.id}`, values);
+        message.success('供电线路更新成功');
+      } else {
+        await api.post('/api/dc/power-feeds', values);
+        message.success('供电线路创建成功');
+      }
+      setPfModalOpen(false); pfForm.resetFields(); setEditingPf(null);
+      loadPowerFeeds();
+    } catch { /* antd 自动提示 */ }
+  };
+  const deletePowerFeed = async (id: string) => {
+    try { await api.delete(`/api/dc/power-feeds/${id}`); message.success('已删除'); loadPowerFeeds(); }
+    catch { message.error('删除失败'); }
+  };
+
+  const saveCable = async () => {
+    try {
+      const values = await cableForm.validateFields();
+      if (editingCable) {
+        await api.put(`/api/dc/cables/${editingCable.id}`, values);
+        message.success('线缆更新成功');
+      } else {
+        await api.post('/api/dc/cables', values);
+        message.success('线缆创建成功');
+      }
+      setCableModalOpen(false); cableForm.resetFields(); setEditingCable(null);
+      loadCables();
+    } catch { /* antd 自动提示 */ }
+  };
+  const deleteCable = async (id: string) => {
+    try { await api.delete(`/api/dc/cables/${id}`); message.success('已删除'); loadCables(); }
+    catch { message.error('删除失败'); }
+  };
+
   // ===== 选择机柜查看 U 位 =====
   const selectRack = async (rack: Rack) => {
     setSelectedRack(rack);
     try {
-      const res = await api.get(`/api/dc/racks/${rack.id}/slots`);
+      const res = await api.get(`/api/dc/slots/${rack.id}`);
       setSlots(res.data.data || []);
     } catch {
       message.error('加载U位数据失败');
@@ -267,7 +443,7 @@ export default function useDataCenter() {
   const assignSlot = async () => {
     try {
       const values = await slotForm.validateFields();
-      await api.post(`/api/dc/racks/${selectedRack?.id}/slots`, values);
+      await api.post('/api/dc/slots', { ...values, rack_id: selectedRack?.id });
       message.success('设备分配成功');
       setSlotModalOpen(false);
       slotForm.resetFields();
@@ -415,6 +591,22 @@ export default function useDataCenter() {
     roomSearch, setRoomSearch,
     rackSearch, setRackSearch,
     rackStatusFilter, setRackStatusFilter,
+    // NetBox
+    manufacturers, deviceTypes, powerPanels, powerFeeds, cables,
+    mfLoading, dtLoading, ppLoading, pfLoading, cableLoading,
+    loadManufacturers, loadDeviceTypes, loadPowerPanels, loadPowerFeeds, loadCables,
+    // NetBox Modal
+    mfModalOpen, setMfModalOpen, editingMf, setEditingMf, mfForm,
+    dtModalOpen, setDtModalOpen, editingDt, setEditingDt, dtForm,
+    ppModalOpen, setPpModalOpen, editingPp, setEditingPp, ppForm,
+    pfModalOpen, setPfModalOpen, editingPf, setEditingPf, pfForm,
+    cableModalOpen, setCableModalOpen, editingCable, setEditingCable, cableForm,
+    // NetBox CRUD
+    saveManufacturer, deleteManufacturer,
+    saveDeviceType, deleteDeviceType,
+    savePowerPanel, deletePowerPanel,
+    savePowerFeed, deletePowerFeed,
+    saveCable, deleteCable,
 
     // 操作
     loadAll,

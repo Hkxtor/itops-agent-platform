@@ -107,7 +107,12 @@ export default function useDataRoom(): UseDataRoomReturn {
         }
       } catch (err) {
         console.error('加载数据中心数据失败:', err);
-        setRacks([]);
+        // 演示数据降级
+        if (!cancelled) {
+          setRacks(getDemoRacks());
+          setOverview(getDemoOverview());
+          setIsReal(false);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -197,5 +202,45 @@ export default function useDataRoom(): UseDataRoomReturn {
     fetchRackSlots,
     setSelectedRack,
     setSlotDetailOpen,
+  };
+}
+
+// ── 演示数据 ──
+function getDemoRacks(): Rack3D[] {
+  return [
+    { id: 'A-01', name: 'A-01', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-02', name: 'A-02', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-03', name: 'A-03', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-04', name: 'A-04', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-05', name: 'A-05', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-06', name: 'A-06', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-07', name: 'A-07', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'A-08', name: 'A-08', roomName: 'A区', roomLabel: 'A', row: 1, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-01', name: 'B-01', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-02', name: 'B-02', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-03', name: 'B-03', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-04', name: 'B-04', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-05', name: 'B-05', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-06', name: 'B-06', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-07', name: 'B-07', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+    { id: 'B-08', name: 'B-08', roomName: 'B区', roomLabel: 'B', row: 2, totalU: 42, usedU: 0, deviceCount: 0, alertCount: 0, deviceStatus: 'normal' },
+  ];
+}
+
+function getDemoOverview(): OverviewData {
+  return {
+    summary: {
+      totalDevices: 0,
+      onlineDevices: 0,
+      alertDevices: 0,
+      offlineDevices: 0,
+      avgTemp: 24.5,
+      avgHumidity: 45,
+      totalRacks: 16,
+    },
+    pue: 1.45,
+    totalPower: 285600,
+    coolingPower: 128300,
+    itPower: 157300,
   };
 }

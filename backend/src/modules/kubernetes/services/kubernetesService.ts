@@ -26,7 +26,7 @@ interface K8sContext {
 class KubernetesService {
   private clients: Map<string, { kc: any; coreApi: any; appsApi: any }> = new Map();
   private contexts: Map<string, K8sContext> = new Map();
-  private available: boolean = false;
+  private available = false;
 
   constructor() {
     if (!k8s) {
@@ -190,7 +190,7 @@ class KubernetesService {
     }));
   }
 
-  async listPods(namespace: string = 'default', contextId?: string): Promise<any[]> {
+  async listPods(namespace = 'default', contextId?: string): Promise<any[]> {
     const { coreApi } = this.getClient(contextId || this.contexts.keys().next().value || '');
     const res = await coreApi.listNamespacedPod(namespace);
     return (res.body.items || []).map((pod: any) => ({
@@ -212,7 +212,7 @@ class KubernetesService {
     }));
   }
 
-  async listDeployments(namespace: string = 'default', contextId?: string): Promise<any[]> {
+  async listDeployments(namespace = 'default', contextId?: string): Promise<any[]> {
     const { appsApi } = this.getClient(contextId || this.contexts.keys().next().value || '');
     const res = await appsApi.listNamespacedDeployment(namespace);
     return (res.body.items || []).map((deploy: any) => ({
@@ -228,7 +228,7 @@ class KubernetesService {
     }));
   }
 
-  async listServices(namespace: string = 'default', contextId?: string): Promise<any[]> {
+  async listServices(namespace = 'default', contextId?: string): Promise<any[]> {
     const { coreApi } = this.getClient(contextId || this.contexts.keys().next().value || '');
     const res = await coreApi.listNamespacedService(namespace);
     return (res.body.items || []).map((svc: any) => ({
@@ -280,7 +280,7 @@ class KubernetesService {
     };
   }
 
-  async getPodLogs(namespace: string, name: string, tail: number = 100, contextId?: string): Promise<string> {
+  async getPodLogs(namespace: string, name: string, tail = 100, contextId?: string): Promise<string> {
     const { kc } = this.getClient(contextId || this.contexts.keys().next().value || '');
     const log = new k8s.Log(kc);
     return await log.log(namespace, name, 'all', { tailLines: tail, timestamps: false });

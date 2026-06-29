@@ -122,9 +122,7 @@ export const navigationGroups: NavGroup[] = [
     icon: Zap,
     items: [
       { name: 'nav.agents', href: '/agents', icon: Bot },
-      { name: 'nav.agentsTools', href: '/agents/tools', icon: Wrench },
       { name: 'nav.workflows', href: '/workflows', icon: GitBranch },
-      { name: 'nav.workflowProviders', href: '/workflows/providers', icon: Cog },
       { name: 'nav.tasks', href: '/tasks', icon: Play },
       { name: 'nav.approvals', href: '/approvals', icon: ShieldCheck },
       { name: 'nav.scripts', href: '/scripts', icon: FileCode },
@@ -137,7 +135,6 @@ export const navigationGroups: NavGroup[] = [
     icon: AlertTriangle,
     items: [
       { name: 'nav.alerts', href: '/alerts', icon: Bell },
-      { name: 'nav.alertProviders', href: '/alerts/providers', icon: Database },
       { name: 'nav.alertMappings', href: '/alert-mappings', icon: Link2 },
       { name: 'nav.alertNoise', href: '/alert-noise', icon: Shield },
       { name: 'nav.alertCorrelation', href: '/alert-correlation-groups', icon: Layers },

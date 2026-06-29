@@ -1,7 +1,8 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { requireRole } from '../../../middleware/auth';
-import * as aiModelService from '../services/aiModelService.ts';
+import * as aiModelService from '../services/models/aiModelService';
 
 const router = Router();
 

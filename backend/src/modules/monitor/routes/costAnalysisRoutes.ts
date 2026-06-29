@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { costAnalysisService } from '../services/costAnalysisService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { costAnalysisService } from '../services/costAnalysisService';
 
 const router = Router();
 

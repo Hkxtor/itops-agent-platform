@@ -3,7 +3,7 @@
  * 所有路由统一使用此工具返回，保证前端始终收到一致格式
  */
 
-import { Response } from 'express';
+import type { Response } from 'express';
 
 export interface ApiResponse<T = any> {
   success: boolean;

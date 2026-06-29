@@ -1,13 +1,13 @@
-import db from '../../../models/database';
+import db from '../../../../models/database';
 import { randomUUID } from 'crypto';
-import { generateCompletion } from './llmService.ts';
-import { localRuleEngine } from './localRuleEngine.ts';
-import { logger } from '../../../utils/logger';
+import { generateCompletion } from '../llm/llmService';
+import { localRuleEngine } from './localRuleEngine';
+import { logger } from '../../../../utils/logger';
 import type { Statement } from 'better-sqlite3';
-import { topologyService } from '../../network/services/topologyService.ts';
-import { changeService } from '../../infra/services/changeService.ts';
-import EnhancedRAGService from './enhancedRAGService.ts';
-import { RCA_PROMPT } from '../prompts/rcaPrompt';
+import { topologyService } from '../../../network/services/topologyService';
+import { changeService } from '../../../infra/services/changeService';
+import EnhancedRAGService from '../remediation/enhancedRAGService';
+import { RCA_PROMPT } from '../../prompts/rcaPrompt';
 
 const ragService = new EnhancedRAGService();
 
@@ -580,7 +580,7 @@ ${alertInfo}
     
     let todayCount = 0;
     let totalCompleted = 0;
-    let avgConfidence = 0;
+    const avgConfidence = 0;
     let autoRemediations = 0;
     let falsePositives = 0;
 

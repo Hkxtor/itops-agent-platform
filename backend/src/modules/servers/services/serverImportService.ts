@@ -1,7 +1,7 @@
 import { Client } from 'ssh2';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
-import { encrypt } from '../../auth/services/encryptionService.ts';
+import { encrypt } from '../../auth/services/encryptionService';
 
 interface ImportServer {
   name: string;
@@ -54,7 +54,7 @@ class ServerImportService {
 
   async importServers(
     servers: ImportServer[],
-    testConnection: boolean = true
+    testConnection = true
   ): Promise<ImportResult> {
     const validation = this.validateServers(servers);
     if (!validation.valid) {

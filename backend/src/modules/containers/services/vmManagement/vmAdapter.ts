@@ -4,7 +4,7 @@
  * =============================================================================
  */
 
-import {
+import type {
   VirtualMachine,
   VMStats,
   VMSnapshot,
@@ -13,13 +13,14 @@ import {
   Datastore,
   VirtualNetwork,
   ResourcePool,
-  VMConfig,
   CreateVMRequest,
   CloneVMRequest,
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
   MigrateVMRequest,
-  ReconfigureVMRequest,
+  ReconfigureVMRequest} from '../../../../types/vmManagement';
+import {
+  VMConfig
 } from '../../../../types/vmManagement';
 
 export interface VMAdapter {
@@ -80,7 +81,7 @@ export interface VMAdapter {
 }
 
 export abstract class BaseVMAdapter implements VMAdapter {
-  protected connected: boolean = false;
+  protected connected = false;
   protected platformId: string;
   protected config: any;
 

@@ -12,7 +12,7 @@
 
 import db from '../../../../../models/database';
 import { logger } from '../../../../../utils/logger';
-import type { RiskAssessment, TrustRecord, RemediationPlan } from '../types.ts';
+import type { RiskAssessment, TrustRecord, RemediationPlan } from '../types';
 
 // 安全规则：这些操作始终需要审核
 const DESTRUCTIVE_PATTERNS = [

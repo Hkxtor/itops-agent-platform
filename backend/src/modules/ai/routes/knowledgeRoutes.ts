@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
 import { authenticateToken } from '../../../middleware/auth';

@@ -1,9 +1,9 @@
 
-import { logger } from '../../../utils/logger';
-import { executeCommand } from '../../servers/services/sshService.ts';
-import { dockerService } from '../../containers/services/dockerService.ts';
-import { serverInfoCollector } from '../../servers/services/serverInfoCollector.ts';
-import db from '../../../models/database';
+import { logger } from '../../../../utils/logger';
+import { executeCommand } from '../../../servers/services/sshService';
+import { dockerService } from '../../../containers/services/dockerService';
+import { serverInfoCollector } from '../../../servers/services/serverInfoCollector';
+import db from '../../../../models/database';
 
 /**
  * Agent 工具接口

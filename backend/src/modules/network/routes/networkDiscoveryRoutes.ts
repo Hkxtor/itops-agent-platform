@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { networkDiscoveryService } from '../services/networkDiscoveryService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { networkDiscoveryService } from '../services/networkDiscoveryService';
 import { requireRole } from '../../../middleware/auth';
 import { logger } from '../../../utils/logger';
 

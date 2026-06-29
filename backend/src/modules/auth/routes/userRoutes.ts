@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
-import { createAuditLog } from '../../infra/services/auditService.ts';
+import { createAuditLog } from '../../infra/services/auditService';
 import { requireRole, authenticateToken, invalidateUserCache } from '../../../middleware/auth';
 import { validatePassword } from '../../../utils/passwordPolicy';
 

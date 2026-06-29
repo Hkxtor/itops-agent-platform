@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { remediationService } from '../services/remediationService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { remediationService } from '../services/remediationService';
 import { logger } from '../../../utils/logger';
 import db from '../../../models/database';
 import { authenticateToken as authenticate } from '../../../middleware/auth';

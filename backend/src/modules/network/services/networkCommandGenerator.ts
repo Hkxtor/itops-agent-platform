@@ -1,6 +1,7 @@
-import { VendorType, InspectionType, createVendorAdapter } from './vendorAdapter.ts';
-import { qanythingService } from '../../ai/services/qanythingService.ts';
-import { generateCompletion } from '../../ai/services/llmService.ts';
+import type { VendorType, InspectionType} from './vendorAdapter';
+import { createVendorAdapter } from './vendorAdapter';
+import { qanythingService } from '../../ai/services/knowledge/qanythingService';
+import { generateCompletion } from '../../ai/services/llm/llmService';
 import { logger } from '../../../utils/logger';
 
 export interface GeneratedCommand {

@@ -1,19 +1,20 @@
 import { randomUUID } from 'crypto';
 import { logger } from '../../../../utils/logger';
-import { callDoubaoAPI } from '../llmService.ts';
-import { SpecialistBase } from './SpecialistBase.ts';
-import { specialistRegistry } from './SpecialistRegistry.ts';
-import {
-  AgentType,
+import { callDoubaoAPI } from '../llm/llmService';
+import type { SpecialistBase } from './SpecialistBase';
+import { specialistRegistry } from './SpecialistRegistry';
+import type {
   CoordinatorConfig,
   TaskContext,
   TaskDecomposition,
   SubTask,
   ExecutionResult,
-  AgentResponse,
+  AgentResponse} from './types';
+import {
+  AgentType,
   TaskStatus,
   SpecialistDomain
-} from './types.ts';
+} from './types';
 
 /**
  * Coordinator 协调者 Agent
@@ -27,7 +28,7 @@ export class Coordinator {
   readonly systemPrompt: string;
 
   constructor(
-    name: string = '运维协调者',
+    name = '运维协调者',
     config?: Partial<CoordinatorConfig>
   ) {
     this.id = randomUUID();
@@ -308,7 +309,7 @@ ${input}
       // 检查依赖
       const dependenciesMet = subtask.dependencies.every(depId => {
         const depResult = results.get(depId);
-        return depResult && depResult.success;
+        return depResult?.success;
       });
 
       if (!dependenciesMet) {

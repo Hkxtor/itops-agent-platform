@@ -11,14 +11,14 @@
  * =============================================================================
  */
 
-import { generateCompletion } from '../../../../ai/services/llmService.ts';
+import { generateCompletion } from '../../../../ai/services/llm/llmService';
 import { logger } from '../../../../../utils/logger';
-import { strategyRecommender } from '../adaptive/strategyRecommender.ts';
-import { probeExecutor } from './probeExecutor.ts';
-import { adaptiveAutomationEngine } from '../adaptive/adaptiveAutomation.ts';
-import { riskAssessor } from '../adaptive/riskAssessor.ts';
-import { PROBE_INDEX, findProbesByAlertText } from '../probeUnit.ts';
-import type { ProbeUnit, ProbeResult, DeviceRuntimeProfile, RemediationPlan, RiskAssessment } from '../types.ts';
+import { strategyRecommender } from '../adaptive/strategyRecommender';
+import { probeExecutor } from './probeExecutor';
+import { adaptiveAutomationEngine } from '../adaptive/adaptiveAutomation';
+import { riskAssessor } from '../adaptive/riskAssessor';
+import { PROBE_INDEX, findProbesByAlertText } from '../probeUnit';
+import type { ProbeUnit, ProbeResult, DeviceRuntimeProfile, RemediationPlan, RiskAssessment } from '../types';
 
 export interface SshDiagnosisResult {
   probeResults: ProbeResult[];

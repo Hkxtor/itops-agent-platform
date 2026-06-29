@@ -12,8 +12,8 @@
 
 import db from '../../../../../models/database';
 import { logger } from '../../../../../utils/logger';
-import { smartNotifier } from '../notification/smartNotifier.ts';
-import type { DeviceRuntimeProfile } from '../types.ts';
+import { smartNotifier } from '../notification/smartNotifier';
+import type { DeviceRuntimeProfile } from '../types';
 
 // ── 升级阶段定义 ──
 

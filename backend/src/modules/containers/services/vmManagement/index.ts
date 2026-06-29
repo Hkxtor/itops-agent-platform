@@ -7,7 +7,7 @@
 import { randomUUID } from 'crypto';
 import { logger } from '../../../../utils/logger';
 import { db } from '../../../../models/database';
-import {
+import type {
   VirtualMachine,
   VMStats,
   VMSnapshot,
@@ -15,25 +15,26 @@ import {
   HypervisorHost,
   Datastore,
   VirtualNetwork,
-  ResourcePool,
   VMPlatformConfig,
   CreateVMRequest,
   CloneVMRequest,
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
+  HypervisorType} from '../../../../types/vmManagement';
+import {
+  ResourcePool,
   MigrateVMRequest,
-  ReconfigureVMRequest,
-  HypervisorType,
+  ReconfigureVMRequest
 } from '../../../../types/vmManagement';
-import { VMAdapter } from './vmAdapter.ts';
-import { VMwareAdapter } from './vmwareAdapter.ts';
-import { KVMAdapter } from './kvmAdapter.ts';
-import { ProxmoxAdapter } from './proxmoxAdapter.ts';
-import { credentialService } from '../../../auth/services/credentialService.ts';
+import type { VMAdapter } from './vmAdapter';
+import { VMwareAdapter } from './vmwareAdapter';
+import { KVMAdapter } from './kvmAdapter';
+import { ProxmoxAdapter } from './proxmoxAdapter';
+import { credentialService } from '../../../auth/services/credentialService';
 
 export class VMManagementService {
   private adapters: Map<string, VMAdapter> = new Map();
-  private initialized: boolean = false;
+  private initialized = false;
 
   constructor() {
     this.init();
@@ -399,7 +400,7 @@ export class VMManagementService {
     }
   }
 
-  getAuditLogs(platformId?: string, vmId?: string, limit: number = 100): any[] {
+  getAuditLogs(platformId?: string, vmId?: string, limit = 100): any[] {
     try {
       let query = 'SELECT * FROM vm_audit_logs';
       const params: any[] = [];

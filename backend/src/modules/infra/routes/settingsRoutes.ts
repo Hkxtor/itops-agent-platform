@@ -1,8 +1,9 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db from '../../../models/database';
 import { safeLog, safeError, maskApiKey } from '../../../utils/sensitiveMask';
 import { getApiKey, getModelId, getApiBase } from '../../../utils/apiConfig';
-import { credentialService } from '../../auth/services/credentialService.ts';
+import { credentialService } from '../../auth/services/credentialService';
 import { requireRole } from '../../../middleware/auth';
 
 const router = Router();

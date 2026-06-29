@@ -4,7 +4,7 @@ import path from 'path';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import { getIOInstance } from '../../../models/database';
-import { alertService } from '../../alerts/services/alertService.ts';
+import { alertService } from '../../alerts/services/alertService';
 
 export interface SystemHealth {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -77,7 +77,7 @@ const VERSION = process.env.npm_package_version || '1.0.0';
 
 export class HealthService {
   private lastCheck: SystemHealth | null = null;
-  private lastCheckTime: number = 0;
+  private lastCheckTime = 0;
   private checkHistory: { timestamp: number; status: string }[] = [];
   private requestCount = 0;
   private requestTimestamps: number[] = [];
@@ -225,12 +225,12 @@ export class HealthService {
     const metrics: Record<string, number> = {};
 
     const memoryCheck = health.checks.find(c => c.name === 'memory_usage');
-    if (memoryCheck && memoryCheck.observedValue !== undefined) {
+    if (memoryCheck?.observedValue !== undefined) {
       metrics.memory_percent = memoryCheck.observedValue;
     }
 
     const cpuUsageCheck = health.checks.find(c => c.name === 'cpu_usage');
-    if (cpuUsageCheck && cpuUsageCheck.observedValue !== undefined) {
+    if (cpuUsageCheck?.observedValue !== undefined) {
       metrics.cpu_percent = cpuUsageCheck.observedValue;
     }
 

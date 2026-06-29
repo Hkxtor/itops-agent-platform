@@ -5,7 +5,7 @@
 
 ---
 
-## 1. `Servers.tsx` (2,559 行) — 拆分 5 个文件
+## 1. `Servers.tsx` (2,559 行) — 拆分 10 个文件 ✅ 已完成 2026-06-29
 
 ### 现状
 单体页面，包含：类型定义、SSH 密钥管理、命令执行、AI 命令生成、合规检查、服务器分组、导入导出、选中等所有功能。
@@ -54,7 +54,7 @@ import { api } from '../../../../lib/api';
 
 ---
 
-## 2. `Settings.tsx` (1,680 行) — 拆分 6 文件
+## 2. `Settings.tsx` (1,680 行) — 拆分 6 文件 ✅ 已完成 2026-06-29
 
 ### 现状
 单一设置页面，包含所有系统配置（通用、安全、通知、模型、备份、外观等），通过 Tab 切换。
@@ -78,7 +78,7 @@ modules/infra/pages/
 
 ---
 
-## 3. `Containers.tsx` (1,667 行) — 拆分 4 文件
+## 3. `Containers.tsx` (1,667 行) — 拆分 5 文件 ✅ 已完成 2026-06-29
 
 ```
 modules/containers/pages/
@@ -234,7 +234,7 @@ modules/infra/services/
 ## 执行顺序建议
 
 ```
-第一优先（前端大页）：Servers(2559) → Settings(1680) → Containers(1667) → Kubernetes(1458)
+第一优先（前端大页）：~~Servers(2559) → Settings(1680) → Containers(1667)~~ ✅ 已完成 → Kubernetes(1458)
 第二优先（后端大服务）：remediation(1426) → proxmoxAdapter(1238) → llmService(917)
 第三优先（后续）：kvmAdapter(1094) → vendorAdapter(1074) → workflowExecutor(878)
 ```

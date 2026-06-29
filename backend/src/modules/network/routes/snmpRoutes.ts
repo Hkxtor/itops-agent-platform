@@ -1,11 +1,13 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import db from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { snmpService, SnmpVersion } from '../services/snmpService.ts';
-import { snmpTrapService } from '../services/snmpTrapService.ts';
-import { encrypt, decrypt } from '../../auth/services/encryptionService.ts';
-import { SYSTEM_OIDS, IF_MIB_OIDS, VENDOR_OIDS } from '../services/snmpOidRegistry.ts';
+import type { SnmpVersion } from '../services/snmpService';
+import { snmpService } from '../services/snmpService';
+import { snmpTrapService } from '../services/snmpTrapService';
+import { encrypt, decrypt } from '../../auth/services/encryptionService';
+import { SYSTEM_OIDS, IF_MIB_OIDS, VENDOR_OIDS } from '../services/snmpOidRegistry';
 
 const router = Router();
 

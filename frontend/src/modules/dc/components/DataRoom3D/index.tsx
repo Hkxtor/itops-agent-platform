@@ -1,25 +1,21 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import useDataRoom from './useDataRoom';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Scene from './Scene';
+import type { ViewMode } from './Scene';
 import DashboardOverlay from './DashboardOverlay';
-import BottomStatsBar from './BottomStatsBar';
-import AlertPanel from './AlertPanel';
 import SlotDetailPanel from './SlotDetailPanel';
-import LoadingScreen from './LoadingScreen';
-import api from '../../../../lib/api';
-import type { CableData } from './types';
+import useDataRoom from './useDataRoom';
 
 export default function DataRoom3D() {
+  const navigate = useNavigate();
   const {
     loading,
     racks,
     overview,
     isReal,
     alerts,
-    alertsList,
     selectedRack,
     rackSlots,
-    rackSlotsMap,
     slotDetailOpen,
     startTime,
     fetchRackSlots,
@@ -27,145 +23,147 @@ export default function DataRoom3D() {
     setSlotDetailOpen,
   } = useDataRoom();
 
-  // 线缆拓扑数据
-  const [cables, setCables] = useState<CableData[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hoveredRackId, setHoveredRackId] = useState<string | null>(null);
+  const [timeStr, setTimeStr] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('overview');
 
   useEffect(() => {
-    let cancelled = false;
-    api.get('/api/dc/cables/scene')
-      .then(res => {
-        if (cancelled) return;
-        setCables((res.data?.data || []) as CableData[]);
-      })
-      .catch(() => { if (!cancelled) setCables([]); });
-    return () => { cancelled = true; };
+    const update = () => {
+      const now = new Date();
+      const days = ['日', '一', '二', '三', '四', '五', '六'];
+      setTimeStr(
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} 星期${days[now.getDay()]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+      );
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  // 时钟
-  const [timeStr, setTimeStr] = useState('');
-  const [uptime, setUptime] = useState('已运行: 0天0小时0分');
+  const uptime = useMemo(() => {
+    const totalSec = Math.floor((Date.now() - startTime) / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    return `${days}天${hours}小时${mins}分`;
+  }, [startTime, timeStr]);
 
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const wd = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
-      setTimeStr(
-        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} 周${wd} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-      );
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const d = Math.floor(elapsed / 86400);
-      const h = Math.floor((elapsed % 86400) / 3600);
-      const m = Math.floor((elapsed % 3600) / 60);
-      setUptime(`已运行: ${d}天${h}小时${m}分`);
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [startTime]);
-
-  // === Hover 状态 ===
-  const [hoveredRackId, setHoveredRackId] = useState<string | null>(null);
-
-  // === 搜索 ===
-  const [searchQuery, setSearchQuery] = useState('');
-
+  // 按视图模式过滤机柜
   const filteredRacks = useMemo(() => {
-    if (!searchQuery.trim()) return racks;
-    const q = searchQuery.toLowerCase();
-    return racks.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.roomName.toLowerCase().includes(q) ||
-        r.roomLabel.toLowerCase().includes(q)
-    );
-  }, [racks, searchQuery]);
+    let result = racks;
+    if (viewMode === 'zoneA') result = result.filter(r => r.roomLabel === 'A' || r.roomName?.startsWith('A'));
+    if (viewMode === 'zoneB') result = result.filter(r => r.roomLabel === 'B' || r.roomName?.startsWith('B'));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(r => r.name.toLowerCase().includes(q) || r.roomName?.toLowerCase().includes(q));
+    }
+    return result;
+  }, [racks, searchQuery, viewMode]);
 
-  // 搜索到的机柜置顶高亮（通过 selectedRackId 传递给 Scene）
-  const searchHighlightId = useMemo(() => {
-    if (!searchQuery.trim() || filteredRacks.length !== 1) return null;
-    return filteredRacks[0].id;
-  }, [searchQuery, filteredRacks]);
-
-  // 点击机柜 → 加载槽位详情并弹窗
-  const handleRackClick = useCallback(
-    async (rackId: string) => {
-      const rack = racks.find((r) => r.id === rackId);
-      if (!rack) return;
+  const handleRackClick = useCallback((rackId: string) => {
+    const rack = racks.find(r => r.id === rackId);
+    if (rack) {
       setSelectedRack(rack);
-      await fetchRackSlots(rackId);
       setSlotDetailOpen(true);
-    },
-    [racks, fetchRackSlots, setSelectedRack, setSlotDetailOpen]
-  );
+      fetchRackSlots(rackId);
+    }
+  }, [racks, setSelectedRack, setSlotDetailOpen, fetchRackSlots]);
 
-  if (loading) return <LoadingScreen />;
+  const handleHoverChange = useCallback((rackId: string | null) => {
+    setHoveredRackId(rackId);
+  }, []);
 
-  // 热力图数据: 基于机柜利用率 (usedU / totalU) 归一化到 0~1
+  const handleNavigateDC = useCallback(() => {
+    navigate('/dc-manage');
+  }, [navigate]);
+
   const heatmapData = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const r of racks) {
-      if (r.totalU > 0) {
-        map[r.id] = Math.min(1, Math.max(0, r.usedU / r.totalU));
-      }
-    }
+    racks.forEach(r => { map[r.id] = r.alertCount > 0 ? 1 : r.usedU / r.totalU; });
     return map;
   }, [racks]);
 
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#0a1520]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-20 h-20">
+            <div className="absolute inset-0 border-2 border-t-[#00f5ff] border-r-[#00f5ff] rounded-full animate-spin" />
+            <div className="absolute inset-2 border-2 border-b-[#00ff88] border-l-[#00ff88] rounded-full animate-spin-reverse" />
+            <div className="absolute inset-4 flex items-center justify-center">
+              <span className="text-2xl text-[#00f5ff]">◆</span>
+            </div>
+          </div>
+          <span className="text-sm text-[#5a7a94] tracking-[4px]">系统加载中</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative w-full h-full bg-[#0d1825] overflow-hidden">
-      {/* Three.js 3D 场景 */}
-      <Scene
-        racks={filteredRacks}
-        rackSlotsMap={rackSlotsMap}
-        onRackClick={handleRackClick}
-        selectedRackId={selectedRack?.id || searchHighlightId}
-        hoveredRackId={hoveredRackId}
-        searchQuery={searchQuery}
-        heatmapData={heatmapData}
-        heatmapMode="utilization"
-        onHoverChange={setHoveredRackId}
-        cables={cables}
+    <div className="w-full h-full relative bg-[#0a1520] overflow-hidden"
+      style={{
+        backgroundImage:
+          'radial-gradient(ellipse at 20% 50%, rgba(0,80,150,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 30%, rgba(123,97,255,0.05) 0%, transparent 60%)',
+      }}>
+      <div className="absolute inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(0,245,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,245,255,0.015) 1px, transparent 1px)',
+          backgroundSize: '50px 50px',
+        }}
       />
 
-      {/* 搜索框 */}
-      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="🔍 搜索机柜名称/机房..."
-          className="w-[260px] px-3 py-1.5 text-xs bg-[#0a1420]/85 backdrop-blur-md
-                     border border-cyan-500/20 rounded-lg text-cyan-300
-                     placeholder:text-slate-500 outline-none
-                     focus:border-cyan-400/50 transition-colors"
+      <div className="absolute inset-0 z-10"
+        style={{
+          background: 'linear-gradient(135deg, #142030 0%, #1a2a3a 50%, #142030 100%)',
+          border: '1px solid rgba(0,245,255,0.15)',
+          borderRadius: '14px',
+          overflow: 'hidden',
+          margin: '8px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5), inset 0 0 30px rgba(0,212,255,0.03)',
+        }}>
+        <Scene
+          racks={filteredRacks}
+          onRackClick={handleRackClick}
+          selectedRackId={selectedRack?.id || null}
+          hoveredRackId={hoveredRackId}
+          onHoverChange={handleHoverChange}
+          heatmapData={heatmapData}
+          viewMode={viewMode}
         />
       </div>
 
-      {/* 数据源标识 + 时间 */}
       <DashboardOverlay
         overview={overview}
+        racks={racks}
+        alerts={alerts}
         timeStr={timeStr}
         uptime={uptime}
         isReal={isReal}
+        searchQuery={searchQuery}
+        viewMode={viewMode}
+        onSearchChange={setSearchQuery}
+        onViewModeChange={setViewMode}
+        onNavigateDC={handleNavigateDC}
       />
 
-      {/* 告警面板 */}
-      <AlertPanel alerts={alerts} />
-
-      {/* 机柜详情弹窗 */}
       {slotDetailOpen && selectedRack && (
         <SlotDetailPanel
           rack={selectedRack}
           slots={rackSlots}
-          onClose={() => {
-            setSlotDetailOpen(false);
-            setSelectedRack(null);
-          }}
+          onClose={() => { setSlotDetailOpen(false); setSelectedRack(null); }}
         />
       )}
 
-      {/* 底部指标条 */}
-      <BottomStatsBar overview={overview} />
+      <style>{`
+        @keyframes spin-reverse {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+        .animate-spin-reverse { animation: spin-reverse 2s linear infinite; }
+      `}</style>
     </div>
   );
 }

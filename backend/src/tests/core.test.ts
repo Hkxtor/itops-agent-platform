@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // ============================================================
-// 核心模块基础测试
+// 核心模块基础测试（重构后路径更新）
 // ============================================================
 
 // Mock all dependencies to avoid side effects from native modules
@@ -34,26 +34,26 @@ vi.mock('../utils/env', () => ({
   env: { JWT_SECRET: 'test-secret', NODE_ENV: 'test', DATABASE_PATH: ':memory:' },
 }));
 
-vi.mock('../websocket/handler', () => ({
+vi.mock('../shared/websocket/handler', () => ({
   emitToDC: vi.fn(),
   emitToAlerts: vi.fn(),
   emitToTask: vi.fn(),
   setupWebSocket: vi.fn(),
 }));
 
-vi.mock('../services/tokenBlacklist', () => ({
+vi.mock('../modules/auth/services/tokenBlacklist', () => ({
   tokenBlacklist: { isBlacklisted: vi.fn(() => false), add: vi.fn(), remove: vi.fn() },
 }));
 
 describe('Auth Routes', () => {
   it('should have login validation schema', async () => {
-    const { authSchemas } = await import('../schemas/apiValidation');
+    const { authSchemas } = await import('../shared/schemas/apiValidation');
     const result = authSchemas.login.safeParse({ username: 'test', password: 'pass' });
     expect(result.success).toBe(true);
   });
 
   it('should reject empty login', async () => {
-    const { authSchemas } = await import('../schemas/apiValidation');
+    const { authSchemas } = await import('../shared/schemas/apiValidation');
     const result = authSchemas.login.safeParse({});
     expect(result.success).toBe(false);
   });
@@ -61,7 +61,7 @@ describe('Auth Routes', () => {
 
 describe('DC Status Service', () => {
   it('should export startDCStatusPush and stopDCStatusPush', async () => {
-    const mod = await import('../services/dcStatusService');
+    const mod = await import('../modules/dc/services/dcStatusService');
     expect(typeof mod.startDCStatusPush).toBe('function');
     expect(typeof mod.stopDCStatusPush).toBe('function');
   });
@@ -69,14 +69,14 @@ describe('DC Status Service', () => {
 
 describe('MultiAgent Orchestrator', () => {
   it('should reject empty agents', async () => {
-    const { MultiAgentOrchestrator } = await import('../services/multiAgentCollaboration');
+    const { MultiAgentOrchestrator } = await import('../modules/ai/services/agents/multiAgentCollaboration');
     const orchestrator = new MultiAgentOrchestrator('test-task');
     await expect(orchestrator.collaborate('test query', [], {}))
       .rejects.toThrow('No valid agents found');
   });
 
   it('should have abort controller', async () => {
-    const { MultiAgentOrchestrator } = await import('../services/multiAgentCollaboration');
+    const { MultiAgentOrchestrator } = await import('../modules/ai/services/agents/multiAgentCollaboration');
     const orchestrator = new MultiAgentOrchestrator('test-task');
     expect(orchestrator).toBeDefined();
   });
@@ -84,7 +84,7 @@ describe('MultiAgent Orchestrator', () => {
 
 describe('Response Helper', () => {
   it('should format success response', async () => {
-    const { respond } = await import('../utils/response');
+    const { respond } = await import('../shared/utils/response');
     const json = vi.fn();
     const status = vi.fn(() => ({ json }));
     const res = { status } as any;
@@ -94,7 +94,7 @@ describe('Response Helper', () => {
   });
 
   it('should format error response', async () => {
-    const { respondError } = await import('../utils/response');
+    const { respondError } = await import('../shared/utils/response');
     const json = vi.fn();
     const status = vi.fn(() => ({ json }));
     const res = { status } as any;

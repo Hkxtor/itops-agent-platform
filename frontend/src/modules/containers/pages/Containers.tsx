@@ -2,127 +2,16 @@ import { useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Image, HardDrive, Globe, Server, Plus, Trash2, Search, RefreshCw,
-  Play, Square, RotateCcw, Eye, FileText, Activity, Download, X,
-  ChevronLeft, ChevronRight, Monitor, Terminal, Edit,
+  Play, Square, RotateCcw, Eye, FileText, Activity, X,
+  ChevronLeft, ChevronRight, Monitor, Edit,
 } from 'lucide-react';
 import api from '../../../lib/api';
 import { useToast } from '../../../contexts/ToastContext';
-
-// ── Types ──────────────────────────────────────────────
-
-type Tab = 'containers' | 'images' | 'volumes' | 'networks' | 'endpoints';
-
-interface EndpointHost {
-  id: string;
-  name: string;
-  host: string;
-  port?: number;
-  protocol?: string;
-  status: string;
-}
-
-interface ContainerItem {
-  id: string;
-  Names?: string[];
-  name?: string;
-  Image?: string;
-  image?: string;
-  State?: string;
-  state?: string;
-  Status?: string;
-  status?: string;
-  Ports?: Array<{ PublicPort?: number; PrivatePort?: number; Type?: string }>;
-  Created?: number;
-  created?: number;
-}
-
-interface ImageItem {
-  Id?: string;
-  id?: string;
-  RepoTags?: string[];
-  RepoDigests?: string[];
-  Size?: number;
-  Created?: number;
-}
-
-interface VolumeItem {
-  Name?: string;
-  name?: string;
-  Driver?: string;
-  driver?: string;
-  Mountpoint?: string;
-  mountpoint?: string;
-  CreatedAt?: string;
-  createdAt?: string;
-}
-
-interface NetworkItem {
-  Id?: string;
-  id?: string;
-  Name?: string;
-  name?: string;
-  Driver?: string;
-  driver?: string;
-  Scope?: string;
-  scope?: string;
-  IPAM?: { Driver?: string; Config?: Array<{ Subnet?: string; Gateway?: string }> };
-  Containers?: Record<string, { Name: string; IPv4Address: string }>;
-  containers?: Record<string, { Name: string; IPv4Address: string }>;
-}
-
-interface EndpointItem {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  protocol: string;
-  status: string;
-  tlsCa?: string;
-  tlsCert?: string;
-  tlsKey?: string;
-  error_message?: string;
-}
-
-// ── Helpers ────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (!bytes || bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
-}
-
-function formatDate(ts: number | string | undefined): string {
-  if (!ts) return '-';
-  const d = new Date(typeof ts === 'string' ? ts : ts * 1000);
-  return d.toLocaleString('zh-CN');
-}
-
-function statusBadge(status: string): { bg: string; text: string; dot: string } {
-  const s = status?.toLowerCase() || '';
-  if (s === 'running' || s === 'active' || s === 'up') return { bg: 'bg-green-500/10 border-green-500/30', text: 'text-green-400', dot: 'bg-green-500' };
-  if (s === 'stopped' || s === 'exited' || s === 'inactive') return { bg: 'bg-red-500/10 border-red-500/30', text: 'text-red-400', dot: 'bg-red-500' };
-  if (s === 'paused') return { bg: 'bg-yellow-500/10 border-yellow-500/30', text: 'text-yellow-400', dot: 'bg-yellow-500' };
-  if (s === 'error') return { bg: 'bg-red-500/10 border-red-500/30', text: 'text-red-400', dot: 'bg-red-500' };
-  return { bg: 'bg-gray-500/10 border-gray-500/30', text: 'text-gray-400', dot: 'bg-gray-500' };
-}
-
-function containerName(c: ContainerItem): string {
-  const name = (c.Names?.[0] || c.name || '').replace(/^\//, '');
-  return name || c.id?.substring(0, 12) || '-';
-}
-
-function imageRepo(img: ImageItem): string {
-  const tag = img.RepoTags?.[0] || '';
-  const idx = tag.lastIndexOf(':');
-  return idx > 0 ? tag.substring(0, idx) : tag || '<none>';
-}
-
-function imageTagOnly(img: ImageItem): string {
-  const tag = img.RepoTags?.[0] || '';
-  const idx = tag.lastIndexOf(':');
-  return idx > 0 ? tag.substring(idx + 1) : 'latest';
-}
+import type { Tab, EndpointHost, ContainerItem, NetworkItem, EndpointItem } from './types';
+import { containerName, statusBadge, formatDate, withEndpointParams } from './types';
+import { ContainerDetail } from './ContainerDetail';
+import { ImageSection } from './ImageSection';
+import { VolumeSection } from './VolumeSection';
 
 // ── Component ──────────────────────────────────────────
 
@@ -153,15 +42,6 @@ export default function Containers() {
   const [createRestart, setCreateRestart] = useState('no');
   const [createMemory, setCreateMemory] = useState('');
   const [createCpuShares, setCreateCpuShares] = useState('');
-
-  // ── Image tab state ──
-  const [showPullModal, setShowPullModal] = useState(false);
-  const [pullImageName, setPullImageName] = useState('');
-
-  // ── Volume tab state ──
-  const [showVolCreateModal, setShowVolCreateModal] = useState(false);
-  const [volName, setVolName] = useState('');
-  const [volDriver, setVolDriver] = useState('local');
 
   // ── Network tab state ──
   const [showNetCreateModal, setShowNetCreateModal] = useState(false);
@@ -206,30 +86,6 @@ export default function Containers() {
       return { data: (res.data.data || []) as ContainerItem[], total: res.data.total as number };
     },
     enabled: activeTab === 'containers',
-  });
-
-  const imagesQueryKey = ['containers-images', endpointId];
-  const { data: images = [], isLoading: imagesLoading, error: imagesError } = useQuery<ImageItem[]>({
-    queryKey: imagesQueryKey,
-    queryFn: async () => {
-      const res = await api.get('/api/containers/images/list', {
-        params: { endpointId: endpointId !== 'local' ? endpointId : undefined },
-      });
-      return res.data.data || [];
-    },
-    enabled: activeTab === 'images',
-  });
-
-  const volumesQueryKey = ['containers-volumes', endpointId];
-  const { data: volumes = [], isLoading: volumesLoading, error: volumesError } = useQuery<VolumeItem[]>({
-    queryKey: volumesQueryKey,
-    queryFn: async () => {
-      const res = await api.get('/api/containers/volumes/list', {
-        params: { endpointId: endpointId !== 'local' ? endpointId : undefined },
-      });
-      return res.data.data || [];
-    },
-    enabled: activeTab === 'volumes',
   });
 
   const networksQueryKey = ['containers-networks', endpointId];
@@ -301,59 +157,6 @@ export default function Containers() {
       resetCreateForm();
     },
     onError: () => toast.error('创建容器失败'),
-  });
-
-  const pullImageMutation = useMutation({
-    mutationFn: () =>
-      api.post('/api/containers/images/pull', { image: pullImageName }, {
-        params: { endpointId: endpointId !== 'local' ? endpointId : undefined },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: imagesQueryKey });
-      toast.success('镜像拉取成功');
-      setShowPullModal(false);
-      setPullImageName('');
-    },
-    onError: () => toast.error('拉取镜像失败'),
-  });
-
-  const deleteImageMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`/api/containers/images/${id}`, {
-        params: { endpointId: endpointId !== 'local' ? endpointId : undefined },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: imagesQueryKey });
-      toast.success('镜像已删除');
-    },
-    onError: () => toast.error('删除镜像失败'),
-  });
-
-  const createVolumeMutation = useMutation({
-    mutationFn: () =>
-      api.post('/api/containers/volumes', { name: volName, driver: volDriver }, {
-        params: { endpointId: endpointId !== 'local' ? endpointId : undefined },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: volumesQueryKey });
-      toast.success('数据卷已创建');
-      setShowVolCreateModal(false);
-      setVolName('');
-      setVolDriver('local');
-    },
-    onError: () => toast.error('创建数据卷失败'),
-  });
-
-  const deleteVolumeMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.delete(`/api/containers/volumes/${id}`, {
-        params: { endpointId: endpointId !== 'local' ? endpointId : undefined },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: volumesQueryKey });
-      toast.success('数据卷已删除');
-    },
-    onError: () => toast.error('删除数据卷失败'),
   });
 
   const createNetworkMutation = useMutation({
@@ -483,47 +286,6 @@ export default function Containers() {
     setShowEpCreateModal(true);
   }
 
-  function withEndpointParams(params?: Record<string, unknown>): Record<string, unknown> {
-    return endpointId !== 'local'
-      ? { ...params, endpointId }
-      : { ...params };
-  }
-
-  // ═══ LOGS / STATS / DETAIL QUERIES ════════════════════
-
-  const { data: logsData, isLoading: logsLoading } = useQuery({
-    queryKey: ['container-logs', selectedContainerId],
-    queryFn: async () => {
-      const res = await api.get(`/api/containers/logs/${selectedContainerId}`, {
-        params: withEndpointParams({ tail: 200 }),
-      });
-      return res.data.data as string;
-    },
-    enabled: showLogsDrawer && !!selectedContainerId,
-  });
-
-  const { data: statsData, isLoading: statsLoading } = useQuery({
-    queryKey: ['container-stats', selectedContainerId],
-    queryFn: async () => {
-      const res = await api.get(`/api/containers/stats/${selectedContainerId}`, {
-        params: withEndpointParams(),
-      });
-      return res.data.data as Record<string, unknown>;
-    },
-    enabled: showStatsDrawer && !!selectedContainerId,
-  });
-
-  const { data: detailData, isLoading: detailLoading } = useQuery({
-    queryKey: ['container-detail', selectedContainerId],
-    queryFn: async () => {
-      const res = await api.get(`/api/containers/${selectedContainerId}`, {
-        params: withEndpointParams(),
-      });
-      return res.data.data as Record<string, unknown>;
-    },
-    enabled: showDetailDrawer && !!selectedContainerId,
-  });
-
   // ═══ NETWORK DETAIL QUERY ═════════════════════════════
 
   const { data: networkDetailData } = useQuery({
@@ -531,7 +293,7 @@ export default function Containers() {
     queryFn: async () => {
       const id = netDetailData?.Id || netDetailData?.id;
       const res = await api.get(`/api/containers/networks/${id}`, {
-        params: withEndpointParams(),
+        params: withEndpointParams(endpointId),
       });
       return res.data.data as NetworkItem;
     },
@@ -789,170 +551,14 @@ export default function Containers() {
       {/* IMAGES TAB */}
       {/* ═══════════════════════════════════════════════════ */}
       {activeTab === 'images' && (
-        <>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: imagesQueryKey })}
-              className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary hover:bg-slate-700 transition-colors flex items-center gap-1.5 text-sm"
-            >
-              <RefreshCw className="w-4 h-4" /> 刷新
-            </button>
-            <button
-              onClick={() => setShowPullModal(true)}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 text-sm transition-colors"
-            >
-              <Download className="w-4 h-4" /> 拉取镜像
-            </button>
-          </div>
-
-          {imagesError && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Image className="w-16 h-16 text-text-tertiary mb-4" />
-              <h3 className="text-lg font-semibold text-text-primary mb-2">镜像服务不可用</h3>
-              <p className="text-text-secondary text-sm mb-4">Docker 引擎连接失败。</p>
-              <button onClick={() => queryClient.invalidateQueries({ queryKey: imagesQueryKey })}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> 重试
-              </button>
-            </div>
-          )}
-
-          {!imagesError && (
-            <div className="bg-surface rounded-lg border border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-background border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">仓库</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">标签</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">镜像ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden md:table-cell">大小</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden lg:table-cell">创建时间</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {imagesLoading ? (
-                      <tr><td colSpan={6} className="px-4 py-12 text-center text-text-tertiary">加载中...</td></tr>
-                    ) : images.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-12 text-center text-text-tertiary">暂无镜像</td></tr>
-                    ) : (
-                      images.map((img) => (
-                        <tr key={img.Id || img.id} className="hover:bg-slate-700/30 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="text-sm text-text-primary truncate max-w-[200px]">{imageRepo(img)}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">{imageTagOnly(img)}</span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="text-xs text-text-tertiary font-mono">{(img.Id || img.id || '').substring(0, 12)}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
-                            <div className="text-sm text-text-secondary">{formatBytes(img.Size || 0)}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap hidden lg:table-cell">
-                            <div className="text-xs text-text-secondary">{formatDate(img.Created)}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-right">
-                            <button
-                              onClick={() => { if (confirm('确定要删除此镜像吗？')) deleteImageMutation.mutate(img.Id || img.id || ''); }}
-                              className="p-1.5 rounded hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-colors"
-                              title="删除"
-                            ><Trash2 className="w-3.5 h-3.5" /></button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+        <ImageSection endpointId={endpointId} />
       )}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* VOLUMES TAB */}
       {/* ═══════════════════════════════════════════════════ */}
       {activeTab === 'volumes' && (
-        <>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => queryClient.invalidateQueries({ queryKey: volumesQueryKey })}
-              className="px-3 py-2 bg-surface border border-border rounded-lg text-text-primary hover:bg-slate-700 transition-colors flex items-center gap-1.5 text-sm"
-            >
-              <RefreshCw className="w-4 h-4" /> 刷新
-            </button>
-            <button
-              onClick={() => setShowVolCreateModal(true)}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 text-sm transition-colors"
-            >
-              <Plus className="w-4 h-4" /> 创建数据卷
-            </button>
-          </div>
-
-          {volumesError && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <HardDrive className="w-16 h-16 text-text-tertiary mb-4" />
-              <h3 className="text-lg font-semibold text-text-primary mb-2">数据卷服务不可用</h3>
-              <p className="text-text-secondary text-sm mb-4">Docker 引擎连接失败。</p>
-              <button onClick={() => queryClient.invalidateQueries({ queryKey: volumesQueryKey })}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" /> 重试
-              </button>
-            </div>
-          )}
-
-          {!volumesError && (
-            <div className="bg-surface rounded-lg border border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-background border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">名称</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">驱动</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">挂载点</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden md:table-cell">创建时间</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {volumesLoading ? (
-                      <tr><td colSpan={5} className="px-4 py-12 text-center text-text-tertiary">加载中...</td></tr>
-                    ) : volumes.length === 0 ? (
-                      <tr><td colSpan={5} className="px-4 py-12 text-center text-text-tertiary">暂无数据卷</td></tr>
-                    ) : (
-                      volumes.map((v) => (
-                        <tr key={v.Name || v.name} className="hover:bg-slate-700/30 transition-colors">
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="text-sm font-medium text-text-primary">{v.Name || v.name}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="text-sm text-text-secondary">{v.Driver || v.driver || '-'}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs text-text-tertiary font-mono truncate max-w-[260px]">{v.Mountpoint || v.mountpoint || '-'}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
-                            <div className="text-xs text-text-secondary">{formatDate(v.CreatedAt || v.createdAt)}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-right">
-                            <button
-                              onClick={() => { if (confirm('确定要删除此数据卷吗？')) deleteVolumeMutation.mutate(v.Name || v.name || ''); }}
-                              className="p-1.5 rounded hover:bg-red-500/10 text-text-secondary hover:text-red-400 transition-colors"
-                              title="删除"
-                            ><Trash2 className="w-3.5 h-3.5" /></button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
+        <VolumeSection endpointId={endpointId} />
       )}
 
       {/* ═══════════════════════════════════════════════════ */}
@@ -1285,63 +891,6 @@ export default function Containers() {
         </div>
       )}
 
-      {/* ── Pull Image Modal ── */}
-      {showPullModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setShowPullModal(false); setPullImageName(''); }}>
-          <div className="bg-surface rounded-lg border border-border w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="text-lg font-semibold text-text-primary">拉取镜像</h3>
-              <button onClick={() => { setShowPullModal(false); setPullImageName(''); }} className="text-text-secondary hover:text-text-primary"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">镜像名称 <span className="text-red-400">*</span></label>
-                <input type="text" value={pullImageName} onChange={(e) => setPullImageName(e.target.value)} placeholder="nginx:latest" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-blue-500 text-sm" />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setShowPullModal(false); setPullImageName(''); }} className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-text-primary rounded-lg transition-colors text-sm">取消</button>
-                <button onClick={() => pullImageMutation.mutate()} disabled={!pullImageName.trim() || pullImageMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                  {pullImageMutation.isPending ? '拉取中...' : <><Download className="w-4 h-4" /> 拉取</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Create Volume Modal ── */}
-      {showVolCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setShowVolCreateModal(false); setVolName(''); setVolDriver('local'); }}>
-          <div className="bg-surface rounded-lg border border-border w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="text-lg font-semibold text-text-primary">创建数据卷</h3>
-              <button onClick={() => { setShowVolCreateModal(false); setVolName(''); setVolDriver('local'); }} className="text-text-secondary hover:text-text-primary"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">名称 <span className="text-red-400">*</span></label>
-                <input type="text" value={volName} onChange={(e) => setVolName(e.target.value)} placeholder="数据卷名称" className="w-full px-3 py-2 bg-background border border-border rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:border-blue-500 text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">驱动</label>
-                <select value={volDriver} onChange={(e) => setVolDriver(e.target.value)} className="w-full px-3 py-2 bg-background border border-border rounded-lg text-text-primary focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="local">local</option>
-                  <option value="nfs">nfs</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setShowVolCreateModal(false); setVolName(''); setVolDriver('local'); }} className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-text-primary rounded-lg transition-colors text-sm">取消</button>
-                <button onClick={() => createVolumeMutation.mutate()} disabled={!volName.trim() || createVolumeMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                  {createVolumeMutation.isPending ? '创建中...' : <><Plus className="w-4 h-4" /> 创建</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Create Network Modal ── */}
       {showNetCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setShowNetCreateModal(false); resetNetForm(); }}>
@@ -1462,163 +1011,18 @@ export default function Containers() {
         </div>
       )}
 
-      {/* ── Container Logs Drawer ── */}
-      {showLogsDrawer && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowLogsDrawer(false)} />
-          <div className="relative ml-auto w-full max-w-2xl bg-surface border-l border-border h-full overflow-hidden flex flex-col animate-slide-in-right">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-text-secondary" />
-                <h3 className="font-semibold text-text-primary">容器日志: {selectedContainerName}</h3>
-              </div>
-              <button onClick={() => setShowLogsDrawer(false)} className="text-text-secondary hover:text-text-primary"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {logsLoading ? (
-                <div className="text-text-tertiary text-sm">加载中...</div>
-              ) : (
-                <pre className="text-xs font-mono text-green-400 bg-black/40 rounded-lg p-4 overflow-auto whitespace-pre-wrap max-h-full leading-relaxed">
-                  {logsData || '暂无日志'}
-                </pre>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Container Stats Drawer ── */}
-      {showStatsDrawer && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowStatsDrawer(false)} />
-          <div className="relative ml-auto w-full max-w-lg bg-surface border-l border-border h-full overflow-hidden flex flex-col animate-slide-in-right">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-text-secondary" />
-                <h3 className="font-semibold text-text-primary">容器状态: {selectedContainerName}</h3>
-              </div>
-              <button onClick={() => setShowStatsDrawer(false)} className="text-text-secondary hover:text-text-primary"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4 space-y-4">
-              {statsLoading ? (
-                <div className="text-text-tertiary text-sm">加载中...</div>
-              ) : statsData ? (
-                <>
-                  <div className="bg-background rounded-lg p-4 border border-border">
-                    <h4 className="text-sm font-medium text-text-secondary mb-3">CPU</h4>
-                    {(() => {
-                      const cpu = statsData?.cpu_stats as Record<string, unknown> | undefined;
-                      const pre = statsData?.precpu_stats as Record<string, unknown> | undefined;
-                      const cpuUsage = (cpu?.cpu_usage as Record<string, unknown> | undefined);
-                      const preCpuUsage = (pre?.cpu_usage as Record<string, unknown> | undefined);
-                      const sys = (cpu?.system_cpu_usage as number) || 0;
-                      const preSys = (pre?.system_cpu_usage as number) || 0;
-                      const usage = (cpuUsage?.total_usage as number) || 0;
-                      const preUsage = (preCpuUsage?.total_usage as number) || 0;
-                      const percpu = (cpuUsage?.percpu_usage as number[]) || [];
-                      const online = (cpu?.online_cpus as number) || percpu.length || 1;
-                      const delta = usage - preUsage;
-                      const sysDelta = sys - preSys || delta;
-                      const pct = sysDelta > 0 ? (delta / sysDelta * online * 100).toFixed(1) : '0.0';
-                      return (
-                        <>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-text-tertiary">使用率</span>
-                            <span className="text-lg font-bold text-text-primary">{pct}%</span>
-                          </div>
-                          <div className="w-full bg-slate-700 rounded-full h-2.5">
-                            <div className="bg-blue-500 h-2.5 rounded-full transition-all" style={{ width: `${Math.min(parseFloat(pct), 100)}%` }} />
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="bg-background rounded-lg p-4 border border-border">
-                    <h4 className="text-sm font-medium text-text-secondary mb-3">内存</h4>
-                    {(() => {
-                      const mem = statsData?.memory_stats as Record<string, unknown> | undefined;
-                      const used = (mem?.usage as number) || 0;
-                      const limit = (mem?.limit as number) || 1;
-                      const pct = (used / limit * 100).toFixed(1);
-                      return (
-                        <>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-text-tertiary">使用 / 限制</span>
-                            <span className="text-sm font-medium text-text-primary">{formatBytes(used)} / {formatBytes(limit)}</span>
-                          </div>
-                          <div className="w-full bg-slate-700 rounded-full h-2.5">
-                            <div className="bg-purple-500 h-2.5 rounded-full transition-all" style={{ width: `${Math.min(parseFloat(pct), 100)}%` }} />
-                          </div>
-                          <div className="text-xs text-text-tertiary mt-1">{pct}%</div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div className="bg-background rounded-lg p-4 border border-border">
-                    <h4 className="text-sm font-medium text-text-secondary mb-3">网络</h4>
-                    {(() => {
-                      const nets = statsData?.networks as Record<string, { rx_bytes: number; tx_bytes: number; rx_packets: number; tx_packets: number }> | undefined;
-                      if (!nets) return <div className="text-xs text-text-tertiary">无网络数据</div>;
-                      return Object.entries(nets).map(([name, data]) => (
-                        <div key={name} className="mb-3 last:mb-0">
-                          <span className="text-xs font-medium text-text-primary">{name}</span>
-                          <div className="grid grid-cols-2 gap-2 mt-1">
-                            <div className="text-xs"><span className="text-text-tertiary">RX: </span><span className="text-green-400">{formatBytes(data.rx_bytes)}</span></div>
-                            <div className="text-xs"><span className="text-text-tertiary">TX: </span><span className="text-blue-400">{formatBytes(data.tx_bytes)}</span></div>
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                </>
-              ) : (
-                <div className="text-text-tertiary text-sm">暂无统计数据</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Container Detail Drawer ── */}
-      {showDetailDrawer && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowDetailDrawer(false)} />
-          <div className="relative ml-auto w-full max-w-lg bg-surface border-l border-border h-full overflow-hidden flex flex-col animate-slide-in-right">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-text-secondary" />
-                <h3 className="font-semibold text-text-primary">容器详情: {selectedContainerName}</h3>
-              </div>
-              <button onClick={() => setShowDetailDrawer(false)} className="text-text-secondary hover:text-text-primary"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {detailLoading ? (
-                <div className="text-text-tertiary text-sm">加载中...</div>
-              ) : detailData ? (
-                <div className="space-y-3">
-                  {[
-                    ['名称', (detailData.Name as string) || selectedContainerName],
-                    ['ID', (detailData.Id as string) || '-'],
-                    ['状态', (() => { const s = (detailData.State as Record<string, unknown>)?.Status as string || ''; const b = statusBadge(s); return <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${b.bg} ${b.text}`}><span className={`w-1.5 h-1.5 rounded-full ${b.dot}`} />{s || 'unknown'}</span>; })() as ReactNode],
-                    ['镜像', ((detailData.Config as Record<string, unknown>)?.Image as string) || '-'],
-                    ['工作目录', ((detailData.Config as Record<string, unknown>)?.WorkingDir as string) || '-'],
-                    ['命令', (((detailData.Config as Record<string, unknown>)?.Cmd as string[])?.join(' ')) || '-'],
-                    ['创建时间', ((detailData.Created as string) ? new Date(detailData.Created as string).toLocaleString('zh-CN') : '-')],
-                    ['平台', ((detailData.Platform as string) || (detailData.Os as string) ? `${detailData.Os || ''}/${detailData.Architecture || ''}` : '-')],
-                  ].map(([label, value]) => (
-                    <div key={label as string} className="flex">
-                      <span className="text-xs text-text-tertiary w-20 flex-shrink-0">{label}</span>
-                      <span className="text-sm text-text-primary break-all">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-text-tertiary text-sm">暂无详情数据</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Container Detail Drawers (Logs / Stats / Detail) ── */}
+      <ContainerDetail
+        endpointId={endpointId}
+        selectedContainerId={selectedContainerId}
+        selectedContainerName={selectedContainerName}
+        showLogsDrawer={showLogsDrawer}
+        showStatsDrawer={showStatsDrawer}
+        showDetailDrawer={showDetailDrawer}
+        onCloseLogs={() => setShowLogsDrawer(false)}
+        onCloseStats={() => setShowStatsDrawer(false)}
+        onCloseDetail={() => setShowDetailDrawer(false)}
+      />
 
       {/* ── Network Detail Drawer ── */}
       {showNetDetailDrawer && displayNetDetail && (

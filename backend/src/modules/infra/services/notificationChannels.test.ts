@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
 vi.mock('axios', () => ({ default: { post: vi.fn() } }));
-import { sendFeishu, sendWeCom, sendDingTalk, sendNotification } from './notificationChannels.ts';
+import { sendFeishu, sendWeCom, sendDingTalk, sendNotification } from './notificationChannels';
 
 describe('notificationChannels', () => {
   beforeEach(() => { vi.clearAllMocks(); });

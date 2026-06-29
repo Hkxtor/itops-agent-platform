@@ -1,5 +1,5 @@
 import { logger } from '../../../../utils/logger';
-import { Provider, ProviderResult } from './types.ts';
+import type { Provider, ProviderResult } from './types';
 
 /**
  * HTTP Provider

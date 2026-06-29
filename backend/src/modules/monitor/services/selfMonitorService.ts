@@ -425,7 +425,7 @@ export class SelfMonitorService {
       const rssMb = memUsage.rss / 1024 / 1024;
 
       // 系统内存检查
-      let messages: string[] = [];
+      const messages: string[] = [];
       let worstStatus: 'pass' | 'warn' | 'fail' = 'pass';
 
       if (systemUsedPercent > this.config.memoryCritPercent) {

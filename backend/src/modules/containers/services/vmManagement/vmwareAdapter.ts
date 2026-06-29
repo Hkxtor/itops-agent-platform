@@ -7,8 +7,8 @@
  */
 
 import https from 'https';
-import { BaseVMAdapter } from './vmAdapter.ts';
-import {
+import { BaseVMAdapter } from './vmAdapter';
+import type {
   VirtualMachine,
   VMStats,
   VMSnapshot,
@@ -71,7 +71,7 @@ export class VMwareAdapter extends BaseVMAdapter {
         { Authorization: `Basic ${auth}` }
       );
 
-      if (result && result.value) {
+      if (result?.value) {
         this.sessionId = result.value;
         this.connected = true;
         logger.info(`✅ VMware vSphere 会话已建立 (${this.host})`);

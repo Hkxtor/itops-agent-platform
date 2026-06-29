@@ -1,10 +1,11 @@
-import { scheduleJob, Job } from 'node-schedule';
+import type { Job } from 'node-schedule';
+import { scheduleJob } from 'node-schedule';
 import { randomUUID } from 'crypto';
 import db, { performMaintenance } from '../../../models/database';
 import { logger } from '../../../utils/logger';
-import { executeWorkflow } from './workflowExecutor.ts';
-import { WorkflowParsed, WorkflowNode, WorkflowEdge } from '../../../types';
-import { serverInfoCollector } from '../../servers/services/serverInfoCollector.ts';
+import { executeWorkflow } from './workflowExecutor';
+import type { WorkflowParsed, WorkflowNode, WorkflowEdge } from '../../../types';
+import { serverInfoCollector } from '../../servers/services/serverInfoCollector';
 
 interface ScheduledTaskRecord {
   id: string;
@@ -17,7 +18,7 @@ interface ScheduledTaskRecord {
 
 class SchedulerService {
   private jobs: Map<string, Job> = new Map();
-  private initialized: boolean = false;
+  private initialized = false;
   private runningWorkflows: Set<string> = new Set();
   private runningTasks: Set<string> = new Set();
 

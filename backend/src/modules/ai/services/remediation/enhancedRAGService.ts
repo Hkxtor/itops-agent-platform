@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
-import db from '../../../models/database';
-import { localRuleEngine } from './localRuleEngine.ts';
+import db from '../../../../models/database';
+import { localRuleEngine } from '../rca/localRuleEngine';
 
 interface KnowledgeItem {
   id: string;
@@ -302,7 +302,7 @@ class EnhancedRAGService {
    */
   async getSimilarKnowledge(
     knowledgeId: string,
-    limit: number = 5
+    limit = 5
   ): Promise<KnowledgeItem[]> {
     const sourceItem = db.prepare('SELECT * FROM knowledge_base WHERE id = ?').get(knowledgeId) as {
       id: string;
@@ -331,7 +331,7 @@ class EnhancedRAGService {
   async addKnowledge(
     title: string,
     content: string,
-    category: string = '未分类',
+    category = '未分类',
     tags: string[] = []
   ): Promise<string> {
     const id = randomUUID();

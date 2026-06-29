@@ -1,11 +1,11 @@
 import axios from 'axios';
-import db from '../../../models/database';
-import { logger } from '../../../utils/logger';
+import db from '../../../../models/database';
+import { logger } from '../../../../utils/logger';
 import crypto from 'crypto';
-import { getApiKey, getModelId, getApiBase, buildApiEndpoint } from '../../../utils/apiConfig';
-import { qanythingService } from './qanythingService.ts';
-import * as aiModelService from './aiModelService.ts';
-import type { AIModel } from './aiModelService.ts';
+import { getApiKey, getModelId, getApiBase, buildApiEndpoint } from '../../../../utils/apiConfig';
+import { qanythingService } from '../knowledge/qanythingService';
+import * as aiModelService from '../models/aiModelService';
+import type { AIModel } from '../models/aiModelService';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -557,9 +557,9 @@ async function callModelWithConfig(
 export async function callDoubaoAPI(
   systemPrompt: string,
   userInput: string,
-  agentName: string = 'Agent',
-  temperature: number = 0.7,
-  agentId: string = '',
+  agentName = 'Agent',
+  temperature = 0.7,
+  agentId = '',
   signal?: AbortSignal
 ): Promise<string> {
   return callLLMAPI(DOUBAO_CONFIG, systemPrompt, userInput, agentName, temperature, agentId, signal);
@@ -572,9 +572,9 @@ export async function callDoubaoAPI(
 export async function callOpenAIAPI(
   systemPrompt: string,
   userInput: string,
-  agentName: string = 'Agent',
-  temperature: number = 0.7,
-  agentId: string = '',
+  agentName = 'Agent',
+  temperature = 0.7,
+  agentId = '',
   signal?: AbortSignal
 ): Promise<string> {
   return callLLMAPI(OPENAI_CONFIG, systemPrompt, userInput, agentName, temperature, agentId, signal);
@@ -587,9 +587,9 @@ export async function callOpenAIAPI(
 export async function callLocalAIAPI(
   systemPrompt: string,
   userInput: string,
-  agentName: string = 'Agent',
-  temperature: number = 0.7,
-  agentId: string = '',
+  agentName = 'Agent',
+  temperature = 0.7,
+  agentId = '',
   signal?: AbortSignal
 ): Promise<string> {
   return callLLMAPI(LOCAL_AI_CONFIG, systemPrompt, userInput, agentName, temperature, agentId, signal);
@@ -604,10 +604,10 @@ export async function callLocalAIAPI(
  */
 export async function generateCompletion(
   prompt: string,
-  systemPrompt: string = '你是一个专业的助手。',
-  temperature: number = 0.7,
+  systemPrompt = '你是一个专业的助手。',
+  temperature = 0.7,
   model?: string,
-  agentId: string = ''
+  agentId = ''
 ): Promise<string> {
   const timeoutMs = 120000;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -616,7 +616,7 @@ export async function generateCompletion(
 
   // 优先使用 AI 模型池中的默认模型
   const defaultModel = aiModelService.getDefaultModel();
-  if (defaultModel && defaultModel.enabled) {
+  if (defaultModel?.enabled) {
     logger.info(`🤖 [generateCompletion] Using default model from AI Model Pool: ${defaultModel.name} (${defaultModel.provider_type})`);
     return Promise.race([
       callModelWithConfig(defaultModel, systemPrompt, prompt, 'LLM', temperature, agentId),
@@ -774,7 +774,7 @@ export async function executeAgentWithLLM(
   if (agent.primary_model_id) {
     try {
       const primaryModel = aiModelService.getModelById(agent.primary_model_id);
-      if (primaryModel && primaryModel.enabled) {
+      if (primaryModel?.enabled) {
         return await callModelWithConfig(
           primaryModel,
           enhancedSystemPrompt,
@@ -794,7 +794,7 @@ export async function executeAgentWithLLM(
   if (agent.fallback_model_id) {
     try {
       const fallbackModel = aiModelService.getModelById(agent.fallback_model_id);
-      if (fallbackModel && fallbackModel.enabled) {
+      if (fallbackModel?.enabled) {
         return await callModelWithConfig(
           fallbackModel,
           enhancedSystemPrompt,

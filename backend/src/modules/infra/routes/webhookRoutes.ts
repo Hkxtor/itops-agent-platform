@@ -1,26 +1,28 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import db, { getIOInstance } from '../../../models/database';
 import { logger } from '../../../utils/logger';
 import { randomUUID } from 'crypto';
-import { createAuditLog } from '../services/auditService.ts';
-import { createNotification } from './notificationRoutes.ts';
-import { alertService } from '../../alerts/services/alertService.ts';
-import { remediationService } from '../../auto/services/remediationService.ts';
+import { createAuditLog } from '../services/auditService';
+import { createNotification } from './notificationRoutes';
+import { alertService } from '../../alerts/services/alertService';
+import { remediationService } from '../../auto/services/remediationService';
 import { env } from '../../../utils/env';
 import crypto from 'crypto';
+import type {
+  NormalizedAlert} from '../../alerts/services/alertSourceAdapters';
 import {
   adaptPrometheus,
   adaptZabbix,
   adaptGrafana,
   adaptAliyun,
   adaptTencentCloud,
-  detectSourceType,
-  NormalizedAlert,
-} from '../../alerts/services/alertSourceAdapters.ts';
-import { alertDeviceResolver } from '../../alerts/services/alertDeviceResolver.ts';
-import { alertAutoAnalyzer } from '../../alerts/services/alertAutoAnalyzer.ts';
-import { alertWorkflowMappingService } from '../../alerts/services/alertWorkflowMappingService.ts';
-import { emitToAlerts } from '../../../shared/websocket/handler.ts';
+  detectSourceType
+} from '../../alerts/services/alertSourceAdapters';
+import { alertDeviceResolver } from '../../alerts/services/alertDeviceResolver';
+import { alertAutoAnalyzer } from '../../alerts/services/alertAutoAnalyzer';
+import { alertWorkflowMappingService } from '../../alerts/services/alertWorkflowMappingService';
+import { emitToAlerts } from '../../../shared/websocket/handler';
 import { validateBody } from '../../../middleware/validation';
 import { z } from 'zod';
 

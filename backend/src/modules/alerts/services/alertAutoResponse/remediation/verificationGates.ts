@@ -17,9 +17,9 @@
 
 import { Client } from 'ssh2';
 import db from '../../../../../models/database';
-import { decrypt } from '../../../../auth/services/encryptionService.ts';
+import { decrypt } from '../../../../auth/services/encryptionService';
 import { logger } from '../../../../../utils/logger';
-import type { DeviceRuntimeProfile, RemediationPlan, VerificationChainResult, VerificationStage, ProbeResult } from '../types.ts';
+import type { DeviceRuntimeProfile, RemediationPlan, VerificationChainResult, VerificationStage, ProbeResult } from '../types';
 
 class VerificationGates {
   private readonly STAGES: Array<{
@@ -189,7 +189,7 @@ class VerificationGates {
       const memMatch = output.match(/Mem:\s+(\d+)\s+(\d+)/);
       const diskMatch = output.match(/(\d+)%\s+\/$/);
 
-      let issues: string[] = [];
+      const issues: string[] = [];
 
       // CPU 负载检查（假设 1.0 为告警阈值）
       if (loadMatch) {

@@ -1,25 +1,27 @@
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { logger } from '../../../../utils/logger';
-import {
+import type {
   EdgeAgentConfig,
-  EdgeAgentStatus,
   HostInfo,
   HostLoad,
   ProcessListResponse,
   CollectorOutput,
+  HeartbeatRequest,
+  SkillExecutionResponse,
+  PluginHealth,
+  PromSample
+} from './types';
+import {
+  EdgeAgentStatus,
   AgentCommand,
   AgentCommandType,
-  HeartbeatRequest,
   HeartbeatResponse,
   RegisterAgentRequest,
   RegisterAgentResponse,
   TunnelEvent,
-  SkillExecutionRequest,
-  SkillExecutionResponse,
-  PluginHealth,
-  PromSample
-} from './types.ts';
+  SkillExecutionRequest
+} from './types';
 
 // 系统指标收集器
 interface Collector {

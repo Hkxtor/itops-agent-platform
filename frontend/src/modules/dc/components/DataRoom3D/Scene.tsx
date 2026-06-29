@@ -1,567 +1,412 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Rack3D, SlotInfo, CableData } from './types';
+import type { Rack3D } from './types';
+
+export type ViewMode = 'overview' | 'zoneA' | 'zoneB';
 
 interface SceneProps {
   racks: Rack3D[];
-  rackSlotsMap: Record<string, SlotInfo[]>;
   onRackClick: (rackId: string) => void;
   selectedRackId?: string | null;
   hoveredRackId?: string | null;
-  searchQuery?: string;
   onHoverChange?: (rackId: string | null) => void;
-  /** 热力图数? { rackId: 归一化?0~1 }?=?1=?*/
   heatmapData?: Record<string, number>;
-  /** 热力图模? 'temperature' | 'utilization' */
-  heatmapMode?: 'temperature' | 'utilization';
-  /** 线缆拓扑数据（父组件预计算端点位置） */
-  cables?: CableData[];
+  viewMode: ViewMode;
 }
 
-// === 常量 ===
-const RACK_W = 2.3;
-const RACK_D = 2.2;
-const PER_U = 0.04445;
-const GAP_X = 2.2;
-const GAP_Z = 4.0;
-const CAM_FOCUS_DURATION = 800; // 相机聚焦动画时长 ms
+// ── 纹理缓存 ──
+const texCache: Record<string, THREE.CanvasTexture> = {};
 
-// ========== 共享材质 ==========
-const sharedMats = {
-  body: null as THREE.MeshPhysicalMaterial | null,
-  glass: null as THREE.MeshPhysicalMaterial | null,
-  floor: null as THREE.MeshPhysicalMaterial | null,
-  highlight: null as THREE.MeshBasicMaterial | null,
-  outline: null as THREE.MeshBasicMaterial | null,
+function floorTex(): THREE.CanvasTexture {
+  if (texCache._floor) return texCache._floor;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#4a5a6a';
+  ctx.fillRect(0, 0, 256, 256);
+  for (let x = 0; x < 256; x += 3) {
+    for (let y = 0; y < 256; y += 3) {
+      const n = (Math.random() - 0.5) * 10;
+      const v = Math.max(0, Math.min(255, 74 + n));
+      ctx.fillStyle = `rgb(${v},${v+8},${v+20})`;
+      ctx.fillRect(x, y, 3, 3);
+    }
+  }
+  ctx.strokeStyle = '#3a4a55';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, 254, 254);
+  ctx.strokeStyle = 'rgba(100,120,140,0.5)';
+  ctx.lineWidth = 1;
+  [64, 128, 192].forEach(p => {
+    ctx.beginPath(); ctx.moveTo(p, 4); ctx.lineTo(p, 252); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4, p); ctx.lineTo(252, p); ctx.stroke();
+  });
+  texCache._floor = new THREE.CanvasTexture(c);
+  return texCache._floor;
+}
+
+function labelTex(id: string, warn: boolean): THREE.CanvasTexture {
+  const k = `L_${id}_${warn}`;
+  if (texCache[k]) return texCache[k];
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createLinearGradient(0, 0, 256, 0);
+  if (warn) { g.addColorStop(0, 'rgba(255,80,50,0.15)'); g.addColorStop(0.5, 'rgba(255,80,50,0.3)'); g.addColorStop(1, 'rgba(255,80,50,0.15)'); }
+  else { g.addColorStop(0, 'rgba(0,212,255,0.1)'); g.addColorStop(0.5, 'rgba(0,212,255,0.22)'); g.addColorStop(1, 'rgba(0,212,255,0.1)'); }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 64);
+  ctx.strokeStyle = warn ? 'rgba(255,100,60,0.6)' : 'rgba(0,212,255,0.5)';
+  ctx.lineWidth = 2; ctx.strokeRect(2, 2, 252, 60);
+  ctx.fillStyle = warn ? '#ff8866' : '#00d4ff';
+  ctx.font = 'bold 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = warn ? '#ff4422' : '#00aacc'; ctx.shadowBlur = 8;
+  ctx.fillText(id, 128, 34);
+  texCache[k] = new THREE.CanvasTexture(c);
+  return texCache[k];
+}
+
+const geo = {
+  led: new THREE.SphereGeometry(0.02, 4, 4),
+  glow: new THREE.SphereGeometry(0.035, 4, 4),
+  foot: new THREE.CylinderGeometry(0.06, 0.08, 0.1, 8),
 };
 
-function mat(key: 'body' | 'glass' | 'floor' | 'highlight' | 'outline') {
-  if (sharedMats[key]) return sharedMats[key]!;
-  const m = ({
-    body: new THREE.MeshPhysicalMaterial({ color: 0x1a2a3a, metalness: 0.6, roughness: 0.3 }),
-    glass: new THREE.MeshPhysicalMaterial({ color: 0x88ccff, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.25, side: THREE.DoubleSide, envMapIntensity: 0.5 }),
-    floor: (() => { const t = new THREE.DataTexture(new Uint8Array([200,200,200,255]),1,1,THREE.RGBAFormat); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(20,20); t.anisotropy=4; return new THREE.MeshPhysicalMaterial({map:t,color:0x9eada8,metalness:0.05,roughness:0.6,clearcoat:0.1,clearcoatRoughness:0.8}); })(),
-    highlight: new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0, side: THREE.BackSide }),
-    outline: new THREE.MeshBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0 }),
-  } as const)[key];
-  sharedMats[key as keyof typeof sharedMats] = m as any;
-  return m;
-}
-
-/** 热力图色值映? 0→蓝, 0.25→青, 0.5→绿, 0.75→黄, 1→红 */
-function heatColor(value: number): THREE.Color {
-  // HSL: hue ?240(? ?0(?
-  const hue = 240 - value * 240;
-  // 饱和度略降让颜色柔和一?
-  return new THREE.Color(`hsl(${Math.max(0, Math.min(360, hue))}, 80%, ${45 + value * 20}%)`);
-}
-
-/** 根据 heat value 创建或克隆材?*/
-function makeHeatMaterial(baseMat: THREE.MeshPhysicalMaterial, heatValue: number): THREE.MeshPhysicalMaterial {
-  if (heatValue <= 0) return baseMat;
-  const m = baseMat.clone();
-  const c = heatColor(heatValue);
-  m.color.copy(c);
-  m.emissive = new THREE.Color(c).multiplyScalar(0.15);
-  m.emissiveIntensity = 0.3;
-  m.needsUpdate = true;
-  return m;
-}
-
-// ========== 机柜构建 ==========
-function buildRackMesh(rack: Rack3D, heatValue = 0) {
-  const group = new THREE.Group();
-  group.userData.rackId = rack.id;
-  const rackH = rack.totalU * PER_U;
-  const halfH = rackH / 2;
-  const hasAlert = rack.alertCount > 0;
-
-  // 主体（支持热力图着色）
-  const bodyMat = heatValue > 0 ? makeHeatMaterial(mat('body'), heatValue) : mat('body');
-  const body = new THREE.Mesh(new THREE.BoxGeometry(RACK_W, rackH, RACK_D), bodyMat);
-  body.position.y = halfH;
-  body.castShadow = true;
-  body.userData.part = 'body';
-  group.add(body);
-
-  // 玻璃?
-  const door = new THREE.Mesh(new THREE.BoxGeometry(RACK_W - 0.1, rackH - 0.1, 0.01), mat('glass'));
-  door.position.set(0, halfH, RACK_D / 2 + 0.01);
-  door.userData.part = 'door';
-  group.add(door);
-
-  // 侧面发光?
-  const glowColor = hasAlert ? 0xff4444 : 0x00ff88;
-  const glowMat = new THREE.MeshBasicMaterial({ color: glowColor, transparent: true, opacity: 0.4 });
-  for (const x of [-1.09, 1.09]) {
-    const g = new THREE.Mesh(new THREE.BoxGeometry(0.01, rackH - 0.5, 0.01), glowMat);
-    g.position.set(x, halfH, 1.1);
-    g.userData.part = 'glow';
-    group.add(g);
-  }
-
-  // 顶部状态灯
-  const sLight = new THREE.PointLight(hasAlert ? 0xff4444 : 0x00ff88, 0.4, 3);
-  sLight.position.set(0, rackH + 0.08, 1.18);
-  sLight.userData.part = 'light';
-  group.add(sLight);
-
-  // 标签
-  const labelCanvas = document.createElement('canvas');
-  labelCanvas.width = 256; labelCanvas.height = 64;
-  const lCtx = labelCanvas.getContext('2d')!;
-  lCtx.clearRect(0, 0, 256, 64);
-  lCtx.fillStyle = '#88ccff';
-  lCtx.font = 'bold 28px Arial';
-  lCtx.textAlign = 'center';
-  lCtx.fillText(rack.name, 128, 42);
-  const labelTex = new THREE.CanvasTexture(labelCanvas);
-  const labelMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false });
-  const label = new THREE.Sprite(labelMat);
-  label.position.set(0, rackH + 0.8, 0);
-  label.scale.set(3, 0.75, 1);
-  label.userData.part = 'label';
-  group.add(label);
-
-  // 占用?
-  const usedRatio = Math.min(rack.totalU > 0 ? rack.usedU / rack.totalU : 0, 1);
-  const pCanvas = document.createElement('canvas');
-  pCanvas.width = 8; pCanvas.height = 64;
-  const pCtx = pCanvas.getContext('2d')!;
-  pCtx.fillStyle = '#0a1420';
-  pCtx.fillRect(0, 0, 8, 64);
-  const fillH = Math.round(usedRatio * 64);
-  const grad = pCtx.createLinearGradient(0, 64 - fillH, 0, 64);
-  grad.addColorStop(0, hasAlert ? '#ff4444' : '#00ff88');
-  grad.addColorStop(1, hasAlert ? '#ff8844' : '#00cc66');
-  pCtx.fillStyle = grad;
-  pCtx.fillRect(0, 64 - fillH, 8, fillH);
-  const perfTex = new THREE.CanvasTexture(pCanvas);
-  const perfMat = new THREE.SpriteMaterial({ map: perfTex, transparent: true, depthTest: false });
-  const perfSprite = new THREE.Sprite(perfMat);
-  perfSprite.position.set(RACK_W / 2 + 0.2, halfH, 0);
-  perfSprite.scale.set(0.15, rackH * 0.8, 1);
-  perfSprite.userData.part = 'perf';
-  group.add(perfSprite);
-
-  // 点击 hitbox
-  const hit = new THREE.Mesh(
-    new THREE.BoxGeometry(RACK_W * 2.5, rackH, RACK_D * 2.5),
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide })
-  );
-  hit.position.y = halfH;
-  hit.userData = { isRack: true, rackId: rack.id, part: 'hitbox' };
-  group.add(hit);
-
-  // 高亮边框（默认隐藏）
-  const hl = new THREE.Mesh(
-    new THREE.BoxGeometry(RACK_W + 0.15, rackH + 0.15, RACK_D + 0.15),
-    mat('highlight')
-  );
-  hl.position.y = halfH;
-  hl.userData.part = 'highlight';
-  hl.visible = false;
-  group.add(hl);
-
-  return group;
-}
-
-// ========== 线缆构建 ==========
-const CABLE_COLORS: Record<string, number> = {
-  cat5: 0xcccccc, cat5e: 0xcccccc, cat6: 0x3366cc,
-  cat6a: 0x3366cc, cat7: 0xff6600, cat8: 0xcc3300,
-  fiber_om3: 0x33cc33, fiber_om4: 0x00aa00, fiber_os2: 0xffff00,
-  coax: 0xdd8844, power: 0xff4444, default: 0x888888,
+// 提亮机柜颜色
+const mats = {
+  bodyN: new THREE.MeshStandardMaterial({ color: 0x6a7a8a, metalness: 0.6, roughness: 0.35 }),
+  bodyW: new THREE.MeshStandardMaterial({ color: 0x7a5a3a, metalness: 0.6, roughness: 0.35 }),
+  top: new THREE.MeshStandardMaterial({ color: 0x7a8a9a, metalness: 0.7, roughness: 0.25 }),
+  frame: new THREE.MeshStandardMaterial({ color: 0x8a9aaa, metalness: 0.85, roughness: 0.15 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xaaddff, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.08 }),
+  serverN: new THREE.MeshStandardMaterial({ color: 0x5a6a7a, metalness: 0.5, roughness: 0.35 }),
+  serverW: new THREE.MeshStandardMaterial({ color: 0x6a5a3a, metalness: 0.5, roughness: 0.35 }),
+  ledG: new THREE.MeshBasicMaterial({ color: 0x00ff88 }),
+  ledC: new THREE.MeshBasicMaterial({ color: 0x00d4ff }),
+  ledR: new THREE.MeshBasicMaterial({ color: 0xff4444 }),
+  glowG: new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
+  glowR: new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }),
+  sideC: new THREE.MeshBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }),
+  sideO: new THREE.MeshBasicMaterial({ color: 0xff6644, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }),
 };
 
-function buildCableMesh(cables: CableData[]) {
-  const group = new THREE.Group();
-  group.name = 'cables';
+const RW = 2.2, RD = 1.2, RH = 5.5;
+const UH = RH / 42;
 
-  for (const cable of cables) {
-    if (cable.status !== 'connected') continue;
-    const a = cable.a_position;
-    const b = cable.b_position;
-    const midY = Math.max(a[1], b[1]) + 1.5;
-    const points = [
-      new THREE.Vector3(a[0], a[1], a[2]),
-      new THREE.Vector3(a[0], midY, a[2]),
-      new THREE.Vector3((a[0] + b[0]) / 2, midY + 0.5, (a[2] + b[2]) / 2),
-      new THREE.Vector3(b[0], midY, b[2]),
-      new THREE.Vector3(b[0], b[1], b[2]),
-    ];
-    const curve = new THREE.CatmullRomCurve3(points);
-    const geom = new THREE.TubeGeometry(curve, 20, 0.04, 6, false);
-    const color = CABLE_COLORS[cable.cable_type] || CABLE_COLORS.default;
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      transparent: true,
-      opacity: 0.7,
-      roughness: 0.4,
-      metalness: 0.1,
-    });
-    const mesh = new THREE.Mesh(geom, mat);
-    mesh.userData = { part: 'cable', cableId: cable.id };
-    group.add(mesh);
+function createRack(rack: Rack3D): THREE.Group {
+  const g = new THREE.Group();
+  g.userData = { rackId: rack.id };
+  const warn = rack.alertCount > 0;
+  const bm = warn ? mats.bodyW : mats.bodyN;
+  const sm = warn ? mats.serverW : mats.serverN;
+  const sgm = warn ? mats.sideO : mats.sideC;
+
+  const back = new THREE.Mesh(new THREE.BoxGeometry(RW, RH, 0.06), bm);
+  back.position.set(0, RH / 2, -RD / 2);
+  back.castShadow = back.receiveShadow = true; g.add(back);
+
+  const left = new THREE.Mesh(new THREE.BoxGeometry(0.06, RH, RD), bm);
+  left.position.set(-RW / 2, RH / 2, 0);
+  left.castShadow = left.receiveShadow = true; g.add(left);
+
+  const right = new THREE.Mesh(new THREE.BoxGeometry(0.06, RH, RD), bm);
+  right.position.set(RW / 2, RH / 2, 0);
+  right.castShadow = right.receiveShadow = true; g.add(right);
+
+  const top = new THREE.Mesh(new THREE.BoxGeometry(RW + 0.1, 0.06, RD + 0.1), mats.top);
+  top.position.y = RH + 0.03; top.castShadow = true; g.add(top);
+
+  const bottom = new THREE.Mesh(new THREE.BoxGeometry(RW + 0.1, 0.04, RD + 0.1), bm);
+  bottom.position.y = 0.02; bottom.castShadow = true; g.add(bottom);
+
+  [[-RW / 2 + 0.2, -RD / 2 + 0.2], [RW / 2 - 0.2, -RD / 2 + 0.2], [-RW / 2 + 0.2, RD / 2 - 0.2], [RW / 2 - 0.2, RD / 2 - 0.2]].forEach(([fx, fz]) => {
+    const f = new THREE.Mesh(geo.foot, mats.top);
+    f.position.set(fx, 0.05, fz); g.add(f);
+  });
+
+  const doorPivot = new THREE.Group();
+  doorPivot.position.set(0, 0, RD / 2);
+  doorPivot.userData = { isRackDoor: true };
+
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(RW - 0.1, RH - 0.1, 0.02), mats.glass);
+  glass.position.set(0, RH / 2, 0); doorPivot.add(glass);
+
+  const ft = 0.04;
+  const fm = mats.frame;
+  const lf = new THREE.Mesh(new THREE.BoxGeometry(ft, RH, ft), fm);
+  lf.position.set(-RW / 2 + ft / 2, RH / 2, 0); doorPivot.add(lf);
+  const rf = new THREE.Mesh(new THREE.BoxGeometry(ft, RH, ft), fm);
+  rf.position.set(RW / 2 - ft / 2, RH / 2, 0); doorPivot.add(rf);
+  const tf = new THREE.Mesh(new THREE.BoxGeometry(RW, ft, ft), fm);
+  tf.position.set(0, RH + ft / 2, 0); doorPivot.add(tf);
+  const bf = new THREE.Mesh(new THREE.BoxGeometry(RW, ft, ft), fm);
+  bf.position.set(0, ft / 2, 0); doorPivot.add(bf);
+
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.2, 0.06), fm);
+  handle.position.set(RW / 2 - 0.06, RH / 2, 0.04); doorPivot.add(handle);
+  g.add(doorPivot);
+
+  const usedU = Math.min(rack.usedU, rack.totalU);
+  for (let u = 0; u < usedU; u++) {
+    const y = UH * (u + 0.5);
+    const server = new THREE.Mesh(new THREE.BoxGeometry(RW - 0.3, UH * 0.85, RD - 0.2), sm);
+    server.position.set(0, y, 0); server.castShadow = true; g.add(server);
+    const ledM = warn ? mats.ledR : (u % 3 === 0 ? mats.ledG : mats.ledC);
+    const led = new THREE.Mesh(geo.led, ledM);
+    led.position.set(-RW / 2 + 0.2, y, RD / 2 - 0.02); g.add(led);
+    const gl = new THREE.Mesh(geo.glow, warn ? mats.glowR : mats.glowG);
+    gl.position.copy(led.position); g.add(gl);
   }
-  return group;
+
+  const lt = labelTex(rack.name, warn);
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.6, 0.4),
+    new THREE.MeshBasicMaterial({ map: lt, transparent: true, side: THREE.DoubleSide, depthWrite: false })
+  );
+  label.position.set(0, RH + 0.5, RD / 2 + 0.01); g.add(label);
+
+  const sl = new THREE.Mesh(geo.led, warn ? mats.ledR : mats.ledG);
+  sl.position.set(0, RH + 0.03, RD / 2 + 0.01); sl.scale.setScalar(3);
+  sl.userData = { isStatusLed: true }; g.add(sl);
+  const sg = new THREE.Mesh(geo.glow, warn ? mats.glowR : mats.glowG);
+  sg.position.copy(sl.position); sg.scale.setScalar(3);
+  sg.userData = { isGlow: true }; g.add(sg);
+
+  const lg = new THREE.Mesh(new THREE.BoxGeometry(0.01, RH * 0.9, 0.01), sgm);
+  lg.position.set(-RW / 2 - 0.01, RH / 2, RD / 2 - 0.05); g.add(lg);
+  const rg = new THREE.Mesh(new THREE.BoxGeometry(0.01, RH * 0.9, 0.01), sgm);
+  rg.position.set(RW / 2 + 0.01, RH / 2, RD / 2 - 0.05); g.add(rg);
+
+  return g;
 }
 
-// ========== 高亮状态管?==========
-function setRackHighlight(group: THREE.Group, state: 'none' | 'hover' | 'selected' | 'search') {
-  // ?traverse 找到 highlight mesh
-  let hlMesh: THREE.Mesh | null = null;
-  group.traverse(c => { if (c.userData?.part === 'highlight') hlMesh = c as THREE.Mesh; });
-  if (!hlMesh) return;
+function createEnv(scene: THREE.Scene) {
+  const ft = floorTex();
+  ft.wrapS = ft.wrapT = THREE.RepeatWrapping;
+  ft.repeat.set(40, 40);
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(80, 80),
+    new THREE.MeshStandardMaterial({ map: ft, color: 0x6a7a8a, metalness: 0.05, roughness: 0.8 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
 
-  const mat = hlMesh.material as THREE.MeshBasicMaterial;
-  hlMesh.visible = state !== 'none';
-  switch (state) {
-    case 'hover':
-      mat.color.setHex(0x00ffcc);
-      mat.opacity = 0.3;
-      break;
-    case 'selected':
-      mat.color.setHex(0x00ccff);
-      mat.opacity = 0.5;
-      break;
-    case 'search':
-      mat.color.setHex(0xffdd00);
-      mat.opacity = 0.25;
-      break;
-  }
+  const grid = new THREE.GridHelper(80, 40, 0x4488aa, 0x335577);
+  grid.position.y = 0.02;
+  grid.material.opacity = 0.5;
+  grid.material.transparent = true;
+  scene.add(grid);
 }
 
-// ========== 场景组件 ==========
-export default function Scene({
-  racks, rackSlotsMap, onRackClick,
-  selectedRackId, hoveredRackId, searchQuery, onHoverChange,
-  heatmapData, heatmapMode = 'temperature',
-  cables = [],
-}: SceneProps) {
+// 视图相机目标
+const VIEW_TARGETS: Record<ViewMode, { pos: THREE.Vector3; target: THREE.Vector3 }> = {
+  overview: { pos: new THREE.Vector3(25, 18, 25), target: new THREE.Vector3(0, 3, 0) },
+  zoneA: { pos: new THREE.Vector3(-10, 10, 20), target: new THREE.Vector3(-10, 3, 0) },
+  zoneB: { pos: new THREE.Vector3(10, 10, 20), target: new THREE.Vector3(10, 3, 0) },
+};
+
+export default function Scene({ racks, onRackClick, selectedRackId, hoveredRackId, onHoverChange, heatmapData, viewMode }: SceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const rackGroupsRef = useRef<Map<string, THREE.Group>>(new Map());
-  const cableGroupRef = useRef<THREE.Group | null>(null);
-  const animRef = useRef<number>(0);
-  const prevHoverRef = useRef<string | null>(null);
-  const prevSelectedRef = useRef<string | null>(null);
-  const prevSearchRef = useRef<string>('');
+  const rackMap = useRef<Map<string, THREE.Group>>(new Map());
+  const ray = useRef(new THREE.Raycaster());
+  const mouse = useRef(new THREE.Vector2());
+  const anim = useRef<{ doors: THREE.Group[]; leds: THREE.Mesh[]; glows: THREE.Mesh[] }>({ doors: [], leds: [], glows: [] });
+  const viewModeRef = useRef(viewMode);
 
-  // 相机聚焦动画状?
-  const focusState = useRef<{
-    active: boolean;
-    startTime: number;
-    startPos: THREE.Vector3;
-    endPos: THREE.Vector3;
-    startTarget: THREE.Vector3;
-    endTarget: THREE.Vector3;
-  } | null>(null);
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
 
-  // 窗口自适应
-  const handleResize = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !cameraRef.current || !rendererRef.current) return;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    cameraRef.current.aspect = w / h;
-    cameraRef.current.updateProjectionMatrix();
-    rendererRef.current.setSize(w, h, false);
-  }, []);
-
-  /** 聚焦到指定机?*/
-  const focusRack = useCallback((rackId: string | null) => {
-    if (!rackId || !cameraRef.current || !controlsRef.current) return;
-    const group = rackGroupsRef.current.get(rackId);
-    if (!group) return;
-
-    const pos = new THREE.Vector3();
-    group.getWorldPosition(pos);
-
-    const cam = cameraRef.current;
-    const ctrl = controlsRef.current;
-
-    focusState.current = {
-      active: true,
-      startTime: performance.now(),
-      startPos: cam.position.clone(),
-      endPos: new THREE.Vector3(pos.x + 8, pos.y + 4, pos.z + 8),
-      startTarget: ctrl.target.clone(),
-      endTarget: pos.clone(),
-    };
-  }, []);
-
-  // ===== 初始?Three.js =====
+  // 初始化
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
+    const cv = canvasRef.current; if (!cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x141e2d);
-    scene.fog = new THREE.FogExp2(0x141e2d, 0.003);
+    scene.background = new THREE.Color(0x1e2e3e);
+    scene.fog = new THREE.Fog(0x1e2e3e, 40, 120);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
-    camera.position.set(25, 15, 25);
-    camera.lookAt(0, 0, 0);
+    camera.position.copy(VIEW_TARGETS.overview.pos);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    renderer.setClearColor(0x141e2d, 1);
+    const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false });
+    renderer.setClearColor(0x1e2e3e);
     renderer.setSize(w, h, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = 1.5;
     rendererRef.current = renderer;
 
-    const controls = new OrbitControls(camera, canvas);
+    const controls = new OrbitControls(camera, cv);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.minDistance = 5;
-    controls.maxDistance = 60;
-    controls.maxPolarAngle = Math.PI / 2.1;
-    controls.target.set(0, 0, 0);
+    controls.maxPolarAngle = Math.PI / 2.2;
+    controls.minDistance = 6;
+    controls.maxDistance = 70;
+    controls.target.copy(VIEW_TARGETS.overview.target);
     controlsRef.current = controls;
 
     // 灯光
-    scene.add(new THREE.AmbientLight(0x334466, 0.6));
-    const dl = new THREE.DirectionalLight(0xffeedd, 1.5);
-    dl.position.set(20, 30, 10); dl.castShadow = true; dl.shadow.mapSize.width = 2048; dl.shadow.mapSize.height = 2048;
-    scene.add(dl);
-    const fl = new THREE.DirectionalLight(0x4488ff, 0.4);
-    fl.position.set(-20, 10, -20); scene.add(fl);
-    scene.add(new THREE.HemisphereLight(0x88ccff, 0x445566, 0.6));
+    scene.add(new THREE.AmbientLight(0xbbccdd, 1.1));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+    sun.position.set(30, 50, 20);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1; sun.shadow.camera.far = 120;
+    sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+    sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
+    sun.shadow.bias = -0.0005;
+    scene.add(sun);
 
-    // 地面
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), mat('floor'));
-    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
-    scene.add(floor);
-    const bf = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshStandardMaterial({ color: 0x6b7b76, roughness: 1 }));
-    bf.rotation.x = -Math.PI / 2; bf.position.y = -0.01;
-    scene.add(bf);
+    scene.add(new THREE.DirectionalLight(0x99aacc, 0.5)).position.set(-20, 25, -10);
+    scene.add(new THREE.DirectionalLight(0xaabbdd, 0.4)).position.set(20, 20, 10);
+    scene.add(new THREE.PointLight(0x00d4ff, 2.5, 50)).position.set(-10, 8, 0);
+    scene.add(new THREE.PointLight(0x00d4ff, 2.5, 50)).position.set(10, 8, 0);
+    scene.add(new THREE.PointLight(0x4488ff, 1.5, 40)).position.set(0, 10, 0);
+    scene.add(new THREE.HemisphereLight(0x99aacc, 0x445566, 0.6));
 
-    window.addEventListener('resize', handleResize);
+    createEnv(scene);
 
-    // 点击 + 悬停检?
-    const pointer = { x: 0, y: 0, downX: 0, downY: 0, down: false };
+    // 交互
+    let dragging = false, ds = { x: 0, y: 0 };
 
-    const getHitTargets = () => {
-      const targets: THREE.Object3D[] = [];
-      rackGroupsRef.current.forEach(g => {
-        g.children.forEach(c => { if (c.userData?.isRack) targets.push(c); });
-      });
-      return targets;
+    const onDown = (e: PointerEvent) => {
+      dragging = false; ds = { x: e.clientX, y: e.clientY };
+      cv.addEventListener('pointermove', onMove);
+      cv.addEventListener('pointerup', onUp);
     };
-
-    const getRackIdFromHit = (x: number, y: number): string | null => {
-      const rc = new THREE.Raycaster();
-      rc.setFromCamera(new THREE.Vector2(x, y), camera);
-      const hits = rc.intersectObjects(getHitTargets());
-      return hits.length > 0 ? hits[0].object.userData.rackId : null;
+    const onMove = (e: PointerEvent) => {
+      if (Math.abs(e.clientX - ds.x) > 3 || Math.abs(e.clientY - ds.y) > 3) dragging = true;
+      const r = cv.getBoundingClientRect();
+      mouse.current.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.current.setFromCamera(mouse.current, camera);
+      const hits = ray.current.intersectObjects(
+        Array.from(rackMap.current.values()).flatMap(g => { const a: THREE.Object3D[] = []; g.traverse(c => { if ((c as any).isMesh) a.push(c); }); return a; }),
+        false
+      );
+      let hid: string | null = null;
+      if (hits.length > 0) { let c: any = hits[0].object; while (c && !c.userData?.rackId) c = c.parent; if (c) hid = c.userData.rackId; }
+      onHoverChange?.(hid);
     };
-
-    const onPointerDown = (e: PointerEvent) => {
-      pointer.downX = e.clientX; pointer.downY = e.clientY; pointer.down = true;
+    const onUp = (e: PointerEvent) => {
+      cv.removeEventListener('pointermove', onMove);
+      cv.removeEventListener('pointerup', onUp);
+      if (dragging) return;
+      const r = cv.getBoundingClientRect();
+      mouse.current.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.current.setFromCamera(mouse.current, camera);
+      const hits = ray.current.intersectObjects(
+        Array.from(rackMap.current.values()).flatMap(g => { const a: THREE.Object3D[] = []; g.traverse(c => { if ((c as any).isMesh) a.push(c); }); return a; }),
+        false
+      );
+      if (hits.length > 0) { let c: any = hits[0].object; while (c && !c.userData?.rackId) c = c.parent; if (c) onRackClick(c.userData.rackId); }
     };
+    cv.addEventListener('pointerdown', onDown);
 
-    const onPointerUp = (e: PointerEvent) => {
-      if (!pointer.down) return;
-      pointer.down = false;
-      if (Math.abs(e.clientX - pointer.downX) > 6 || Math.abs(e.clientY - pointer.downY) > 6) return;
-      const rect = canvas.getBoundingClientRect();
-      const px = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const py = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      const rackId = getRackIdFromHit(px, py);
-      if (rackId) onRackClick(rackId);
+    const onResize = () => {
+      const r = cv.getBoundingClientRect();
+      camera.aspect = r.width / r.height; camera.updateProjectionMatrix();
+      renderer.setSize(r.width, r.height, false);
     };
+    window.addEventListener('resize', onResize);
 
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const px = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const py = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      const rackId = getRackIdFromHit(px, py);
-      if (rackId !== prevHoverRef.current) {
-        prevHoverRef.current = rackId;
-        onHoverChange?.(rackId);
-      }
-    };
-
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointermove', onPointerMove);
-
-    // 渲染循环（含相机聚焦动画?
-    const animate = (time: number) => {
-      animRef.current = requestAnimationFrame(animate);
-
-      // 相机聚焦动画
-      const fs = focusState.current;
-      if (fs?.active) {
-        const elapsed = time - fs.startTime;
-        const t = Math.min(elapsed / CAM_FOCUS_DURATION, 1);
-        const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
-        camera.position.lerpVectors(fs.startPos, fs.endPos, ease);
-        controls.target.lerpVectors(fs.startTarget, fs.endTarget, ease);
-        if (t >= 1) {
-          focusState.current = null;
-          // 保持 controls 不抖?
-          controls.target.copy(fs.endTarget);
-        }
-      }
-
+    let aid: number;
+    const loop = () => {
+      aid = requestAnimationFrame(loop);
       controls.update();
+      const t = Date.now() * 0.001;
+      anim.current.doors.forEach(d => {
+        const tg = (d.userData as any).targetRotation || 0;
+        const df = tg - d.rotation.y;
+        if (Math.abs(df) > 0.001) d.rotation.y += df * 0.1;
+        else d.rotation.y = tg;
+      });
+      anim.current.leds.forEach(l => { (l.material as any).opacity = 0.4 + 0.6 * Math.sin(t * 3); });
+      anim.current.glows.forEach(g => {
+        g.scale.setScalar(0.7 + 0.5 * Math.sin(t * 3));
+        (g.material as any).opacity = 0.15 + 0.3 * Math.sin(t * 3);
+      });
       renderer.render(scene, camera);
     };
-    animate(performance.now());
+    loop();
 
     return () => {
-      cancelAnimationFrame(animRef.current);
-      window.removeEventListener('resize', handleResize);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      controls.dispose();
+      window.removeEventListener('resize', onResize);
+      cv.removeEventListener('pointerdown', onDown);
+      cancelAnimationFrame(aid);
       renderer.dispose();
       scene.clear();
-      Object.keys(sharedMats).forEach(k => (sharedMats as any)[k] = null);
-      rackGroupsRef.current.clear();
-      cableGroupRef.current = null;
+      controls.dispose();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ===== 机柜数据变化重建 =====
+  // 视图切换
   useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    const vt = VIEW_TARGETS[viewMode];
+    // 平滑动画
+    const startPos = camera.position.clone();
+    const startTarget = controls.target.clone();
+    const endPos = vt.pos;
+    const endTarget = vt.target;
+    const startTime = Date.now();
+    const duration = 800;
 
-    rackGroupsRef.current.forEach(g => { scene.remove(g); });
-    rackGroupsRef.current.clear();
+    const animView = () => {
+      const elapsed = Date.now() - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+      camera.position.lerpVectors(startPos, endPos, ease);
+      controls.target.lerpVectors(startTarget, endTarget, ease);
+      if (t < 1) requestAnimationFrame(animView);
+    };
+    animView();
+  }, [viewMode]);
 
-    if (racks.length === 0) return;
+  // 更新机柜
+  useEffect(() => {
+    const scene = sceneRef.current; if (!scene) return;
+    rackMap.current.forEach(g => scene.remove(g));
+    rackMap.current.clear();
+    anim.current = { doors: [], leds: [], glows: [] };
 
-    const roomGroups = new Map<string, Rack3D[]>();
-    for (const rack of racks) {
-      const key = rack.roomName || 'default';
-      if (!roomGroups.has(key)) roomGroups.set(key, []);
-      roomGroups.get(key)!.push(rack);
-    }
-
-    let roomOffsetX = -(Math.max(roomGroups.size - 1, 0) * 9) / 2;
-
-    for (const [, roomRacks] of roomGroups) {
-      const byRow = new Map<number, Rack3D[]>();
-      for (const r of roomRacks) byRow.set(r.row || 1, [...(byRow.get(r.row || 1) || []), r]);
-      const rows = [...byRow.entries()].sort(([a], [b]) => a - b);
-      const totalDepth = (rows.length - 1) * GAP_Z;
-
-      rows.forEach(([, rowRacks], rowIdx) => {
-        const rowZ = rowIdx * GAP_Z - totalDepth / 2;
-        rowRacks.forEach((rack, rackIdx) => {
-          const rackX = rackIdx * GAP_X - ((rowRacks.length - 1) * GAP_X) / 2 + roomOffsetX;
-          const heatValue = heatmapData ? (heatmapData[rack.id] || 0) : 0;
-          const group = buildRackMesh(rack, heatValue);
-          group.position.set(rackX, 0, rowZ);
-          scene.add(group);
-          rackGroupsRef.current.set(rack.id, group);
-        });
+    const spacing = 4.5;
+    racks.forEach((rack, i) => {
+      const g = createRack(rack);
+      const col = i % 8, row = Math.floor(i / 8);
+      g.position.set(-16 + col * spacing, 0, -5 + row * 10);
+      scene.add(g);
+      rackMap.current.set(rack.id, g);
+      g.traverse(o => {
+        if ((o as any).userData?.isRackDoor) anim.current.doors.push(o as THREE.Group);
+        if ((o as any).userData?.isStatusLed) anim.current.leds.push(o as THREE.Mesh);
+        if ((o as any).userData?.isGlow) anim.current.glows.push(o as THREE.Mesh);
       });
-      roomOffsetX += 9;
-    }
-  }, [racks]);
+    });
+  }, [racks, heatmapData]);
 
-  // ===== 线缆拓扑渲染 =====
+  // 高亮
   useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-
-    // 移除旧线缆
-    if (cableGroupRef.current) {
-      scene.remove(cableGroupRef.current);
-      cableGroupRef.current = null;
-    }
-
-    // 渲染新线缆
-    if (cables.length > 0) {
-      const cableGroup = buildCableMesh(cables);
-      scene.add(cableGroup);
-      cableGroupRef.current = cableGroup;
-    }
-  }, [cables]);
-
-  // ===== 高亮状态同?=====
-  useEffect(() => {
-    const prev = prevSelectedRef.current;
-    if (prev && prev !== selectedRackId) {
-      const g = rackGroupsRef.current.get(prev);
-      if (g) setRackHighlight(g, 'none');
-    }
-    if (selectedRackId) {
-      const g = rackGroupsRef.current.get(selectedRackId);
-      if (g) setRackHighlight(g, 'selected');
-    }
-    prevSelectedRef.current = selectedRackId ?? null;
-  }, [selectedRackId]);
-
-  useEffect(() => {
-    const prev = prevHoverRef.current;
-    if (prev && prev !== hoveredRackId && prev !== selectedRackId) {
-      const g = rackGroupsRef.current.get(prev);
-      if (g) setRackHighlight(g, 'none');
-    }
-    if (hoveredRackId && hoveredRackId !== selectedRackId) {
-      const g = rackGroupsRef.current.get(hoveredRackId);
-      if (g) setRackHighlight(g, 'hover');
-    }
-  }, [hoveredRackId, selectedRackId]);
-
-  // ===== 搜索高亮 =====
-  useEffect(() => {
-    const q = (searchQuery || '').toLowerCase().trim();
-    const prev = prevSearchRef.current;
-
-    // 清除旧搜索高?
-    if (prev) {
-      rackGroupsRef.current.forEach((g, id) => {
-        if (id !== selectedRackId && id !== hoveredRackId) {
-          setRackHighlight(g, 'none');
+    rackMap.current.forEach((g, id) => {
+      const sel = id === selectedRackId, hov = id === hoveredRackId;
+      g.scale.setScalar(sel || hov ? 1.03 : 1);
+      g.traverse(o => {
+        if ((o as any).userData?.isRackDoor) {
+          (o as any).userData.targetRotation = sel ? -Math.PI / 2.2 : 0;
         }
       });
-    }
+    });
+  }, [selectedRackId, hoveredRackId]);
 
-    if (q) {
-      rackGroupsRef.current.forEach((g, id) => {
-        const rack = racks.find(r => r.id === id);
-        const match = rack && rack.name.toLowerCase().includes(q);
-        if (match && id !== selectedRackId && id !== hoveredRackId) {
-          setRackHighlight(g, 'search');
-        }
-      });
-    }
-
-    prevSearchRef.current = q;
-  }, [searchQuery, racks, selectedRackId, hoveredRackId]);
-
-  // ===== 选中时触发相机聚?=====
-  useEffect(() => {
-    if (selectedRackId) focusRack(selectedRackId);
-  }, [selectedRackId, focusRack]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"
-    />
-  );
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing" />;
 }
-

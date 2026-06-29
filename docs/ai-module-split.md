@@ -105,3 +105,18 @@ npx vitest run ai/               # 运行 AI 模块测试
 - `multiAgent/` 和 `providers/` 已有自己的目录结构，保持不变
 - 不要改动 `prompts/` 目录
 - 保持对外接口（函数签名、导出名）不变，只改文件位置
+
+---
+
+## ✅ 执行记录（2026-06-29）
+
+| 步骤 | 描述 | 状态 |
+|------|------|------|
+| Step 1 | 创建 6 个子目录 llm/ agents/ rca/ remediation/ knowledge/ models/ | ✅ |
+| Step 2 | 通过 `git mv` 移动 17 个文件到对应子目录 | ✅ |
+| Step 3 | 创建 `services/index.ts` 统一导出 | ✅ |
+| Step 4 | 更新 `routes/` 下 8 个路由文件 + 20 个跨模块引用 | ✅ |
+| Step 5 | 检查 `app.ts` import 路径 | ✅ |
+| 验证 | `npx tsc --noEmit` 编译通过，`npx vitest run` 全部测试通过 | ✅ |
+
+拆分后结构已完全符合目标方案，所有 import 路径有效，功能无回归。

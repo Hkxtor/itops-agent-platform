@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { copilotService } from '../services/copilotService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { copilotService } from '../services/agents/copilotService';
 
 const router = Router();
 

@@ -1,5 +1,5 @@
 import { logger } from '../../../../utils/logger';
-import { Provider, ProviderConfig } from './types.ts';
+import type { Provider, ProviderConfig } from './types';
 
 /**
  * Provider 注册器

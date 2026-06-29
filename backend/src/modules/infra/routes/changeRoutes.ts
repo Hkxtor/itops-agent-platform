@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { changeService } from '../services/changeService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { changeService } from '../services/changeService';
 
 const router = Router();
 

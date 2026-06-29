@@ -1,16 +1,18 @@
-import { Router, Request, Response } from 'express';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
 import { db } from '../../../models/database';
 import bcrypt from 'bcryptjs';
-import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { env } from '../../../utils/env';
-import { tokenBlacklist } from '../services/tokenBlacklist.ts';
+import { tokenBlacklist } from '../services/tokenBlacklist';
 import { logger } from '../../../utils/logger';
 import { validateBody } from '../../../middleware/validation';
 import { authSchemas } from '../../../shared/schemas/apiValidation';
 import { authenticateToken, invalidateUserCache } from '../../../middleware/auth';
 import { validatePassword } from '../../../utils/passwordPolicy';
-import { checkLoginLockout, recordFailedLogin, resetFailedLoginAttempts } from '../services/loginThrottler.ts';
+import { checkLoginLockout, recordFailedLogin, resetFailedLoginAttempts } from '../services/loginThrottler';
 
 const router = Router();
 
@@ -147,7 +149,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     const user = db.prepare('SELECT id, username, email, role, enabled FROM users WHERE id = ?').get(decoded.id) as { id: string; username: string; email: string; role: string; enabled: number } | undefined;
 
-    if (!user || !user.enabled) {
+    if (!user?.enabled) {
       return res.status(401).json({
         success: false,
         message: '用户不存在或已被禁用'
@@ -218,7 +220,7 @@ router.get('/me', authenticateToken, async (req: Request & { user?: { id: string
 router.post('/logout', authenticateToken, async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       
       // 将token加入黑名单

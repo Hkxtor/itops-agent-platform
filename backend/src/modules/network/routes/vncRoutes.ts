@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../../../models/database';
-import { decrypt, encrypt } from '../../auth/services/encryptionService.ts';
+import { decrypt, encrypt } from '../../auth/services/encryptionService';
 import { logger } from '../../../utils/logger';
 
 const router = Router();

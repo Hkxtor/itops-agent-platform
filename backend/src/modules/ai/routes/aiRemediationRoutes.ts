@@ -1,5 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { aiRemediationService } from '../services/aiRemediationService.ts';
+import type { Request, Response } from 'express';
+import { Router } from 'express';
+import { aiRemediationService } from '../services/remediation/aiRemediationService';
 import { authenticateToken } from '../../../middleware/auth';
 
 const router = Router();

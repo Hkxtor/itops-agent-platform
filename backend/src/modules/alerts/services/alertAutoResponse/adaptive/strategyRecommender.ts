@@ -12,8 +12,8 @@
 
 import db from '../../../../../models/database';
 import { logger } from '../../../../../utils/logger';
-import { PROBE_CATALOG, PROBE_INDEX, findProbesByAlertText } from '../probeUnit.ts';
-import type { ProbeUnit, DeviceRuntimeProfile } from '../types.ts';
+import { PROBE_CATALOG, PROBE_INDEX, findProbesByAlertText } from '../probeUnit';
+import type { ProbeUnit, DeviceRuntimeProfile } from '../types';
 
 // 探针历史准确率缓存（从知识库/探针日志表加载）
 interface ProbeHistory {
@@ -75,12 +75,12 @@ class StrategyRecommender {
    * @param device 设备画像
    * @param k 需要返回的探针数
    */
-  recommend(alertTitle: string, alertContent: string, device: DeviceRuntimeProfile, k: number = 5): ProbeUnit[] {
+  recommend(alertTitle: string, alertContent: string, device: DeviceRuntimeProfile, k = 5): ProbeUnit[] {
     this.loadHistory();
     this.ensureProbeStatsTable();
 
     // Step 1: 基础过滤 — OS 兼容
-    let candidates = PROBE_CATALOG.filter(p => {
+    const candidates = PROBE_CATALOG.filter(p => {
       if (!p.enabled) return false;
       // OS 兼容检查
       if (device.type === 'server') {

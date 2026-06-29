@@ -1,13 +1,13 @@
 import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
 import { providerRegistry } from '../../ai/services/providers';
-import {
+import type {
   WorkflowDefinition,
   WorkflowExecution,
   WorkflowContext,
   StepExecution,
   StepDefinition
-} from './types.ts';
+} from './types';
 
 /**
  * 工作流执行引擎
