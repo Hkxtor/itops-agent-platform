@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import { Router, json as expressJson } from 'express';
 import { getIOInstance } from '../../../shared/websocket/io';
 import { logger } from '../../../utils/logger';
@@ -148,7 +148,7 @@ function verifyWebhookSignature(req: Request, source: string): boolean {
       createAuditLog({
         action: 'webhook_signature_skipped',
         resource_type: 'webhook',
-        details: { source, ip: req.ip, reason: 'warn_mode_no_secret' },
+        details: { source, ip: req.ip ?? '', reason: 'warn_mode_no_secret' },
       });
       return true;
     }
@@ -162,7 +162,7 @@ function verifyWebhookSignature(req: Request, source: string): boolean {
       createAuditLog({
         action: 'webhook_signature_skipped',
         resource_type: 'webhook',
-        details: { source, ip: req.ip, reason: 'warn_mode_no_header' },
+        details: { source, ip: req.ip ?? '', reason: 'warn_mode_no_header' },
       });
       return true;
     }
@@ -211,11 +211,11 @@ function processNormalizedAlert(
     createAuditLog({
       action: 'alert_auto_resolved',
       resource_type: 'alert',
-      details: { source: alert.source, title: alert.title, host: alert.host },
+      details: { source: alert.source, title: alert.title, host: alert.host ?? '' },
     });
 
     if (io) {
-      io.emit('alert:resolved', { source: alert.source, title: alert.title, host: alert.host });
+      io.emit('alert:resolved', { source: alert.source, title: alert.title, host: alert.host ?? '' });
     }
 
     return { alertId: '', taskId: null, executionIds: [], status: 'resolved' };
@@ -314,11 +314,11 @@ function processNormalizedAlert(
     action: 'alert_received',
     resource_type: 'alert',
     resource_id: id,
-    details: { source: alert.source, severity, rawSeverity: alert.raw_severity, title, executionIds },
+    details: { source: alert.source, severity, rawSeverity: alert.raw_severity ?? '', title, executionIds: executionIds.join(', ') },
   });
 
   if (io) {
-    io.emit('alert:new', { id, source: alert.source, severity, title, content, executionIds, host: alert.host });
+    io.emit('alert:new', { id, source: alert.source, severity, title, content, executionIds, host: alert.host ?? '' });
   }
 
   return { alertId: id, taskId: executionIds[0] || null, executionIds, status: 'created' };
@@ -332,7 +332,7 @@ router.post('/prometheus', (req: Request, res: Response) => {
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'prometheus', ip: req.ip },
+        details: { source: 'prometheus', ip: req.ip ?? '' },
       });
       logWebhookInvocation('prometheus', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
@@ -373,7 +373,7 @@ router.post('/zabbix', (req: Request, res: Response) => {
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'zabbix', ip: req.ip },
+        details: { source: 'zabbix', ip: req.ip ?? '' },
       });
       logWebhookInvocation('zabbix', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
@@ -408,7 +408,7 @@ router.post('/grafana', (req: Request, res: Response) => {
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'grafana', ip: req.ip },
+        details: { source: 'grafana', ip: req.ip ?? '' },
       });
       logWebhookInvocation('grafana', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
@@ -446,7 +446,7 @@ router.post('/aliyun', (req: Request, res: Response) => {
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'aliyun', ip: req.ip },
+        details: { source: 'aliyun', ip: req.ip ?? '' },
       });
       logWebhookInvocation('aliyun', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
@@ -481,7 +481,7 @@ router.post('/tencent', (req: Request, res: Response) => {
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'tencent', ip: req.ip },
+        details: { source: 'tencent', ip: req.ip ?? '' },
       });
       logWebhookInvocation('tencent', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
@@ -516,7 +516,7 @@ router.post('/auto', (req: Request, res: Response) => {
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'auto', ip: req.ip },
+        details: { source: 'auto', ip: req.ip ?? '' },
       });
       logWebhookInvocation('auto', 'error', 0, 0, 'Invalid signature', req, Date.now() - startTime);
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
@@ -572,7 +572,7 @@ router.post('/generic', validateBody(z.object({
       createAuditLog({
         action: 'webhook_signature_failed',
         resource_type: 'webhook',
-        details: { source: 'generic', ip: req.ip },
+        details: { source: 'generic', ip: req.ip ?? '' },
       });
       return res.status(401).json({ success: false, error: 'Invalid webhook signature' });
     }

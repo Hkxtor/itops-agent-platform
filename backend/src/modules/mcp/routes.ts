@@ -13,6 +13,6 @@
  * 本文件仅做薄包装，将 gateway Router 按模块规范导出并注册。
  */
 
-import mcpGatewayRouter from '../../services/mcp/gateway';
+import mcpGatewayRouter from './services/gateway';
 
 export default mcpGatewayRouter;

@@ -39,7 +39,6 @@ export interface AgentRecord {
   api_provider?: string | null;
   primary_model_id?: string | null;
   fallback_model_id?: string | null;
-  [key: string]: unknown;
 }
 
 /** 含模型名称的联表记录（list/getByIdWithModels 返回） */

@@ -374,7 +374,7 @@ class DockerService {
       labels: info.Labels,
       options: info.Options,
       scope: info.Scope,
-      created: (info as Record<string, unknown>).CreatedAt as string || '',
+      created: (info as unknown as Record<string, unknown>).CreatedAt as string || '',
     };
   }
 

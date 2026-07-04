@@ -80,16 +80,16 @@ class NotificationService {
     if (this.initialized) return;
     try {
       const configs = settingsRepository.getByKeyPrefix('notification_');
-      const configData: Record<string, unknown> = {};
+      const configData: Record<string, string | number | boolean | null> = {};
       configs.forEach((c) => {
         const key = c.key.replace('notification_', '');
         try {
-          configData[key] = JSON.parse(c.value);
+          configData[key] = JSON.parse(c.value ?? '') as string | number | boolean | null;
         } catch {
           configData[key] = c.value;
         }
       });
-      this.config = configData as NotificationConfig;
+      this.config = configData as unknown as NotificationConfig;
       this.initialized = true;
     } catch (error) {
       logger.error('Failed to load notification config:', error);
@@ -100,16 +100,16 @@ class NotificationService {
     this.ensureInitialized();
     try {
       const configs = settingsRepository.getByKeyPrefix('notification_');
-      const configData: Record<string, unknown> = {};
+      const configData: Record<string, string | number | boolean | null> = {};
       configs.forEach((c) => {
         const key = c.key.replace('notification_', '');
         try {
-          configData[key] = JSON.parse(c.value);
+          configData[key] = JSON.parse(c.value ?? '') as string | number | boolean | null;
         } catch {
           configData[key] = c.value;
         }
       });
-      this.config = configData as NotificationConfig;
+      this.config = configData as unknown as NotificationConfig;
     } catch (error) {
       logger.error('Failed to load notification config:', error);
     }
@@ -272,7 +272,7 @@ class NotificationService {
         id: randomUUID(),
         type: notification.type,
         title: notification.title,
-        content: notification.content,
+        content: notification.content || '',
         timestamp: new Date().toISOString()
       });
     }
@@ -345,7 +345,7 @@ class NotificationService {
       const result = await this.sendNotification({
         type: notification.type,
         title: notification.title,
-        content: notification.content,
+        content: notification.content || '',
         recipient: notification.recipient || undefined,
         related_alert_id: notification.related_alert_id || undefined,
         related_task_id: notification.related_task_id || undefined

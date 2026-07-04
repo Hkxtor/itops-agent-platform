@@ -90,7 +90,7 @@ router.put('/:id', (req: Request, res: Response) => {
       dcRepository.devices.createLifecycle({
         id: crypto.randomUUID(),
         device_id: String(oldSlot.device_id ?? ''),
-        device_type: String(oldSlot.device_type ?? ''),
+        device_type: String(oldSlot.device_type_id ?? ''),
         action: 'moved',
         from_rack_id: oldSlot.rack_id,
         to_rack_id: rack_id,
@@ -118,7 +118,7 @@ router.delete('/:id', (req: Request, res: Response) => {
     dcRepository.devices.createLifecycle({
       id: crypto.randomUUID(),
       device_id: String(slot.device_id ?? ''),
-      device_type: String(slot.device_type ?? ''),
+      device_type: String(slot.device_type_id ?? ''),
       action: 'unmounted',
       from_rack_id: slot.rack_id,
       from_slot_start: Number(slot.start_u),

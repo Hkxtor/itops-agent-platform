@@ -54,8 +54,9 @@ class EnhancedRAGService {
     const totalDocs = knowledgeRepository.countAll();
 
     const scoredResults = rawItems.map(item => {
-      const score = this.calculateRelevanceScore(query, item, totalDocs);
-      const highlight = this.generateHighlight(query, item);
+      const itemWithContent = { ...item, content: item.content || '' };
+      const score = this.calculateRelevanceScore(query, itemWithContent, totalDocs);
+      const highlight = this.generateHighlight(query, itemWithContent);
       
       return {
         item: this.transformItem(item),
@@ -205,7 +206,7 @@ class EnhancedRAGService {
     return {
       id: item.id,
       title: item.title,
-      content: item.content,
+      content: item.content || '',
       category: item.category || '未分类',
       tags: item.tags ? JSON.parse(item.tags) : [],
       usageCount: item.usage_count || 0,

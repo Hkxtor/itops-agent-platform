@@ -45,7 +45,7 @@ vi.mock('../../auto/services/remediationService', () => ({
   },
 }));
 
-vi.mock('../../../core/KnowledgeEngine', () => ({
+vi.mock('../../ai/services/KnowledgeEngine', () => ({
   knowledgeEngine: {
     recommend: mocks.knowledgeRecommend,
   },

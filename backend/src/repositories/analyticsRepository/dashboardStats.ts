@@ -5,6 +5,7 @@
 
 import db from '../../models/database';
 import type {
+  AnalyticsRow,
   DashboardStats,
   AlertTrendPoint,
   TaskTrendPoint,
@@ -110,7 +111,7 @@ export function getAgentStats(): AgentStatsResult {
   `).all() as Array<{ total_executions?: number; success_count?: number; [key: string]: unknown }>;
 
   const agentsWithRates: AgentStatItem[] = agents.map(a => ({
-    ...(a as AgentStatItem),
+    ...(a as unknown as AgentStatItem),
     successRate: (a.total_executions || 0) > 0
       ? parseFloat((((a.success_count || 0) / (a.total_executions || 1)) * 100).toFixed(1))
       : null,
@@ -163,14 +164,14 @@ export function getFullDashboard(): FullDashboard {
   const recentTasks = db.prepare(`
     SELECT id, name, status, created_at, workflow_id, execution_order, node_results, current_node_id
     FROM tasks ORDER BY created_at DESC LIMIT 10
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   const recentAlerts = db.prepare(`
     SELECT id, title, severity, status, created_at
     FROM alerts WHERE status = 'new' ORDER BY created_at DESC LIMIT 10
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
-  const servers = db.prepare('SELECT id, name, hostname, enabled, last_connected FROM servers ORDER BY name').all() as Array<Record<string, unknown>>;
+  const servers = db.prepare('SELECT id, name, hostname, enabled, last_connected FROM servers ORDER BY name').all() as Array<AnalyticsRow>;
 
   return {
     stats,

@@ -33,15 +33,15 @@ class SnmpService {
 
     return {
       id: row.id,
-      device_id: row.device_id,
+      device_id: row.device_id ?? undefined,
       name: row.name,
-      community: decrypt(row.community),
-      snmp_user: row.snmp_user,
-      snmp_auth_protocol: row.snmp_auth_protocol,
+      community: row.community ? decrypt(row.community) : undefined,
+      snmp_user: row.snmp_user ?? undefined,
+      snmp_auth_protocol: row.snmp_auth_protocol as SnmpCredential['snmp_auth_protocol'],
       snmp_auth_key: row.snmp_auth_key ? decrypt(row.snmp_auth_key) : undefined,
-      snmp_priv_protocol: row.snmp_priv_protocol,
+      snmp_priv_protocol: row.snmp_priv_protocol as SnmpCredential['snmp_priv_protocol'],
       snmp_priv_key: row.snmp_priv_key ? decrypt(row.snmp_priv_key) : undefined,
-      snmp_version: row.snmp_version,
+      snmp_version: row.snmp_version as SnmpVersion,
       snmp_port: row.snmp_port || 161,
     };
   }
@@ -57,8 +57,8 @@ class SnmpService {
       id: row.id,
       device_id: undefined,
       name: row.name,
-      community: decrypt(row.community),
-      snmp_version: row.snmp_version,
+      community: row.community ? decrypt(row.community) : undefined,
+      snmp_version: row.snmp_version as SnmpVersion,
       snmp_port: row.snmp_port || 161,
     };
   }

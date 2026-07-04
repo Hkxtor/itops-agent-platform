@@ -23,7 +23,7 @@ export interface AlertNotification {
   level: AlertLevel;
   title: string;
   message: string;
-  metadata?: Record<string, unknown>;
+  metadata?: unknown;
   triggeredAt: string;
   channels: AlertChannel[];
   status: 'sent' | 'failed' | 'pending';
@@ -198,7 +198,7 @@ export class AlertNotificationService {
     alertName: string,
     title: string,
     message: string,
-    metadata?: Record<string, unknown>
+    metadata?: unknown
   ): Promise<AlertNotification | null> {
     try {
       const config = this.getConfigs().find(c => c.name === alertName);

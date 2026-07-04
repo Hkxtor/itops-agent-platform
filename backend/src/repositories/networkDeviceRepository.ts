@@ -16,6 +16,7 @@
  */
 
 import db from '../models/database';
+import type { NetworkDevice, NetworkInspectionHistory, NetworkConfigBackup, NetworkLldpNeighbor, NetworkExternalDevice, NetworkTopologyLink, SnmpCredential, SnmpTrapEvent, SnmpPollingTask, SnmpInterfaceMetric, NetworkDiscoveryJob, NetworkDiscoveryResult, NetworkSubnet, NetworkIp } from './types/network';
 
 // ── 类型定义 ──
 
@@ -45,7 +46,6 @@ export interface NetworkDeviceRecord {
   last_snmp_at?: string | null;
   snmp_port?: number | null;
   snmp_credential_id?: string | null;
-  [key: string]: unknown;
 }
 
 /** 含 SNMP 凭证名称的联表记录（list/getByIdWithCredential 返回） */
@@ -567,13 +567,13 @@ export const networkDeviceRepository = {
   },
 
   /** 获取单个扫描任务 */
-  getDiscoveryJob(id: string): Record<string, unknown> | undefined {
-    return db.prepare('SELECT * FROM network_discovery_jobs WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  getDiscoveryJob(id: string): NetworkDiscoveryJob | undefined {
+    return db.prepare('SELECT * FROM network_discovery_jobs WHERE id = ?').get(id) as NetworkDiscoveryJob | undefined;
   },
 
   /** 列出全部扫描任务 */
-  listDiscoveryJobs(): Record<string, unknown>[] {
-    return db.prepare('SELECT * FROM network_discovery_jobs ORDER BY created_at DESC').all() as Record<string, unknown>[];
+  listDiscoveryJobs(): NetworkDiscoveryJob[] {
+    return db.prepare('SELECT * FROM network_discovery_jobs ORDER BY created_at DESC').all() as NetworkDiscoveryJob[];
   },
 
   /** 更新扫描任务状态 */
@@ -641,7 +641,7 @@ export const networkDeviceRepository = {
   },
 
   /** 查询扫描结果（分页+过滤） */
-  listDiscoveryResults(options: { jobId?: string; limit?: number; offset?: number; status?: string }): { results: Record<string, unknown>[]; total: number } {
+  listDiscoveryResults(options: { jobId?: string; limit?: number; offset?: number; status?: string }): { results: NetworkDiscoveryResult[]; total: number } {
     let sql = 'SELECT * FROM network_discovery_results WHERE 1=1';
     const params: unknown[] = [];
 
@@ -661,13 +661,13 @@ export const networkDeviceRepository = {
     sql += ' LIMIT ? OFFSET ?';
     params.push(options.limit || 100, options.offset || 0);
 
-    const results = db.prepare(sql).all(...params) as Record<string, unknown>[];
+    const results = db.prepare(sql).all(...params) as NetworkDiscoveryResult[];
     return { results, total };
   },
 
   /** 获取单个扫描结果 */
-  getDiscoveryResult(id: string): Record<string, unknown> | undefined {
-    return db.prepare('SELECT * FROM network_discovery_results WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  getDiscoveryResult(id: string): NetworkDiscoveryResult | undefined {
+    return db.prepare('SELECT * FROM network_discovery_results WHERE id = ?').get(id) as NetworkDiscoveryResult | undefined;
   },
 
   // ── LLDP / Topology ──
@@ -739,18 +739,18 @@ export const networkDeviceRepository = {
   },
 
   /** 列出拓扑链路（可选按设备过滤） */
-  listTopologyLinks(deviceId?: string): Record<string, unknown>[] {
+  listTopologyLinks(deviceId?: string): NetworkTopologyLink[] {
     if (deviceId) {
       return db.prepare(`
         SELECT * FROM network_topology_links
         WHERE deviceA_id = ? OR deviceB_id = ?
         ORDER BY last_seen_at DESC
-      `).all(deviceId, deviceId) as Record<string, unknown>[];
+      `).all(deviceId, deviceId) as NetworkTopologyLink[];
     }
     return db.prepare(`
       SELECT * FROM network_topology_links
       WHERE status = 'active'
       ORDER BY last_seen_at DESC
-    `).all() as Record<string, unknown>[];
+    `).all() as NetworkTopologyLink[];
   },
 };

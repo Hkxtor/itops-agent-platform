@@ -3,10 +3,16 @@
  * 支持变量替换、简单比较、正则匹配、JavaScript 表达式
  */
 
+/** 工作流变量值类型：基础类型 + 嵌套对象 */
+type WorkflowVariableValue = string | number | boolean | null | object;
+
+/** 工作流变量映射：动态键值对，值可以是基础类型或嵌套对象 */
+export type WorkflowVariables = Record<string, WorkflowVariableValue>;
+
 /**
  * 解析模板字符串中的 {{variable}} 占位符并替换为实际值
  */
-export function resolveExpression(expr: string, variables: Record<string, unknown>): string {
+export function resolveExpression(expr: string, variables: WorkflowVariables): string {
   if (!expr) return '';
   return expr.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
     const trimmedKey = key.trim();
@@ -18,13 +24,13 @@ export function resolveExpression(expr: string, variables: Record<string, unknow
 /**
  * 获取嵌套对象值，支持 dot notation: "node1.output.status"
  */
-export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+export function getNestedValue(obj: WorkflowVariables, path: string): unknown {
   const parts = path.split('.');
   let current: unknown = obj;
   for (const part of parts) {
     if (current === null || current === undefined) return undefined;
     if (typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[part];
+    current = (current as WorkflowVariables)[part];
   }
   return current;
 }
@@ -32,16 +38,16 @@ export function getNestedValue(obj: Record<string, unknown>, path: string): unkn
 /**
  * 设置嵌套对象值
  */
-export function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
+export function setNestedValue(obj: WorkflowVariables, path: string, value: unknown): void {
   const parts = path.split('.');
-  let current: Record<string, unknown> = obj;
+  let current: WorkflowVariables = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     if (!(parts[i] in current) || typeof current[parts[i]] !== 'object') {
       current[parts[i]] = {};
     }
-    current = current[parts[i]] as Record<string, unknown>;
+    current = current[parts[i]] as WorkflowVariables;
   }
-  current[parts[parts.length - 1]] = value;
+  (current as Record<string, unknown>)[parts[parts.length - 1]] = value;
 }
 
 /**
@@ -49,7 +55,7 @@ export function setNestedValue(obj: Record<string, unknown>, path: string, value
  */
 export function evaluateExpression(
   expression: string,
-  variables: Record<string, unknown>,
+  variables: WorkflowVariables,
   type: 'javascript' | 'simple_compare' | 'regex_match' | 'json_path' = 'simple_compare'
 ): boolean {
   // 先解析模板变量
@@ -77,7 +83,7 @@ export function evaluateExpression(
 /**
  * 简单比较: "value == 'xxx'", "value != 'xxx'", "value > 10", "value", "!value"
  */
-function evaluateSimpleCompare(resolvedExpr: string, variables: Record<string, unknown>): boolean {
+function evaluateSimpleCompare(resolvedExpr: string, variables: WorkflowVariables): boolean {
   const expr = resolvedExpr.trim();
 
   // 布尔检查: "!value" → 取反
@@ -127,7 +133,7 @@ function evaluateSimpleCompare(resolvedExpr: string, variables: Record<string, u
 /**
  * 正则匹配: "pattern" 对变量值进行正则测试
  */
-function evaluateRegex(resolvedExpr: string, variables: Record<string, unknown>): boolean {
+function evaluateRegex(resolvedExpr: string, variables: WorkflowVariables): boolean {
   // 期望格式: "variable =~ /pattern/" 或已解析的 "value =~ /pattern/"
   const match = resolvedExpr.match(/^(.+?)\s*=~\s*\/(.+?)\/([gimsuy]*)$/);
   if (match) {
@@ -148,7 +154,7 @@ function evaluateRegex(resolvedExpr: string, variables: Record<string, unknown>)
 /**
  * JSON Path 检查: 检查路径是否存在且为真值
  */
-function evaluateJsonPath(resolvedExpr: string, variables: Record<string, unknown>): boolean {
+function evaluateJsonPath(resolvedExpr: string, variables: WorkflowVariables): boolean {
   const value = getNestedValue(variables, resolvedExpr.trim());
   return value !== undefined && value !== null && value !== '' && value !== false;
 }
@@ -156,7 +162,7 @@ function evaluateJsonPath(resolvedExpr: string, variables: Record<string, unknow
 /**
  * JavaScript 表达式求值（沙箱环境）
  */
-function evaluateJavaScript(expression: string, variables: Record<string, unknown>): boolean {
+function evaluateJavaScript(expression: string, variables: WorkflowVariables): boolean {
   // 解析模板变量
   const resolved = resolveExpression(expression, variables);
   // 构造一个带变量的函数
@@ -174,7 +180,7 @@ function evaluateJavaScript(expression: string, variables: Record<string, unknow
 /**
  * 解析值为实际类型
  */
-function parseValue(str: string, variables: Record<string, unknown>): unknown {
+function parseValue(str: string, variables: WorkflowVariables): unknown {
   const trimmed = str.trim();
   // 字符串字面量（带引号）
   if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||

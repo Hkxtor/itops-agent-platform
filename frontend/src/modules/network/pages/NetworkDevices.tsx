@@ -274,6 +274,7 @@ export default function NetworkDevices() {
       // 按 device_id 分组，取最新一条 per source
       const map: Record<string, DeviceTimelineEntry> = {};
       items.forEach((item: TimelineItem) => {
+        if (!item.device_id) return;
         if (!map[item.device_id]) map[item.device_id] = {};
         if (item.source === 'analysis' && !map[item.device_id].lastAnalysis) map[item.device_id].lastAnalysis = item;
         if (item.source === 'inspection' && !map[item.device_id].lastInspection) map[item.device_id].lastInspection = item;
@@ -608,7 +609,7 @@ export default function NetworkDevices() {
 
       {inspectionResult && (
         <InspectionResult
-          result={inspectionResult}
+          result={inspectionResult as any}
           deviceName={inspectingDevice?.name || ''}
           onClose={() => setInspectionResult(null)}
         />
@@ -616,7 +617,7 @@ export default function NetworkDevices() {
 
       {snmpInspectionResult && (
         <SnmpInspectionResult
-          result={snmpInspectionResult}
+          result={snmpInspectionResult as any}
           deviceName={snmpInspectionResult._deviceName || ''}
           onClose={() => setSnmpInspectionResult(null)}
         />

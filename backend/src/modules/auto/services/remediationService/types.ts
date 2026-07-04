@@ -27,6 +27,9 @@ export interface RemediationAlert {
   title?: string;
   content?: string;
   tags?: string[];
+  device_ip?: string;
+  host?: string;
+  service?: string;
 }
 
 /**
@@ -43,7 +46,7 @@ export interface RemediationServiceLike {
   createSkippedExecution(policy: RemediationPolicy, alert: RemediationAlert, reason: string): RemediationExecution;
   getExecution(id: string): RemediationExecution;
   updateExecutionStatus(executionId: string, status: string, reason?: string): void;
-  updateExecution(executionId: string, updates: Record<string, unknown>): void;
+  updateExecution(executionId: string, updates: Partial<RemediationExecution>): void;
   resolveAlert(alertId: string): void;
   notifySelfHeal(alertId: string, title?: string): void;
   updateCooldown(policy: RemediationPolicy, alert: RemediationAlert): void;

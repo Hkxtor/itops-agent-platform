@@ -39,7 +39,6 @@ export interface ToolLinkRecord {
   icon?: string | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface ToolLinkCreateInput {
@@ -70,7 +69,6 @@ export interface ScriptRecordRaw {
   version: number;
   created_at: string;
   updated_at?: string | null;
-  [key: string]: unknown;
 }
 
 export interface ScriptRecord extends Omit<ScriptRecordRaw, 'parameters'> {
@@ -113,7 +111,6 @@ export interface NotificationRecord {
   related_alert_id?: string | null;
   related_task_id?: string | null;
   created_at: string;
-  [key: string]: unknown;
 }
 
 export interface NotificationCreateInput {
@@ -158,7 +155,6 @@ export interface ConfigTemplateRecord {
   created_by: string;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface ConfigTemplateCreateInput {

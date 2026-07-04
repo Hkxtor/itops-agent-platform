@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { AutomataTrust } from '../types/alert';
 
 export interface AutomataTrustRecord {
   operation_key: string;

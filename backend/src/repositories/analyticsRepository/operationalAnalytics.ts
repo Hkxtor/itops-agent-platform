@@ -5,6 +5,7 @@
 
 import db from '../../models/database';
 import type {
+  AnalyticsRow,
   RemediationStats,
   SlaStats,
   ServerMetricsDashboard,
@@ -61,7 +62,7 @@ export function getRemediationStats(): RemediationStats {
     LEFT JOIN alerts a ON re.alert_id = a.id
     ORDER BY re.created_at DESC
     LIMIT 10
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   return {
     total_policies: policyCount?.count || 0,
@@ -261,7 +262,7 @@ export function getAlertSourceStats(): AlertSourceStats {
     FROM alerts
     GROUP BY source
     ORDER BY total_alerts DESC
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   const webhookLogs = db.prepare(`
     SELECT
@@ -275,7 +276,7 @@ export function getAlertSourceStats(): AlertSourceStats {
     WHERE created_at >= datetime('now', '-24 hours')
     GROUP BY source
     ORDER BY total_webhooks DESC
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   const last24h = db.prepare(`
     SELECT
@@ -285,7 +286,7 @@ export function getAlertSourceStats(): AlertSourceStats {
     FROM alerts
     WHERE created_at >= datetime('now', '-24 hours')
     GROUP BY source
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   const totalAlerts = db.prepare('SELECT COUNT(*) as count FROM alerts').get() as { count: number } | undefined;
   const activeAlerts = db.prepare("SELECT COUNT(*) as count FROM alerts WHERE status IN ('new', 'confirmed', 'in_progress')").get() as { count: number } | undefined;
@@ -307,7 +308,7 @@ export function getReportAnalytics(): ReportAnalytics {
     WHERE created_at >= DATE('now', '-7 days', 'localtime')
     GROUP BY DATE(created_at), severity
     ORDER BY date
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   const analysisStats = db.prepare(`
     SELECT
@@ -334,7 +335,7 @@ export function getReportAnalytics(): ReportAnalytics {
     GROUP BY summary
     ORDER BY count DESC
     LIMIT 10
-  `).all() as Array<Record<string, unknown>>;
+  `).all() as Array<AnalyticsRow>;
 
   return {
     alertTrends,

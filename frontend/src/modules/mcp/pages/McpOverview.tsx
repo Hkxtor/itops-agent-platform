@@ -72,19 +72,19 @@ const McpOverview: React.FC = () => {
   }
 
   const toolsByDomain = manifest.reduce((acc, t) => {
-    const domain = (t.annotations as any)?.domain || 'other';
+    const domain = (t.annotations)?.domain || 'other';
     acc[domain] = (acc[domain] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const domains = Array.from(new Set(manifest.map(t => (t.annotations as any)?.domain).filter(Boolean)));
+  const domains = Array.from(new Set(manifest.map(t => (t.annotations)?.domain).filter((d): d is string => !!d)));
 
   const filteredTools = manifest.filter(t => {
     if (toolSearch) {
       const s = toolSearch.toLowerCase();
       if (!t.name.toLowerCase().includes(s) && !t.description.toLowerCase().includes(s) && !(t.title || '').toLowerCase().includes(s)) return false;
     }
-    if (toolDomainFilter && (t.annotations as any)?.domain !== toolDomainFilter) return false;
+    if (toolDomainFilter && (t.annotations)?.domain !== toolDomainFilter) return false;
     if (toolRiskFilter && t.annotations?.riskLevel !== toolRiskFilter) return false;
     return true;
   });
@@ -111,8 +111,8 @@ const McpOverview: React.FC = () => {
       title: '领域',
       key: 'domain',
       width: 100,
-      render: (_: any, record: McpTool) => {
-        const d = (record.annotations as any)?.domain;
+      render: (_: unknown, record: McpTool) => {
+        const d = (record.annotations)?.domain;
         return d ? <Tag>{domainLabels[d] || d}</Tag> : '-';
       },
     },

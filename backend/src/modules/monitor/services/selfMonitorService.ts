@@ -513,7 +513,7 @@ export class SelfMonitorService {
    */
   private async checkServices(): Promise<MonitorCheck> {
     try {
-      const { backupService } = await import('../../infra/services/backupService');
+      const { backupService } = await import('../../backup/services');
       const { schedulerService } = await import('../../workflow/services/schedulerService');
 
       const services: Array<{ name: string; ok: boolean; status: string; message?: string }> = [];

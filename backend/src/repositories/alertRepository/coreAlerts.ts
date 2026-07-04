@@ -1,6 +1,7 @@
 // ── 主 repository 核心方法（alerts + alert_provider_configs + aars_config + probe_execution_stats）──
 
 import db from '../../models/database';
+import type { AarsConfig, ProbeExecutionStats } from '../types/alert';
 import { parseMetadata, parseMetadataList, clampLimit } from './helpers';
 import type { AlertFilters, AlertProviderConfigRecord, AlertRecord } from './types';
 
@@ -343,12 +344,12 @@ export function deleteProviderConfig(id: string): number {
 // ── aars_config 表（单行配置）──
 
 /** 获取 AARS 配置（单行，LIMIT 1） */
-export function getAarsConfig(): Record<string, unknown> | undefined {
-  return db.prepare('SELECT * FROM aars_config LIMIT 1').get() as Record<string, unknown> | undefined;
+export function getAarsConfig(): AarsConfig | undefined {
+  return db.prepare('SELECT * FROM aars_config LIMIT 1').get() as AarsConfig | undefined;
 }
 
 /** 动态更新 AARS 配置（WHERE id = 1） */
-export function updateAarsConfig(fields: Record<string, unknown>): Record<string, unknown> | undefined {
+export function updateAarsConfig(fields: Partial<AarsConfig>): AarsConfig | undefined {
   const entries = Object.entries(fields);
   if (entries.length === 0) return getAarsConfig();
   const sets = entries.map(([k]) => `${k} = @${k}`).join(', ');
@@ -359,6 +360,6 @@ export function updateAarsConfig(fields: Record<string, unknown>): Record<string
 // ── probe_execution_stats 表 ──
 
 /** 列出探针执行统计（按 total_uses 倒序，LIMIT 50） */
-export function listProbeStats(limit = 50): Array<Record<string, unknown>> {
-  return db.prepare('SELECT * FROM probe_execution_stats ORDER BY total_uses DESC LIMIT ?').all(limit) as Array<Record<string, unknown>>;
+export function listProbeStats(limit = 50): ProbeExecutionStats[] {
+  return db.prepare('SELECT * FROM probe_execution_stats ORDER BY total_uses DESC LIMIT ?').all(limit) as ProbeExecutionStats[];
 }

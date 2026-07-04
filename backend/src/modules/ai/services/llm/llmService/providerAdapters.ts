@@ -24,6 +24,13 @@ import { getCircuitBreaker, callWithRetry, circuitBreakers } from './circuitBrea
 
 // ── 共享类型（同时被 toolCalling.ts 使用） ──
 
+// ── 语义化类型别名 ──
+
+/** OpenAI Function Calling 参数 Schema */
+type OpenAIFunctionParameters = Record<string, unknown>;
+/** Agent 执行元数据 */
+type AgentExecutionMetadata = Record<string, unknown>;
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
@@ -37,7 +44,7 @@ export interface LLMTool {
   function: {
     name: string;
     description: string;
-    parameters: Record<string, unknown>;
+    parameters: OpenAIFunctionParameters;
   };
 }
 
@@ -124,7 +131,7 @@ export function recordAgentExecution(
   status: 'success' | 'failure',
   errorMessage?: string,
   executionTimeMs?: number,
-  metadata?: Record<string, unknown>
+  metadata?: AgentExecutionMetadata
 ): void {
   try {
     agentExecutionRepository.create({

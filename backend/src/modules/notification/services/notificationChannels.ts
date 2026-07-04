@@ -21,7 +21,7 @@ export interface NotificationMessage {
   severity: 'info' | 'warning' | 'critical';
   source?: string;
   timestamp?: string;
-  details?: Record<string, unknown>;
+  details?: Record<string, string>;
 }
 
 // ================ 飞书机器人 ================
@@ -72,7 +72,7 @@ export async function sendFeishu(webhookUrl: string, message: NotificationMessag
 
 export async function sendWeCom(webhookUrl: string, message: NotificationMessage): Promise<boolean> {
   try {
-    const payload: Record<string, unknown> = {
+    const payload: Record<string, string | object> = {
       msgtype: 'markdown',
       markdown: {
         content: `## ${message.title}\n${message.content}\n> 来源: ${message.source || 'ITOps 平台'} | ${message.timestamp || new Date().toLocaleString()}`,

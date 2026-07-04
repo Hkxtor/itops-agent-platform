@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react';
 import {
   Server, Monitor, Cpu, HardDrive, Play, Square, RotateCcw,
@@ -11,6 +10,8 @@ import api from '../../../lib/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 // ── Types ────────────────────────────────────────────────────────────────────
+
+type ApiError = { response?: { data?: { message?: string } } };
 
 interface Platform {
   id: string;
@@ -206,7 +207,7 @@ export default function VirtualMachines() {
       resetPlatformForm();
       toast.success('平台已添加');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '添加平台失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '添加平台失败'),
   });
 
   const deletePlatformMutation = useMutation({
@@ -218,7 +219,7 @@ export default function VirtualMachines() {
       if (selectedPlatformId === editingPlatform?.id) setSelectedPlatformId('');
       toast.success('平台已删除');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '删除平台失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '删除平台失败'),
   });
 
   const testConnectionMutation = useMutation({
@@ -227,7 +228,7 @@ export default function VirtualMachines() {
       return res.data;
     },
     onSuccess: (data) => toast.success(data.data?.message || '连接测试成功'),
-    onError: (err: any) => toast.error(err.response?.data?.message || '连接测试失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '连接测试失败'),
   });
 
   const createVMMutation = useMutation({
@@ -247,7 +248,7 @@ export default function VirtualMachines() {
       resetVMForm();
       toast.success('虚拟机已创建');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '创建虚拟机失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '创建虚拟机失败'),
   });
 
   const updateVMMutation = useMutation({
@@ -266,7 +267,7 @@ export default function VirtualMachines() {
       resetVMForm();
       toast.success('虚拟机已更新');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '更新虚拟机失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '更新虚拟机失败'),
   });
 
   const deleteVMMutation = useMutation({
@@ -279,7 +280,7 @@ export default function VirtualMachines() {
       setDeleteConfirm(null);
       toast.success('虚拟机已删除');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '删除虚拟机失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '删除虚拟机失败'),
   });
 
   const actionMutation = useMutation({
@@ -292,7 +293,7 @@ export default function VirtualMachines() {
       queryClient.invalidateQueries({ queryKey: ['vm-stats'] });
       toast.success('操作成功');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '操作失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '操作失败'),
   });
 
   const syncMutation = useMutation({
@@ -305,7 +306,7 @@ export default function VirtualMachines() {
       queryClient.invalidateQueries({ queryKey: ['vm-stats'] });
       toast.success(`同步完成: ${data.data?.synced || 0} 台`);
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '同步失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '同步失败'),
   });
 
   const cloneMutation = useMutation({
@@ -324,7 +325,7 @@ export default function VirtualMachines() {
       setCloneTarget(null);
       toast.success('克隆成功');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '克隆失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '克隆失败'),
   });
 
   const createSnapshotMutation = useMutation({
@@ -339,7 +340,7 @@ export default function VirtualMachines() {
       setSnapshotForm({ name: '', description: '', memory: true });
       toast.success('快照已创建');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '创建快照失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '创建快照失败'),
   });
 
   const restoreSnapshotMutation = useMutation({
@@ -352,7 +353,7 @@ export default function VirtualMachines() {
       refetchSnapshots();
       toast.success('快照已恢复');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '恢复快照失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '恢复快照失败'),
   });
 
   const deleteSnapshotMutation = useMutation({
@@ -364,7 +365,7 @@ export default function VirtualMachines() {
       refetchSnapshots();
       toast.success('快照已删除');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || '删除快照失败'),
+    onError: (err: ApiError) => toast.error(err.response?.data?.message || '删除快照失败'),
   });
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -798,7 +799,7 @@ export default function VirtualMachines() {
                   <label className="block text-xs text-text-secondary mb-1">类型</label>
                   <select
                     value={platformForm.hypervisorType}
-                    onChange={e => setPlatformForm(p => ({ ...p, hypervisorType: e.target.value as any }))}
+                    onChange={e => setPlatformForm(p => ({ ...p, hypervisorType: e.target.value as Platform['hypervisorType'] }))}
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-primary"
                   >
                     <option value="proxmox">Proxmox</option>

@@ -10,7 +10,7 @@ const router = Router();
 
 router.get('/', (_req: Request, res: Response) => {
   try {
-    const workflows = workflowRepository.workflows.list() as Array<{ nodes?: string; edges?: string; agent_configs?: string; [key: string]: unknown }>;
+    const workflows = workflowRepository.workflows.list() as any[];
     workflows.forEach((w) => {
       if (w.nodes) w.nodes = JSON.parse(w.nodes);
       if (w.edges) w.edges = JSON.parse(w.edges);
@@ -28,7 +28,7 @@ router.get('/:id', (req: Request, res: Response) => {
     if (!workflow) {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
     }
-    const w = workflow as Record<string, unknown>;
+    const w = workflow as any;
     if (w.nodes) w.nodes = JSON.parse(w.nodes as string);
     if (w.edges) w.edges = JSON.parse(w.edges as string);
     if (w.agent_configs) w.agent_configs = JSON.parse(w.agent_configs as string);
@@ -126,7 +126,7 @@ router.get('/export/:id', (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Workflow not found' });
     }
 
-    const w = workflow as Record<string, unknown>;
+    const w = workflow as any;
     const exportData: WorkflowParsed = {
       id: '',
       name: w.name as string,

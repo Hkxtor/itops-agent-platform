@@ -43,7 +43,7 @@ export async function executeWorkflow(
   taskId: string,
   workflow: WorkflowParsed,
   initialInput?: string,
-  context?: Record<string, unknown>
+  context?: Record<string, string | number | boolean>
 ) {
   const io = getIOInstance();
   const MAX_EXECUTION_DEPTH = 50;
@@ -214,7 +214,7 @@ export async function resumeWorkflow(
 
   tasksRepo.updateStatusClearNode(taskId, 'running');
 
-  const workflow = workflowsRepo.getById(persistedState.workflowId) as Record<string, unknown> | undefined;
+  const workflow = workflowsRepo.getById(persistedState.workflowId) as { id: string; name: string; description: string; agent_configs: string; is_template: number; created_at: string; updated_at: string } | undefined;
   const workflowParsed: WorkflowParsed = workflow ? {
     id: workflow.id as string,
     name: workflow.name as string,

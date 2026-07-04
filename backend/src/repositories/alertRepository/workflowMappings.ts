@@ -1,6 +1,7 @@
 // ── workflowMappings 子 repository ──
 
 import db from '../../models/database';
+import type { AlertWorkflowMapping } from '../types/alert';
 import type {
   AlertWorkflowMappingCreateInput,
   AlertWorkflowMappingRecord,

@@ -82,7 +82,7 @@ class ContainerLogService {
     const entry = this.streams.get(roomId);
     if (entry) {
       try {
-        (entry.stream as NodeJS.ReadableStream).destroy();
+        (entry.stream as any).destroy();
       } catch { /* ignore */ }
       this.streams.delete(roomId);
       logger.info(`📜 Log stream stopped for room: ${roomId}`);
@@ -94,7 +94,7 @@ class ContainerLogService {
    */
   stopAll(): void {
     this.streams.forEach((entry) => {
-      try { (entry.stream as NodeJS.ReadableStream).destroy(); } catch { /* ignore */ }
+      try { (entry.stream as any).destroy(); } catch { /* ignore */ }
     });
     this.streams.clear();
   }

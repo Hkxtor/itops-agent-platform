@@ -1,6 +1,7 @@
 // ── aarsLogs 子 repository ──
 
 import db from '../../models/database';
+import type { AarsResponseLog } from '../types/alert';
 import type { AarsResponseLogInput, AarsResponseLogRecord } from './types';
 
 export const aarsLogsRepo = {

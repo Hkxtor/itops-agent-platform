@@ -11,9 +11,9 @@ router.get('/', (_req, res) => {
 });
 
 router.get('/tree', (_req, res) => {
-  const groups = serverRepository.groups.listForTree() as Array<Record<string, unknown>>;
+  const groups = serverRepository.groups.listForTree() as unknown as Array<{ id: string; name: string; description: string | null; parent_id: string | null; sort_order: number; children?: unknown[] }>;
 
-  function buildTree(parentId: string | null): Array<Record<string, unknown>> {
+  function buildTree(parentId: string | null): Array<{ id: string; name: string; description: string | null; parent_id: string | null; sort_order: number; children?: unknown[] }> {
     return groups
       .filter((g) => (g.parent_id as string | null) === parentId)
       .map((g) => ({ ...g, children: buildTree(g.id as string) }));

@@ -18,8 +18,18 @@ import type { QueueJob, QueueAdapter, QueueStats } from './queueService';
 // 延迟导入，仅在启用 Redis 时加载
 let Bull: Record<string, unknown> | null = null;
 
+interface BullQueue {
+  client: { ping(): Promise<unknown> };
+  add(name: string, data: unknown, opts?: Record<string, unknown>): Promise<unknown>;
+  getJobCounts(...types: string[]): Promise<Record<string, number>>;
+  getJobCount(): Promise<number>;
+  drain(): Promise<void>;
+  clean(grace: number, limit: number, type: string): Promise<void>;
+  close(): Promise<void>;
+}
+
 export class BullQueueAdapter implements QueueAdapter {
-  private queue: Record<string, unknown> | null = null;
+  private queue: BullQueue | null = null;
   private redisUrl: string;
   private initialized = false;
 
@@ -46,7 +56,7 @@ export class BullQueueAdapter implements QueueAdapter {
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 50 },
         },
-      });
+      }) as unknown as BullQueue;
 
       new QueueScheduler('itops-queue', {
         connection: { url: this.redisUrl },
@@ -63,7 +73,7 @@ export class BullQueueAdapter implements QueueAdapter {
   async health(): Promise<boolean> {
     if (!this.initialized) await this.init();
     try {
-      await this.queue.client.ping();
+      await this.queue!.client.ping();
       return true;
     } catch {
       return false;
@@ -72,7 +82,7 @@ export class BullQueueAdapter implements QueueAdapter {
 
   async enqueue(job: QueueJob): Promise<void> {
     if (!this.initialized) await this.init();
-    await this.queue.add(job.type, job.payload, {
+    await this.queue!.add(job.type, job.payload, {
       jobId: job.id,
       priority: job.priority,
       attempts: job.maxRetries,
@@ -95,7 +105,7 @@ export class BullQueueAdapter implements QueueAdapter {
 
   async stats(): Promise<QueueStats> {
     if (!this.initialized) return { pending: 0, running: 0, completed24h: 0, failed24h: 0, stalled: 0, avgLatencyMs: 0 };
-    const counts = await this.queue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+    const counts = await this.queue!.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
     return {
       pending: (counts.waiting || 0) + (counts.delayed || 0),
       running: counts.active || 0,
@@ -108,19 +118,19 @@ export class BullQueueAdapter implements QueueAdapter {
 
   async size(): Promise<number> {
     if (!this.initialized) return 0;
-    return this.queue.getJobCount();
+    return this.queue!.getJobCount();
   }
 
   async clear(): Promise<void> {
     if (!this.initialized) return;
-    await this.queue.drain();
-    await this.queue.clean(0, 0, 'completed');
-    await this.queue.clean(0, 0, 'failed');
+    await this.queue!.drain();
+    await this.queue!.clean(0, 0, 'completed');
+    await this.queue!.clean(0, 0, 'failed');
   }
 
   async shutdown(): Promise<void> {
     if (!this.initialized) return;
-    await this.queue.close();
+    await this.queue!.close();
     this.initialized = false;
   }
 }

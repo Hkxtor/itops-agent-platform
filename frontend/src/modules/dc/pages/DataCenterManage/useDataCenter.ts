@@ -2,73 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { Form, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../../lib/api';
-import type { Room, Rack, Slot, PDU, LifecycleRecord, OverviewData } from './types';
-
-interface DeviceSummary {
-  id: string;
-  name?: string;
-  device_name?: string;
-  device_type?: string;
-}
-
-interface DeviceGroup {
-  room_id?: string;
-  room_name?: string;
-  room_label?: string;
-  devices?: DeviceSummary[];
-}
+import type { Room, Rack, Slot, PDU, LifecycleRecord, OverviewData, Manufacturer, DeviceTypeInfo, PowerPanel, PowerFeed, Cable, DeviceSummary, DeviceGroup } from './types';
 
 interface ExportData {
   summary?: { rooms?: number; racks?: number; devices?: number };
   rooms?: unknown[];
   racks?: unknown[];
-}
-
-interface Manufacturer {
-  id: string;
-  name: string;
-  description?: string;
-  type_count?: number;
-}
-
-interface DeviceType {
-  id: string;
-  model: string;
-  manufacturer_name?: string;
-  device_type?: string;
-  u_height?: number;
-  instance_count?: number;
-}
-
-interface PowerPanel {
-  id: string;
-  name: string;
-  room_name?: string;
-  type?: string;
-  phase?: string;
-  voltage?: number;
-  feed_count?: number;
-}
-
-interface PowerFeed {
-  id: string;
-  name: string;
-  panel_name?: string;
-  rack_name?: string;
-  phase?: string;
-  voltage?: number;
-  amperage?: number;
-  max_power?: number;
-}
-
-interface Cable {
-  id: string;
-  label: string;
-  type?: string;
-  status?: string;
-  a_device_name?: string;
-  b_device_name?: string;
-  length_m?: number;
 }
 
 /** 数据中心管理页面的所有状态和 API 操作 */
@@ -96,7 +35,7 @@ export default function useDataCenter() {
   const [slotForm] = Form.useForm();
 
   // ===== 设备（插槽分配） =====
-  const [availDevices, setAvailDevices] = useState<any[]>([]);
+  const [availDevices, setAvailDevices] = useState<DeviceSummary[]>([]);
 
   // ===== 生命周期 =====
   const [lifecycles, setLifecycles] = useState<LifecycleRecord[]>([]);
@@ -111,7 +50,7 @@ export default function useDataCenter() {
   const [pdusLoading, setPdusLoading] = useState(false);
 
   // ===== 导出/导入 =====
-  const [exportData, setExportData] = useState<any>(null);
+  const [exportData, setExportData] = useState<ExportData | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importLoading, setImportLoading] = useState(false);
@@ -123,14 +62,14 @@ export default function useDataCenter() {
   const [moveForm] = Form.useForm();
 
   // ===== 设备分布 =====
-  const [deviceGroups, setDeviceGroups] = useState<any[]>([]);
+  const [deviceGroups, setDeviceGroups] = useState<DeviceGroup[]>([]);
   const [deviceSearch, setDeviceSearch] = useState('');
   const [deviceGroupLoading, setDeviceGroupLoading] = useState(false);
   const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({});
 
   // ===== NetBox 功能：制造商/型号/配电柜/供电线路/线缆 =====
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
-  const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
+  const [deviceTypes, setDeviceTypes] = useState<DeviceTypeInfo[]>([]);
   const [powerPanels, setPowerPanels] = useState<PowerPanel[]>([]);
   const [powerFeeds, setPowerFeeds] = useState<PowerFeed[]>([]);
   const [cables, setCables] = useState<Cable[]>([]);
@@ -145,7 +84,7 @@ export default function useDataCenter() {
   const [editingMf, setEditingMf] = useState<Manufacturer | null>(null);
   const [mfForm] = Form.useForm();
   const [dtModalOpen, setDtModalOpen] = useState(false);
-  const [editingDt, setEditingDt] = useState<DeviceType | null>(null);
+  const [editingDt, setEditingDt] = useState<DeviceTypeInfo | null>(null);
   const [dtForm] = Form.useForm();
   const [ppModalOpen, setPpModalOpen] = useState(false);
   const [editingPp, setEditingPp] = useState<PowerPanel | null>(null);
@@ -226,13 +165,13 @@ export default function useDataCenter() {
   };
 
   // ===== 设备导航 =====
-  const navigateToDevice = (device: any) => {
+  const navigateToDevice = (device: DeviceSummary) => {
     const routeMap: Record<string, string> = {
       server: '/servers',
       network_device: '/network-devices',
       vm_host: '/virtual-machines',
     };
-    navigate(routeMap[device.device_type] || '/dc-manage');
+    navigate(routeMap[device.device_type || ''] || '/dc-manage');
   };
 
   // ===== 加载各 Tab 数据 =====
@@ -251,7 +190,7 @@ export default function useDataCenter() {
   const loadLifecycles = async () => {
     setLifecyclesLoading(true);
     try {
-      const params: any = { limit: 500 };
+      const params: Record<string, unknown> = { limit: 500 };
       if (lifecycleFilter) params.action = lifecycleFilter;
       const res = await api.get('/api/dc/lifecycle', { params });
       setLifecycles(res.data.data || []);

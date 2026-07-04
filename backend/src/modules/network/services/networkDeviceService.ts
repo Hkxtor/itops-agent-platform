@@ -138,7 +138,7 @@ class NetworkDeviceService {
       return undefined;
     }
 
-    const fields: Record<string, unknown> = {};
+    const fields: Record<string, string | number | null> = {};
 
     if (data.name !== undefined) fields.name = data.name;
     if (data.model !== undefined) fields.model = data.model;
@@ -235,7 +235,7 @@ class NetworkDeviceService {
     }
   }
 
-  private async testConnectionToDevice(device: Pick<NetworkDevice, 'ip_address' | 'ssh_port' | 'username' | 'password'>): Promise<{ success: boolean; message: string; latency?: number }> {
+  private async testConnectionToDevice(device: { ip_address: string; ssh_port: number; username: string | null; password: string | null }): Promise<{ success: boolean; message: string; latency?: number }> {
     const startTime = Date.now();
     let conn: Client | null = null;
 
@@ -412,7 +412,7 @@ class NetworkDeviceService {
       conn.connect({
         host: device.ip_address,
         port: device.ssh_port || 22,
-        username: device.username,
+        username: device.username || '',
         password: device.password,
         readyTimeout: 10000,
         keepaliveInterval: 10000,
@@ -421,7 +421,7 @@ class NetworkDeviceService {
     });
   }
 
-  private connectToDevice(device: Pick<NetworkDevice, 'ip_address' | 'ssh_port' | 'username' | 'password'>): Promise<Client> {
+  private connectToDevice(device: { ip_address: string; ssh_port: number; username: string | null; password: string | null }): Promise<Client> {
     return new Promise((resolve, reject) => {
       const conn = new Client();
       let isResolved = false;
@@ -454,12 +454,12 @@ class NetworkDeviceService {
         safeReject(new Error(`SSH connection error: ${err.message}`));
       });
 
-      const decryptedPassword = decrypt(device.password);
+      const decryptedPassword = device.password ? decrypt(device.password) : '';
 
       conn.connect({
         host: device.ip_address,
         port: device.ssh_port || 22,
-        username: device.username,
+        username: device.username || '',
         password: decryptedPassword,
         readyTimeout: 10000,
         keepaliveInterval: 10000,

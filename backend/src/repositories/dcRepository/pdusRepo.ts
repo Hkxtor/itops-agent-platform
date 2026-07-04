@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DcPdu } from '../types/dc';
 
 export interface PduCreateInput {
   id: string;
@@ -35,18 +36,18 @@ export interface PduImportInput {
 }
 
 export const pdusRepo = {
-  list(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM dc_pdus').all() as Array<Record<string, unknown>>;
+  list(): DcPdu[] {
+    return db.prepare('SELECT * FROM dc_pdus').all() as DcPdu[];
   },
 
   /** PDU 列表 + 机柜名（pdus.ts GET /） */
-  listWithRack(): Array<Record<string, unknown>> {
+  listWithRack(): DcPdu[] {
     return db.prepare(`
       SELECT p.*, r.name as rack_name
       FROM dc_pdus p
       LEFT JOIN dc_racks r ON p.rack_id = r.id
       ORDER BY p.name
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcPdu[];
   },
 
   create(input: PduCreateInput): void {

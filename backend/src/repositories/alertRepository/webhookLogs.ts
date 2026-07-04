@@ -1,6 +1,7 @@
 // ── webhookLogs 子 repository ──
 
 import db from '../../models/database';
+import type { AlertWebhookLog } from '../types/alert';
 import type { AlertWebhookLogInput } from './types';
 
 export const webhookLogsRepo = {

@@ -51,9 +51,10 @@ class CostAnalysisService {
       for (const c of containers) {
         try {
           const info = await dockerService.getContainer(c.id);
-          const cpuShares = info.hostConfig?.cpuShares || 1024;
+          const hostConfig = info.hostConfig as any;
+          const cpuShares = hostConfig?.cpuShares || 1024;
           const cpuCores = Math.max(cpuShares / 1024, 0.1);
-          const memoryMB = Math.round((info.hostConfig?.memory || 536870912) / (1024 * 1024));
+          const memoryMB = Math.round((hostConfig?.memory || 536870912) / (1024 * 1024));
           const cpuCost = cpuCores * RATES.container.cpuPerCorePerHour;
           const memCost = memoryMB * RATES.container.memoryPerMBPerHour;
           const hourlyRate = cpuCost + memCost;

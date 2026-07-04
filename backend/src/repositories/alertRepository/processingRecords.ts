@@ -1,6 +1,7 @@
 // ── processingRecords 子 repository ──
 
 import db from '../../models/database';
+import type { AlertProcessingRecord as AlertProcessingRecordType } from '../types/alert';
 import type { AlertProcessingRecord } from './types';
 
 export const processingRecordsRepo = {

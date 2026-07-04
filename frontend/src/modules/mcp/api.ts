@@ -32,6 +32,7 @@ export interface McpTool {
     required?: string[];
   };
   annotations?: {
+    domain?: string;
     readOnlyHint: boolean;
     destructiveHint: boolean;
     idempotentHint: boolean;

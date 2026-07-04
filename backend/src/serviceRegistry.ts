@@ -30,7 +30,7 @@ import { alertAutoAnalyzer } from './modules/alerts/services/alertAutoAnalyzer';
 import { alertCorrelationService } from './modules/alerts/services/alertCorrelationService';
 import { alertAutoResponseService } from './modules/alerts/services/alertAutoResponse/alertAutoResponseService';
 import { alertProcessor } from './modules/alerts/services/AlertProcessor';
-import { knowledgeEngine } from './core/KnowledgeEngine';
+import { knowledgeEngine } from './modules/ai/services/KnowledgeEngine';
 import { dockerService } from './modules/containers/services/dockerService';
 import { configTemplateService } from './modules/config-management/services/configTemplateService';
 import { kubernetesService } from './modules/kubernetes/services/kubernetesService';
@@ -42,7 +42,7 @@ import { migrateEncryptionKeys } from './modules/auth/services/encryptionService
 import { startCircuitBreakerCleanup } from './modules/ai/services/llm/llmService';
 import { startDCStatusPush, stopDCStatusPush } from './modules/dc/services/dcStatusService';
 import { initializeProviders } from './modules/ai/services/providers';
-import { registerAllPlatformTools } from './services/mcp';
+import { registerAllPlatformTools } from './modules/mcp/services';
 import { initializeMultiAgentSystem } from './modules/ai/services/multiAgent';
 
 /**

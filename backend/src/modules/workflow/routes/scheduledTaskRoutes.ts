@@ -179,7 +179,7 @@ router.post('/:id/toggle', (req: Request, res: Response) => {
       action: 'toggle_scheduled_task',
       resource_type: 'scheduled_task',
       resource_id: id,
-      details: { enabled: !!newEnabled }
+      details: { enabled: String(!!newEnabled) }
     });
 
     res.json({ success: true, data: { enabled: !!newEnabled } });
@@ -204,7 +204,7 @@ router.post('/:id/run', (req: Request, res: Response) => {
       action: 'manual_run_scheduled_task',
       resource_type: 'scheduled_task',
       resource_id: id,
-      details: { name: task.name, manual_run: true }
+      details: { name: task.name, manual_run: String(true) }
     });
 
     res.json({ success: true, message: 'Task triggered manually' });

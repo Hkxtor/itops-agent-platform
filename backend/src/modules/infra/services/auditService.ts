@@ -6,7 +6,7 @@ export const createAuditLog = (data: {
   action: string;
   resource_type: string;
   resource_id?: string;
-  details?: Record<string, unknown>;
+  details?: Record<string, string>;
   ip_address?: string;
 }): string | null => {
   try {

@@ -30,7 +30,7 @@ function escapeCsvLine(line: string[]): string {
   return line.map(escapeCsvField).join(',');
 }
 
-function validateImportRow(row: Record<string, unknown>, lineNum: number): string | null {
+function validateImportRow(row: Record<string, string>, lineNum: number): string | null {
   if (!row.name || typeof row.name !== 'string' || (row.name as string).trim().length === 0) {
     return `Line ${lineNum}: name is required`;
   }
@@ -132,7 +132,7 @@ export async function importServersFromCSV(csvContent: string): Promise<ImportRe
           continue;
         }
 
-        const row: Record<string, unknown> = {};
+        const row: Record<string, string> = {};
         headers.forEach((header, index) => {
           row[header] = values[index];
         });

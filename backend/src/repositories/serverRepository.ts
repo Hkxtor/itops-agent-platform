@@ -10,38 +10,12 @@
  */
 
 import db from '../models/database';
+import type { Server, SshKey, ServerGroup, ServerGroupMapping, ServerCommandHistory, ComplianceCheck, ServiceTopology, ServerMetric } from './types/server';
 
 // ── servers 表类型 ──
 
-export interface ServerRecord {
-  id: string;
-  name: string;
-  hostname: string;
-  port: number;
-  username: string;
-  password?: string | null;
-  private_key?: string | null;
-  use_ssh_key: number;
-  description?: string | null;
-  tags?: string | null;
-  enabled: number;
-  last_connected?: string | null;
-  os?: string | null;
-  os_type: string;
-  cpu_cores?: number | null;
-  memory_gb?: number | null;
-  disk_gb?: number | null;
-  ip_address?: string | null;
-  private_ip?: string | null;
-  cloud_provider?: string | null;
-  cloud_instance_id?: string | null;
-  vnc_port: number;
-  vnc_password?: string | null;
-  ssh_key_id?: string | null;
-  created_at: string;
-  updated_at: string;
-  [key: string]: unknown;
-}
+/** 服务器完整记录（与 types/server.ts 的 Server 一致，保留本地别名供兼容） */
+export type ServerRecord = Server;
 
 export interface ServerCreateInput {
   id: string;
@@ -274,29 +248,29 @@ export const serversRepo = {
   // ── 关联表：server_command_history ──
 
   /** 列出服务器命令历史（limit=0 表示全部） */
-  listCommandHistory(serverId: string, limit = 50): Array<Record<string, unknown>> {
+  listCommandHistory(serverId: string, limit = 50): ServerCommandHistory[] {
     if (limit > 0) {
       return db.prepare(
         'SELECT * FROM server_command_history WHERE server_id = ? ORDER BY executed_at DESC LIMIT ?'
-      ).all(serverId, limit) as Array<Record<string, unknown>>;
+      ).all(serverId, limit) as ServerCommandHistory[];
     }
     return db.prepare(
       'SELECT * FROM server_command_history WHERE server_id = ? ORDER BY executed_at DESC'
-    ).all(serverId) as Array<Record<string, unknown>>;
+    ).all(serverId) as ServerCommandHistory[];
   },
 
   // ── 关联表：compliance_checks ──
 
   /** 列出合规检查历史（limit=0 表示全部） */
-  listComplianceChecks(serverId: string, limit = 20): Array<Record<string, unknown>> {
+  listComplianceChecks(serverId: string, limit = 20): ComplianceCheck[] {
     if (limit > 0) {
       return db.prepare(
         'SELECT * FROM compliance_checks WHERE server_id = ? ORDER BY created_at DESC LIMIT ?'
-      ).all(serverId, limit) as Array<Record<string, unknown>>;
+      ).all(serverId, limit) as ComplianceCheck[];
     }
     return db.prepare(
       'SELECT * FROM compliance_checks WHERE server_id = ? ORDER BY created_at DESC'
-    ).all(serverId) as Array<Record<string, unknown>>;
+    ).all(serverId) as ComplianceCheck[];
   },
 
   // ── 写入 server_command_history ──
@@ -473,16 +447,8 @@ export const serversRepo = {
 
 // ── server_groups / server_group_mapping 类型 ──
 
-export interface ServerGroupRecord {
-  id: string;
-  name: string;
-  description?: string | null;
-  parent_id?: string | null;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-  [key: string]: unknown;
-}
+/** 服务器分组完整记录（与 types/server.ts 的 ServerGroup 一致） */
+export type ServerGroupRecord = ServerGroup;
 
 export interface ServerGroupCreateInput {
   id: string;
@@ -618,20 +584,8 @@ export const groupsRepo = {
 
 // ── ssh_keys 类型 ──
 
-export interface SshKeyRecord {
-  id: string;
-  name: string;
-  auth_type: 'key' | 'password';
-  key_type: string;
-  fingerprint: string | null;
-  username?: string | null;
-  password?: string | null;
-  private_key?: string | null;
-  description?: string | null;
-  created_at: string;
-  updated_at: string;
-  [key: string]: unknown;
-}
+/** SSH 密钥完整记录（与 types/server.ts 的 SshKey 一致） */
+export type SshKeyRecord = SshKey;
 
 // ── sshKeys 子 repository ──
 
@@ -769,8 +723,8 @@ export const serverRepository = {
 // ── service_topologies 子 repository ──
 
 export const topologyRepo = {
-  /** 获取依赖（JOIN servers 获取名称/IP） */
-  getDependencies(serverId: string): Array<Record<string, unknown>> {
+  /** 获取某服务器的依赖（JOIN servers 获取名称/IP） */
+  getDependencies(serverId: string): Array<ServiceTopology & { source_name?: string; source_ip?: string; target_name?: string; target_ip?: string }> {
     return db.prepare(`
       SELECT st.*, 
         s1.name as source_name, s1.hostname as source_ip,
@@ -779,11 +733,11 @@ export const topologyRepo = {
       LEFT JOIN servers s1 ON st.source_server_id = s1.id
       LEFT JOIN servers s2 ON st.target_server_id = s2.id
       WHERE st.source_server_id = ? OR st.target_server_id = ?
-    `).all(serverId, serverId) as Array<Record<string, unknown>>;
+    `).all(serverId, serverId) as Array<ServiceTopology & { source_name?: string; source_ip?: string; target_name?: string; target_ip?: string }>;
   },
 
   /** 获取全部依赖（JOIN servers） */
-  getAllDependencies(): Array<Record<string, unknown>> {
+  getAllDependencies(): Array<ServiceTopology & { source_name?: string; source_ip?: string; target_name?: string; target_ip?: string }> {
     return db.prepare(`
       SELECT st.*, 
         s1.name as source_name, s1.hostname as source_ip,
@@ -791,17 +745,17 @@ export const topologyRepo = {
       FROM service_topologies st
       LEFT JOIN servers s1 ON st.source_server_id = s1.id
       LEFT JOIN servers s2 ON st.target_server_id = s2.id
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as Array<ServiceTopology & { source_name?: string; source_ip?: string; target_name?: string; target_ip?: string }>;
   },
 
   /** 获取活跃依赖 */
-  getActiveDependencies(): Array<Record<string, unknown>> {
-    return db.prepare("SELECT * FROM service_topologies WHERE status = 'active'").all() as Array<Record<string, unknown>>;
+  getActiveDependencies(): ServiceTopology[] {
+    return db.prepare("SELECT * FROM service_topologies WHERE status = 'active'").all() as ServiceTopology[];
   },
 
   /** 按 ID 获取单条依赖 */
-  getDependencyById(id: string): Record<string, unknown> | undefined {
-    return db.prepare('SELECT * FROM service_topologies WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  getDependencyById(id: string): ServiceTopology | undefined {
+    return db.prepare('SELECT * FROM service_topologies WHERE id = ?').get(id) as ServiceTopology | undefined;
   },
 
   /** 插入依赖关系 */
@@ -830,22 +784,22 @@ export const topologyRepo = {
   },
 
   /** 上游依赖（BFS 用） */
-  getUpstreamDependencies(serverId: string): Array<Record<string, unknown>> {
+  getUpstreamDependencies(serverId: string): Array<ServiceTopology & { source_name?: string; source_ip?: string }> {
     return db.prepare(`
       SELECT st.*, s.name as source_name, s.hostname as source_ip
       FROM service_topologies st
       LEFT JOIN servers s ON st.source_server_id = s.id
       WHERE st.target_server_id = ? AND st.status = 'active'
-    `).all(serverId) as Array<Record<string, unknown>>;
+    `).all(serverId) as Array<ServiceTopology & { source_name?: string; source_ip?: string }>;
   },
 
   /** 下游依赖（BFS 用） */
-  getDownstreamDependencies(serverId: string): Array<Record<string, unknown>> {
+  getDownstreamDependencies(serverId: string): Array<ServiceTopology & { target_name?: string; target_ip?: string }> {
     return db.prepare(`
       SELECT st.*, s.name as target_name, s.hostname as target_ip
       FROM service_topologies st
       LEFT JOIN servers s ON st.target_server_id = s.id
       WHERE st.source_server_id = ? AND st.status = 'active'
-    `).all(serverId) as Array<Record<string, unknown>>;
+    `).all(serverId) as Array<ServiceTopology & { target_name?: string; target_ip?: string }>;
   },
 };

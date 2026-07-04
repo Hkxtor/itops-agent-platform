@@ -1,6 +1,7 @@
 // ── correlations 子 repository ──
 
 import db from '../../models/database';
+import type { AlertCorrelationGroup, AlertCorrelationMember } from '../types/alert';
 import type {
   AlertCorrelationGroupCreateInput,
   AlertCorrelationGroupListFilters,
@@ -46,7 +47,7 @@ export const correlationsRepo = {
    * 查询分组详情（含成员列表 JOIN alerts）
    * 对应：alertCorrelationService.getGroupDetail
    */
-  getGroupDetail(groupId: string): { group: AlertCorrelationGroupRecord | undefined; members: Array<Record<string, unknown>> } {
+  getGroupDetail(groupId: string): { group: AlertCorrelationGroupRecord | undefined; members: AlertCorrelationMember[] } {
     const group = db.prepare('SELECT * FROM alert_correlation_groups WHERE id = ?').get(groupId) as AlertCorrelationGroupRecord | undefined;
     const members = db.prepare(`
       SELECT acm.*, a.title, a.content, a.severity, a.source, a.status, a.created_at as alert_created_at
@@ -54,7 +55,7 @@ export const correlationsRepo = {
       LEFT JOIN alerts a ON acm.alert_id = a.id
       WHERE acm.group_id = ?
       ORDER BY acm.is_root DESC, a.created_at ASC
-    `).all(groupId) as Array<Record<string, unknown>>;
+    `).all(groupId) as AlertCorrelationMember[];
     return { group, members };
   },
 

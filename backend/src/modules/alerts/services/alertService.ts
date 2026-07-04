@@ -30,7 +30,7 @@ export interface AlertNotification {
   message: string;
   timestamp: string;
   channels: AlertChannel[];
-  metadata?: Record<string, unknown>;
+  metadata?: unknown;
 }
 
 const DEFAULT_ALERT_RULES: AlertRule[] = [

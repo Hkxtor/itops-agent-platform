@@ -44,12 +44,12 @@ class ConfigBackupService {
     const backupId = randomUUID();
 
     try {
-      const decryptedPassword = decrypt(device.password);
+      const decryptedPassword = decrypt(device.password ?? '');
 
       // 根据厂商选择抓取配置的命令
       const configCommand = this.getConfigCommand(device.vendor);
 
-      const output = await this.executeSSHCommand(device.ip_address, device.ssh_port || 22, device.username, decryptedPassword, configCommand, 60000);
+      const output = await this.executeSSHCommand(device.ip_address ?? '', device.ssh_port || 22, device.username ?? '', decryptedPassword, configCommand, 60000);
 
       if (!output || output.trim().length === 0) {
         throw new Error('Empty config output');

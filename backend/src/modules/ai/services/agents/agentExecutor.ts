@@ -124,6 +124,8 @@ const AGENT_EXECUTION_TIMEOUT = 300000; // 5 分钟
 
 type AgentRow = Pick<Agent, 'id' | 'name'> & { system_prompt: string };
 type ServerRow = Pick<Server, 'id' | 'name' | 'hostname'>;
+/** Agent 执行上下文（用户/系统传递的任意动态数据） */
+type AgentExecutionContext = Record<string, unknown>;
 
 function getAgent(agentId: string): AgentRow | undefined {
   return agentRepository.getNamePrompt(agentId) as AgentRow | undefined;
@@ -136,7 +138,7 @@ function getEnabledServers(): ServerRow[] {
 export async function executeAgentNode(
   agentId: string,
   input: string,
-  context?: Record<string, unknown>
+  context?: AgentExecutionContext
 ): Promise<string> {
   logger.info(`🔍 executeAgentNode called with agentId: ${agentId} input: ${input?.substring(0, 100)}`);
   
@@ -315,7 +317,7 @@ function inferCommandByInput(input: string): string {
 /**
  * 服务器命令执行 Agent：真实执行服务器命令（支持多台服务器）
  */
-async function executeServerCommandAgent(input: string, context?: Record<string, unknown>): Promise<string> {
+async function executeServerCommandAgent(input: string, context?: AgentExecutionContext): Promise<string> {
   logger.info('💻 executeServerCommandAgent called with:', { input, context });
   
   let serverIds: string[] | undefined;
@@ -393,7 +395,7 @@ async function executeOnSingleServer(server: ServerRow, command: string): Promis
 /**
  * 自动巡检 Agent：真实执行服务器合规检查（支持多台服务器）
  */
-async function executeAutoInspectionAgent(input: string, context?: Record<string, unknown>): Promise<string> {
+async function executeAutoInspectionAgent(input: string, context?: AgentExecutionContext): Promise<string> {
   logger.info('🔍 executeAutoInspectionAgent called with:', { input, context });
   
   let serverIds: string[] | undefined;
@@ -440,12 +442,12 @@ async function executeAutoInspectionAgent(input: string, context?: Record<string
  *
  * 参数说明：
  * - input: [string] 用户输入
- * - context: [Record<string, unknown>] 上下文，可能包含 databaseId（数据库连接ID）
+ * - context: [AgentExecutionContext] 上下文，可能包含 databaseId（数据库连接ID）
  */
 async function executeDatabaseAdminAgent(
   agentId: string,
   input: string,
-  context?: Record<string, unknown>
+  context?: AgentExecutionContext
 ): Promise<string> {
   logger.info('🗄️ executeDatabaseAdminAgent called with:', { input, context });
 

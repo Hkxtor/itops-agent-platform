@@ -195,10 +195,10 @@ export async function finalizeWorkflow(
     details: {
       workflowName: workflow.name,
       workflowId: workflow.id,
-      successCount,
-      failedCount,
-      verificationFailed: !!verificationFailed,
-      errorMessage: errorMessage || null,
+      successCount: String(successCount),
+      failedCount: String(failedCount),
+      verificationFailed: String(!!verificationFailed),
+      errorMessage: errorMessage ?? '',
     },
   });
 

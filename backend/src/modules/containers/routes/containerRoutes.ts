@@ -388,7 +388,7 @@ function normalizeNetwork(raw: any): any {
     attachable: raw.Attachable ?? raw.attachable ?? false,
     ipam: raw.IPAM ? {
       driver: raw.IPAM.Driver || raw.IPAM.driver,
-      config: ((raw.IPAM as Record<string, unknown>).Config || (raw.IPAM as Record<string, unknown>).config || []).map((c: Record<string, unknown>) => ({
+      config: (((raw.IPAM as any).Config || (raw.IPAM as any).config || []) as any[]).map((c: any) => ({
         subnet: c.Subnet || c.subnet,
         gateway: c.Gateway || c.gateway,
       })),
@@ -424,7 +424,7 @@ router.post('/networks', requireRole('admin', 'operator'), async (req: Request, 
   try {
     const { name, driver, subnet, gateway, internal, attachable } = req.body;
     const d = getDocker(req);
-    const opts: Record<string, unknown> = { Name: name, Driver: driver || 'bridge', Internal: !!internal, Attachable: !!attachable };
+    const opts: any = { Name: name, Driver: driver || 'bridge', Internal: !!internal, Attachable: !!attachable };
     if (subnet) {
       opts.IPAM = { Config: [{ Subnet: subnet, Gateway: gateway || undefined }] };
     }

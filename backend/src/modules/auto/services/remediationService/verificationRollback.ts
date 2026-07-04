@@ -29,7 +29,7 @@ export async function verifyResult(
       throw new Error('Verification workflow not found');
     }
 
-    const params = resolveParams(policy.verification_params, alert);
+    const params = resolveParams(policy.verification_params ?? undefined, alert);
     // 同样注入告警数据到验证工作流 context
     const verifyContext = {
       alert_id: alert.id,

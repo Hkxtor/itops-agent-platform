@@ -14,24 +14,12 @@
  */
 
 import db from '../models/database';
+import type { User } from './types/auth';
 
 // ── 类型定义 ──
 
-export interface UserRecord {
-  id: string;
-  username: string;
-  password: string;
-  email: string | null;
-  role: string;
-  enabled: number;
-  password_must_change: number;
-  failed_login_attempts: number;
-  locked_until: string | null;
-  last_failed_login: string | null;
-  created_at: string;
-  updated_at: string;
-  [key: string]: unknown;
-}
+/** 用户完整记录（与 types/auth.ts 的 User 一致，保留本地别名供兼容） */
+export type UserRecord = User;
 
 /** 管理员列表展示字段（不含密码） */
 export interface UserListItem {

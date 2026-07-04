@@ -31,6 +31,19 @@ import type {
 } from './types';
 import { getErrorMessage } from '../../../../utils/errorHelpers';
 
+interface SaveLogExtraData {
+  error_message?: string;
+  device_id?: string;
+  device_type?: string;
+  access_method?: string;
+  diagnosis_result?: string;
+  root_cause?: string;
+  remediation_plan?: string;
+  verification_result?: string;
+  execution_status?: string;
+  approval_status?: string;
+}
+
 class AlertAutoResponseService {
   private processingIds = new Set<string>();
   private initialized = false;
@@ -357,7 +370,7 @@ class AlertAutoResponseService {
 
   private async saveLog(
     id: string, alertId: string, device: DeviceRuntimeProfile | null,
-    status: ResponseLogStatus, extra?: Record<string, unknown>
+    status: ResponseLogStatus, extra?: SaveLogExtraData
   ): Promise<void> {
     try {
       alertRepository.aarsLogs.save({

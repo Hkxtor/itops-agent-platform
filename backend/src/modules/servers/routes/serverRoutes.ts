@@ -45,7 +45,7 @@ router.get('/:id', validateParams(serverSchemas.serverId), (req: Request, res: R
 router.post('/', validateBody(serverSchemas.createServer), requireRole('admin', 'operator'), (req: Request, res: Response) => {
   try {
     const { name, hostname, port, username, password, private_key, use_ssh_key, description, os_type, ssh_key_id } = req.body;
-    const tags = (req.body as Record<string, unknown>).tags;
+    const tags = (req.body as { tags?: string[] }).tags;
     const tagsJson = tags ? JSON.stringify(tags) : null;
 
     const encryptedPassword = password ? encrypt(password) : null;
@@ -73,8 +73,8 @@ router.put('/:id', validateParams(serverSchemas.serverId), validateBody(serverSc
       return res.status(404).json({ success: false, error: 'Server not found' });
     }
 
-    const { name, hostname, port, username, password, private_key, use_ssh_key, description, enabled, os_type, ssh_key_id } = req.body as Record<string, unknown>;
-    const tags = (req.body as Record<string, unknown>).tags;
+    const { name, hostname, port, username, password, private_key, use_ssh_key, description, enabled, os_type, ssh_key_id } = req.body as Record<string, string | number | boolean | undefined>;
+    const tags = (req.body as { tags?: string[] }).tags;
     const tagsJson = tags ? JSON.stringify(tags) : undefined;
 
     let encryptedPassword: string | null | undefined;

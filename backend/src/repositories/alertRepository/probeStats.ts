@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { ProbeExecutionStats } from '../types/alert';
 
 export interface ProbeExecutionStatsRecord {
   probe_id: string;

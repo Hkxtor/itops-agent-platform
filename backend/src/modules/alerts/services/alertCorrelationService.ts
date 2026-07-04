@@ -385,7 +385,7 @@ class AlertCorrelationService {
   getGroupDetail(groupId: string): { group: AlertCorrelationGroupRecord; members: Array<Record<string, unknown>> } | null {
     const result = alertRepository.correlations.getGroupDetail(groupId);
     if (!result.group) return null;
-    return { group: result.group, members: result.members };
+    return { group: result.group, members: result.members as unknown as Array<Record<string, unknown>> };
   }
 
   /**

@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DcRoom } from '../types/dc';
 
 export interface DcRoomCreateInput {
   id: string;
@@ -22,13 +23,13 @@ export interface DcRoomUpdateInput {
 }
 
 export const roomsRepo = {
-  list(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM dc_rooms ORDER BY sort_order').all() as Array<Record<string, unknown>>;
+  list(): DcRoom[] {
+    return db.prepare('SELECT * FROM dc_rooms ORDER BY sort_order').all() as DcRoom[];
   },
 
   /** 导出用：不排序，保留原始顺序 */
-  listAll(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM dc_rooms').all() as Array<Record<string, unknown>>;
+  listAll(): DcRoom[] {
+    return db.prepare('SELECT * FROM dc_rooms').all() as DcRoom[];
   },
 
   create(input: DcRoomCreateInput): void {

@@ -58,7 +58,7 @@ class ConfigTemplateService {
   updateTemplate(id: string, updates: Partial<Pick<ConfigTemplate, 'name' | 'description' | 'category' | 'service_name' | 'template_content' | 'variables' | 'os_type' | 'target_path' | 'backup_before_apply' | 'restart_command' | 'validation_command' | 'is_system'>>): ConfigTemplate {
     const now = new Date().toISOString();
     const fields: string[] = [];
-    const params: Record<string, unknown> = { id, updated_at: now };
+    const params: Record<string, string | number | null> = { id, updated_at: now };
 
     const fieldMap: Record<string, keyof typeof updates> = {
       'name': 'name',

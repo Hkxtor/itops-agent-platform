@@ -10,7 +10,6 @@ export interface WorkflowRecord {
   is_template: number;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface WorkflowCreateInput {
@@ -55,7 +54,6 @@ export interface TaskRecord {
   loop_iterations?: string | null;
   parent_task_id?: string | null;
   execution_depth?: number;
-  [key: string]: unknown;
 }
 
 export interface TaskCreateInput {
@@ -100,7 +98,6 @@ export interface ScheduledTaskRecord {
   context?: string | null;
   created_at: string;
   updated_at?: string | null;
-  [key: string]: unknown;
 }
 
 /** 含 workflow_name 的联表记录 */

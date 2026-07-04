@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button, Modal, Form, Input, Select, Tag, Space, Popconfirm, Card, Tabs, InputNumber, Badge, Table } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -8,7 +7,7 @@ import {
 } from 'lucide-react';
 import useDataCenter from './useDataCenter';
 import { deviceTypeColors, actionColors } from './types';
-import type { Room } from './types';
+import type { Room, Rack, Slot, PDU, LifecycleRecord, Manufacturer, DeviceTypeInfo, PowerPanel, PowerFeed, Cable, DeviceSummary } from './types';
 import OverviewTab from './OverviewTab';
 import DevicesTab from './DevicesTab';
 import SlotsPanel from './SlotsPanel';
@@ -31,7 +30,7 @@ export default function DataCenterManage() {
     r.label?.toLowerCase().includes(dc.roomSearch.toLowerCase())
   );
 
-  const filteredRacks = dc.racks.filter((r: any) =>
+  const filteredRacks = dc.racks.filter((r: Rack) =>
     (!dc.rackSearch || r.name?.toLowerCase().includes(dc.rackSearch.toLowerCase())) &&
     (!dc.rackStatusFilter || r.status === dc.rackStatusFilter)
   );
@@ -39,10 +38,10 @@ export default function DataCenterManage() {
   const roomColumns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: '标签', dataIndex: 'label', key: 'label', render: (v: string) => <Tag>{v}</Tag> },
-    { title: '尺寸', key: 'size', render: (_: any, r: any) => `${r.width_m || 20}m × ${r.depth_m || 15}m` },
+    { title: '尺寸', key: 'size', render: (_: unknown, r: Room) => `${r.width_m || 20}m × ${r.depth_m || 15}m` },
     { title: '排序', dataIndex: 'sort_order', key: 'sort_order' },
     {
-      title: '操作', key: 'action', render: (_: any, rec: any) => (
+      title: '操作', key: 'action', render: (_: unknown, rec: Room) => (
         <Space>
           <Button type="link" size="small" icon={<Edit size={14} />}
             onClick={() => { dc.setEditingRoom(rec); dc.roomForm.setFieldsValue(rec); dc.setRoomModalOpen(true); }}>编辑</Button>
@@ -56,7 +55,7 @@ export default function DataCenterManage() {
 
   const rackColumns = [
     {
-      title: '编号', dataIndex: 'name', key: 'name', render: (v: string, r: any) => (
+      title: '编号', dataIndex: 'name', key: 'name', render: (v: string, r: Rack) => (
         <Space>
           <span>{v}</span>
           {r.status === 'warning' && <Tag color="orange" style={{ fontSize: 10 }}>⚠️</Tag>}
@@ -67,7 +66,7 @@ export default function DataCenterManage() {
     { title: '排号', dataIndex: 'row_number', key: 'row_number' },
     { title: 'U位', dataIndex: 'total_u', key: 'total_u' },
     {
-      title: '已用', key: 'used_u', render: (_: any, r: any) => {
+      title: '已用', key: 'used_u', render: (_: unknown, r: Rack) => {
         const pct = r.total_u > 0 ? Math.round(((r.used_u || 0) / r.total_u) * 100) : 0;
         const barColor = pct > 85 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-green-500';
         return (
@@ -82,13 +81,13 @@ export default function DataCenterManage() {
     },
     { title: '设备数', dataIndex: 'device_count', key: 'device_count' },
     {
-      title: '告警', key: 'alerts', render: (_: any, r: any) => {
+      title: '告警', key: 'alerts', render: (_: unknown, r: Rack) => {
         const ac = dc.rackAlertMap[r.id] || 0;
         return ac > 0 ? <Badge count={ac} size="small"><span className="text-red-400">🚨</span></Badge> : <span className="text-text-tertiary">-</span>;
       }
     },
     {
-      title: '操作', key: 'action', render: (_: any, rec: any) => (
+      title: '操作', key: 'action', render: (_: unknown, rec: Rack) => (
         <Space>
           <Button type="link" size="small" icon={<LayoutGrid size={14} />}
             onClick={() => { dc.setActiveTab('slots'); setTimeout(() => dc.selectRack(rec), 100); }}>U位</Button>
@@ -131,7 +130,7 @@ export default function DataCenterManage() {
     { title: '输入电压(V)', dataIndex: 'input_voltage', key: 'input_voltage', render: (v: number) => v ? `${v}V` : '-' },
     { title: 'IP地址', dataIndex: 'ip_address', key: 'ip_address', render: (v: string) => v || '-' },
     {
-      title: '操作', key: 'action', render: (_: any, rec: any) => (
+      title: '操作', key: 'action', render: (_: unknown, rec: PDU) => (
         <Space>
           <Button type="link" size="small" icon={<Edit size={14} />}
             onClick={() => { dc.setEditingPdu(rec); dc.pduForm.setFieldsValue(rec); dc.setPduModalOpen(true); }}>编辑</Button>
@@ -184,7 +183,7 @@ export default function DataCenterManage() {
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => dc.setRoomSearch(e.target.value)}
             allowClear
           />
-          <Table columns={roomColumns} dataSource={filteredRooms.map((r: any) => ({ ...r, key: r.id }))} loading={dc.loading} pagination={false} />
+          <Table columns={roomColumns} dataSource={filteredRooms.map((r: Room) => ({ ...r, key: r.id }))} loading={dc.loading} pagination={false} />
         </div>
       ),
     },
@@ -214,7 +213,7 @@ export default function DataCenterManage() {
               <Select.Option value="critical">严重</Select.Option>
             </Select>
           </Space>
-          <Table columns={rackColumns} dataSource={filteredRacks.map((r: any) => {
+          <Table columns={rackColumns} dataSource={filteredRacks.map((r: Rack) => {
             const room = dc.rooms.find(rm => rm.id === r.room_id);
             return { ...r, key: r.id, room_name: room?.name || room?.label || r.room_id };
           })} loading={dc.loading} pagination={false} scroll={{ x: 900 }} />
@@ -275,7 +274,7 @@ export default function DataCenterManage() {
             </Select>
             <Button icon={<Search size={14} />} onClick={dc.loadLifecycles}>刷新</Button>
           </Space>
-          <Table columns={lifecycleColumns} dataSource={dc.lifecycles.map((l: any) => ({ ...l, key: l.id }))}
+          <Table columns={lifecycleColumns} dataSource={dc.lifecycles.map((l: LifecycleRecord) => ({ ...l, key: l.id }))}
             pagination={{ pageSize: 50 }} scroll={{ x: 800 }} loading={dc.lifecyclesLoading} />
         </div>
       ),
@@ -284,7 +283,7 @@ export default function DataCenterManage() {
       key: 'pdus',
       label: <span><ToggleLeft size={14} className="inline mr-1" />PDU/UPS</span>,
       children: (
-        <Table columns={pduColumns} dataSource={dc.pdus.map((p: any) => ({ ...p, key: p.id }))}
+        <Table columns={pduColumns} dataSource={dc.pdus.map((p: PDU) => ({ ...p, key: p.id }))}
           pagination={false} scroll={{ x: 1000 }} loading={dc.pdusLoading} />
       ),
     },
@@ -339,7 +338,7 @@ export default function DataCenterManage() {
             { title: '描述', dataIndex: 'description', key: 'description', render: (v: string) => v || '-' },
             { title: '型号数量', dataIndex: 'type_count', key: 'type_count' },
             {
-              title: '操作', key: 'action', render: (_: any, rec: any) => (
+              title: '操作', key: 'action', render: (_: unknown, rec: Manufacturer) => (
                 <Space>
                   <Button type="link" size="small" icon={<Edit size={14} />}
                     onClick={() => { dc.setEditingMf(rec); dc.mfForm.setFieldsValue(rec); dc.setMfModalOpen(true); }}>编辑</Button>
@@ -350,7 +349,7 @@ export default function DataCenterManage() {
               )
             },
           ]}
-          dataSource={dc.manufacturers.map((m: any) => ({ ...m, key: m.id }))}
+          dataSource={dc.manufacturers.map((m: Manufacturer) => ({ ...m, key: m.id }))}
           loading={dc.mfLoading}
           pagination={false}
         />
@@ -368,7 +367,7 @@ export default function DataCenterManage() {
             { title: '高度(U)', dataIndex: 'u_height', key: 'u_height' },
             { title: '实例数', dataIndex: 'instance_count', key: 'instance_count' },
             {
-              title: '操作', key: 'action', render: (_: any, rec: any) => (
+              title: '操作', key: 'action', render: (_: unknown, rec: DeviceTypeInfo) => (
                 <Space>
                   <Button type="link" size="small" icon={<Edit size={14} />}
                     onClick={() => { dc.setEditingDt(rec); dc.dtForm.setFieldsValue(rec); dc.setDtModalOpen(true); }}>编辑</Button>
@@ -379,7 +378,7 @@ export default function DataCenterManage() {
               )
             },
           ]}
-          dataSource={dc.deviceTypes.map((t: any) => ({ ...t, key: t.id }))}
+          dataSource={dc.deviceTypes.map((t: DeviceTypeInfo) => ({ ...t, key: t.id }))}
           loading={dc.dtLoading}
           pagination={false}
         />
@@ -398,7 +397,7 @@ export default function DataCenterManage() {
             { title: '电压(V)', dataIndex: 'voltage', key: 'voltage' },
             { title: '馈线数', dataIndex: 'feed_count', key: 'feed_count' },
             {
-              title: '操作', key: 'action', render: (_: any, rec: any) => (
+              title: '操作', key: 'action', render: (_: unknown, rec: PowerPanel) => (
                 <Space>
                   <Button type="link" size="small" icon={<Edit size={14} />}
                     onClick={() => { dc.setEditingPp(rec); dc.ppForm.setFieldsValue(rec); dc.setPpModalOpen(true); }}>编辑</Button>
@@ -409,7 +408,7 @@ export default function DataCenterManage() {
               )
             },
           ]}
-          dataSource={dc.powerPanels.map((p: any) => ({ ...p, key: p.id }))}
+          dataSource={dc.powerPanels.map((p: PowerPanel) => ({ ...p, key: p.id }))}
           loading={dc.ppLoading}
           pagination={false}
         />
@@ -429,7 +428,7 @@ export default function DataCenterManage() {
             { title: '电流(A)', dataIndex: 'amperage', key: 'amperage' },
             { title: '功率(W)', dataIndex: 'max_power', key: 'max_power', render: (v: number) => v ? `${v}W` : '-' },
             {
-              title: '操作', key: 'action', render: (_: any, rec: any) => (
+              title: '操作', key: 'action', render: (_: unknown, rec: PowerFeed) => (
                 <Space>
                   <Button type="link" size="small" icon={<Edit size={14} />}
                     onClick={() => { dc.setEditingPf(rec); dc.pfForm.setFieldsValue(rec); dc.setPfModalOpen(true); }}>编辑</Button>
@@ -440,7 +439,7 @@ export default function DataCenterManage() {
               )
             },
           ]}
-          dataSource={dc.powerFeeds.map((f: any) => ({ ...f, key: f.id }))}
+          dataSource={dc.powerFeeds.map((f: PowerFeed) => ({ ...f, key: f.id }))}
           loading={dc.pfLoading}
           pagination={false}
         />
@@ -462,7 +461,7 @@ export default function DataCenterManage() {
             { title: 'B端设备', dataIndex: 'b_device_name', key: 'b_device_name' },
             { title: '长度(m)', dataIndex: 'length_m', key: 'length_m', render: (v: number) => v ? `${v}m` : '-' },
             {
-              title: '操作', key: 'action', render: (_: any, rec: any) => (
+              title: '操作', key: 'action', render: (_: unknown, rec: Cable) => (
                 <Space>
                   <Button type="link" size="small" icon={<Edit size={14} />}
                     onClick={() => { dc.setEditingCable(rec); dc.cableForm.setFieldsValue(rec); dc.setCableModalOpen(true); }}>编辑</Button>
@@ -473,7 +472,7 @@ export default function DataCenterManage() {
               )
             },
           ]}
-          dataSource={dc.cables.map((c: any) => ({ ...c, key: c.id }))}
+          dataSource={dc.cables.map((c: Cable) => ({ ...c, key: c.id }))}
           loading={dc.cableLoading}
           pagination={false}
         />
@@ -640,12 +639,12 @@ export default function DataCenterManage() {
             <Select placeholder="选择要分配到该机柜的设备..." showSearch filterOption={(input, option) =>
               (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
             }>
-              {dc.availDevices.map((d: any) => (
+              {dc.availDevices.map((d: DeviceSummary) => (
                 <Select.Option key={d.id} value={d.id}
                   label={`${d.name || d.device_name || '未命名'} (${d.device_type || '?'})`}>
                   <div className="flex justify-between">
                     <span>{d.name || d.device_name || '未命名'}</span>
-                    <Tag color={deviceTypeColors[d.device_type] || 'default'} className="text-[10px]">
+                    <Tag color={deviceTypeColors[d.device_type || ''] || 'default'} className="text-[10px]">
                       {d.device_type}
                     </Tag>
                   </div>
@@ -834,7 +833,7 @@ export default function DataCenterManage() {
           </Form.Item>
           <Form.Item name="manufacturer_id" label="制造商" rules={[{ required: true, message: '请选择制造商' }]}>
             <Select placeholder="选择制造商...">
-              {dc.manufacturers.map((m: any) => (
+              {dc.manufacturers.map((m: Manufacturer) => (
                 <Select.Option key={m.id} value={m.id}>{m.name}</Select.Option>
               ))}
             </Select>
@@ -900,7 +899,7 @@ export default function DataCenterManage() {
           </Form.Item>
           <Form.Item name="power_panel_id" label="配电柜" rules={[{ required: true, message: '请选择配电柜' }]}>
             <Select placeholder="选择配电柜...">
-              {dc.powerPanels.map((p: any) => (
+              {dc.powerPanels.map((p: PowerPanel) => (
                 <Select.Option key={p.id} value={p.id}>{p.name}</Select.Option>
               ))}
             </Select>

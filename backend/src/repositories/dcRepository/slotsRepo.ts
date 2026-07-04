@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DcRackSlot } from '../types/dc';
 
 export interface SlotRecord {
   id: string;
@@ -7,7 +8,6 @@ export interface SlotRecord {
   end_u: number;
   device_id?: string;
   device_type_id?: string;
-  [key: string]: unknown;
 }
 
 export interface SlotCreateInput {
@@ -76,7 +76,7 @@ export const slotsRepo = {
    * 全部 U 位 + 关联设备信息（servers/network_devices/virtual_machines）
    * 用于 slots.ts GET / 和 overview.ts
    */
-  listWithDeviceInfo(): Array<Record<string, unknown>> {
+  listWithDeviceInfo(): DcRackSlot[] {
     return db.prepare(`
       SELECT s.*,
         COALESCE(ser.name, nd.name, vm.name, s.device_id) as device_name,
@@ -90,11 +90,11 @@ export const slotsRepo = {
       LEFT JOIN network_devices nd ON s.device_type='network_device' AND s.device_id = nd.id
       LEFT JOIN virtual_machines vm ON s.device_type='vm_host' AND s.device_id = vm.id
       ORDER BY s.rack_id, s.start_u
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcRackSlot[];
   },
 
   /** 按机柜列出 U 位 + 设备信息 */
-  listByRackWithDeviceInfo(rackId: string): Array<Record<string, unknown>> {
+  listByRackWithDeviceInfo(rackId: string): DcRackSlot[] {
     return db.prepare(`
       SELECT s.*,
         COALESCE(ser.name, nd.name, vm.name, s.device_id) as device_name,
@@ -106,14 +106,14 @@ export const slotsRepo = {
       LEFT JOIN virtual_machines vm ON s.device_type='vm_host' AND s.device_id = vm.id
       WHERE s.rack_id = ?
       ORDER BY s.start_u
-    `).all(rackId) as Array<Record<string, unknown>>;
+    `).all(rackId) as DcRackSlot[];
   },
 
   /**
    * 列出机柜内的所有设备（用于线缆拓扑）
    * 返回 device_id, device_type, device_name, ip_address
    */
-  listDevicesByRack(rackId: string): Array<Record<string, unknown>> {
+  listDevicesByRack(rackId: string): DcRackSlot[] {
     return db.prepare(`
       SELECT DISTINCT s.id as device_id, 'server' as device_type, s.name as device_name,
         COALESCE(s.ip_address, '') as ip_address
@@ -125,15 +125,15 @@ export const slotsRepo = {
       FROM dc_rack_slots sl
       JOIN network_devices nd ON sl.device_id = nd.id
       WHERE sl.rack_id = ? AND sl.device_type = 'network_device'
-    `).all(rackId, rackId) as Array<Record<string, unknown>>;
+    `).all(rackId, rackId) as DcRackSlot[];
   },
 
   /** cables.ts /scene 用：列出已分配设备的位置信息 */
-  listAssignedWithPosition(): Array<Record<string, unknown>> {
+  listAssignedWithPosition(): DcRackSlot[] {
     return db.prepare(`
       SELECT s.device_id, s.device_type, s.rack_id, s.start_u, s.end_u
       FROM dc_rack_slots s WHERE s.device_id IS NOT NULL AND s.device_id != ''
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcRackSlot[];
   },
 
   create(input: SlotCreateInput): void {

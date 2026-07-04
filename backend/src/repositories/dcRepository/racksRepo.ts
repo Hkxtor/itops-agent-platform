@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DcRack } from '../types/dc';
 import type { DcRackRecord, DcRackCreateInput } from './types';
 
 export interface RackListFilters {
@@ -11,7 +12,7 @@ export const racksRepo = {
   /**
    * 机柜列表（带 room_name / device_count / used_u 聚合）
    */
-  list(filters: RackListFilters = {}): Array<Record<string, unknown>> {
+  list(filters: RackListFilters = {}): DcRack[] {
     let query = `
       SELECT r.*, rm.name as room_name, rm.label as room_label,
         (SELECT COUNT(*) FROM dc_rack_slots WHERE rack_id = r.id) as device_count,
@@ -27,7 +28,7 @@ export const racksRepo = {
     if (filters.status) { query += ' AND r.status = ?'; params.push(filters.status); }
     if (filters.search) { query += ' AND r.name LIKE ?'; params.push(`%${filters.search}%`); }
     query += ' ORDER BY r.sort_order ASC, r.name ASC';
-    return db.prepare(query).all(...params) as Array<Record<string, unknown>>;
+    return db.prepare(query).all(...params) as DcRack[];
   },
 
   getById(id: string): DcRackRecord | undefined {
@@ -97,7 +98,7 @@ export const racksRepo = {
    * 总览用：机柜 JOIN 机房，聚合 device_count / used_u / 温湿度
    * 按 room.sort_order, rack.sort_order 排序
    */
-  listForOverview(): Array<Record<string, unknown>> {
+  listForOverview(): DcRack[] {
     return db.prepare(`
       SELECT r.*, rm.name as room_name, rm.label as room_label,
         (SELECT COUNT(*) FROM dc_rack_slots WHERE rack_id = r.id) as device_count,
@@ -106,13 +107,13 @@ export const racksRepo = {
       FROM dc_racks r
       JOIN dc_rooms rm ON r.room_id = rm.id
       ORDER BY rm.sort_order, r.sort_order
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcRack[];
   },
 
   /**
    * DC 状态推送用：机柜利用率（仅统计已分配设备的 slot），按名称排序
    */
-  listWithOccupiedUtil(): Array<Record<string, unknown>> {
+  listWithOccupiedUtil(): DcRack[] {
     return db.prepare(`
       SELECT r.id, r.name,
         (SELECT COALESCE(SUM(end_u - start_u + 1), 0) FROM dc_rack_slots WHERE rack_id = r.id) as used_u,
@@ -120,6 +121,6 @@ export const racksRepo = {
         (SELECT COUNT(*) FROM dc_rack_slots WHERE rack_id = r.id AND device_id IS NOT NULL) as device_count
       FROM dc_racks r
       ORDER BY r.name
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcRack[];
   },
 };

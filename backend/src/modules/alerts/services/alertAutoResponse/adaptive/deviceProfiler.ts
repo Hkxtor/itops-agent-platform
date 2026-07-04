@@ -322,7 +322,7 @@ class DeviceProfiler {
       community?: string;
     } = {
       ip: nd.ip_address,
-      community: (nd.community as string) || undefined,
+      community: ((nd as any).community as string) || undefined,
     };
     if (nd.username) {
       creds.username = nd.username;

@@ -191,7 +191,7 @@ export function findDeviceByAlert(alertId: string): {
           return {
             id: sv.id,
             name: sv.name,
-            ip_address: sv.hostname || sv.ip_address,
+            ip_address: ((sv.hostname ?? '') || sv.ip_address) ?? '',
             device_type: 'server',
           };
         }

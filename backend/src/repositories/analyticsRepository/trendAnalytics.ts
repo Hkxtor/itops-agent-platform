@@ -5,6 +5,7 @@
 
 import db from '../../models/database';
 import type {
+  AnalyticsRow,
   InspectionHistoryTrend,
   DeviceTrend,
   TrendSummary,
@@ -40,7 +41,7 @@ export function getInspectionHistoryTrend(
       GROUP BY date(nih.created_at)
       ORDER BY day ASC`
     )
-    .all(...params) as Array<Record<string, unknown>>;
+    .all(...params) as Array<AnalyticsRow>;
 
   // 按天聚合告警
   const alertTrends = db
@@ -59,7 +60,7 @@ export function getInspectionHistoryTrend(
       ORDER BY day ASC`
     )
     .all(...(deviceId ? [...params, `%${deviceId}%`] : params)) as Array<
-    Record<string, unknown>
+    AnalyticsRow
   >;
 
   // 按天聚合修复执行
@@ -75,7 +76,7 @@ export function getInspectionHistoryTrend(
       GROUP BY date(started_at)
       ORDER BY day ASC`
     )
-    .all() as Array<Record<string, unknown>>;
+    .all() as Array<AnalyticsRow>;
 
   return {
     days: limit,

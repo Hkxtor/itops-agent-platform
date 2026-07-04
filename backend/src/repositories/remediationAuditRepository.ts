@@ -7,6 +7,7 @@
  */
 
 import db from '../models/database';
+import type { RemediationAudit, RemediationCooldown } from './types/auto';
 
 export interface RemediationAuditRecord {
   id: string;
@@ -22,7 +23,6 @@ export interface RemediationAuditRecord {
   is_rollback?: number | null;
   created_at?: string | null;
   completed_at?: string | null;
-  [key: string]: unknown;
 }
 
 export const remediationAuditRepository = {

@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import db from '../../../../models/database';
 import { logger } from '../../../../utils/logger';
 import type { RemediationPolicy, RemediationExecution, PolicyStats } from '../../../../types';
+import type { RemediationAlert } from '../remediationService/types';
 
 export const executionTrackerMixin = {
   async createSkippedExecution(policy: RemediationPolicy, alert: { id: string; source: string; severity?: string; title?: string; content?: string }, reason: string): Promise<RemediationExecution> {
@@ -148,7 +149,7 @@ export const executionTrackerMixin = {
 
   updateExecution(id: string, updates: Partial<RemediationExecution>): void {
     const fields: string[] = [];
-    const params: Record<string, unknown> = { id };
+    const params: Record<string, string | number | null> = { id };
 
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined && key !== 'id') {
@@ -177,7 +178,7 @@ export const executionTrackerMixin = {
     }
   },
 
-  updateCooldown(policy: RemediationPolicy, alert: Record<string, unknown>): void {
+  updateCooldown(policy: RemediationPolicy, alert: RemediationAlert): void {
     if (alert.id && typeof alert.id === 'string') {
       const cooldownUntil = new Date(Date.now() + policy.cooldown_seconds * 1000).toISOString();
       db.prepare(`

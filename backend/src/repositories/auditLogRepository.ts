@@ -16,7 +16,6 @@ export interface AuditLogRecord {
   details?: string | null;
   ip_address?: string | null;
   created_at: string;
-  [key: string]: unknown;
 }
 
 export interface AuditLogInsertInput {

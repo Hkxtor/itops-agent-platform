@@ -340,7 +340,7 @@ export class VMManagementService {
 
   listPlatformConfigs(): VMPlatformConfig[] {
     try {
-      const rows = db.prepare('SELECT * FROM vm_platforms ORDER BY name').all() as VmPlatformRow[];
+      const rows = db.prepare('SELECT * FROM vm_platforms ORDER BY name').all() as any[];
       return rows.map(row => ({
         id: row.id,
         name: row.name,

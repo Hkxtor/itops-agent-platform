@@ -86,6 +86,7 @@ interface ProviderNodeData {
 
 interface GenericNodeData {
   label?: string;
+  [key: string]: unknown;
 }
 
 type NodeData = AgentNodeData | ApprovalNodeData | ProviderNodeData | GenericNodeData;
@@ -130,7 +131,7 @@ const AgentNode = ({ data, selected }: { data: AgentNodeData; selected: boolean 
   );
 };
 
-const ApprovalNode = ({ data, selected }: { data: any; selected: boolean }) => {
+const ApprovalNode = ({ data, selected }: { data: ApprovalNodeData; selected: boolean }) => {
   return (
     <div
       className={`
@@ -157,7 +158,7 @@ const ApprovalNode = ({ data, selected }: { data: any; selected: boolean }) => {
   );
 };
 
-const ProviderNode = ({ data, selected }: { data: any; selected: boolean }) => {
+const ProviderNode = ({ data, selected }: { data: ProviderNodeData; selected: boolean }) => {
   const typeColors: Record<string, string> = {
     notification: 'border-blue-500 bg-blue-500/10',
     action: 'border-green-500 bg-green-500/10',
@@ -170,8 +171,8 @@ const ProviderNode = ({ data, selected }: { data: any; selected: boolean }) => {
     script: '📜',
     alert: '🚨',
   };
-  const tc = typeColors[data.providerType] || 'border-gray-500 bg-gray-500/10';
-  const ti = typeIcons[data.providerType] || '🔧';
+  const tc = typeColors[data.providerType || ''] || 'border-gray-500 bg-gray-500/10';
+  const ti = typeIcons[data.providerType || ''] || '🔧';
 
   return (
     <div
@@ -205,7 +206,7 @@ const ProviderNode = ({ data, selected }: { data: any; selected: boolean }) => {
 const defaultNodeStyle = (color: string, selected: boolean) =>
   `px-4 py-3 rounded-lg shadow-md border-2 min-w-[140px] ${selected ? `border-${color}-500 bg-${color}-500/20 ring-2 ring-${color}-500/30` : `border-${color}-500/40 bg-${color}-500/10`} transition-all duration-200`;
 
-const StartNode = ({ data, selected }: any) => (
+const StartNode = ({ data, selected }: { data: GenericNodeData; selected: boolean }) => (
   <div className={defaultNodeStyle('green', selected)} style={{ borderRadius: '9999px' }}>
     <Handle type="source" position={Position.Right} className="w-3 h-3 bg-green-500" />
     <span className="font-semibold text-sm">{data.label || '开始'}</span>
@@ -219,7 +220,7 @@ const EndNode = ({ data, selected }: { data: GenericNodeData; selected: boolean 
   </div>
 );
 
-const ConditionNode = ({ data, selected }: any) => (
+const ConditionNode = ({ data, selected }: { data: GenericNodeData; selected: boolean }) => (
   <div className={defaultNodeStyle('yellow', selected)} style={{ transform: 'rotate(0deg)' }}>
     <Handle type="target" position={Position.Left} className="w-3 h-3 bg-yellow-500" />
     <div className="text-sm font-semibold">◇ {data.label || '条件'}</div>
@@ -227,16 +228,16 @@ const ConditionNode = ({ data, selected }: any) => (
   </div>
 );
 
-const VerificationNode = ({ data, selected }: any) => (
+const VerificationNode = ({ data, selected }: { data: GenericNodeData; selected: boolean }) => (
   <div className={defaultNodeStyle('cyan', selected)}>
     <Handle type="target" position={Position.Left} className="w-3 h-3 bg-cyan-500" />
     <div className="flex items-center gap-1"><Shield className="w-4 h-4 text-cyan-400" /><span className="font-semibold text-sm">{data.label || '验证'}</span></div>
-    {data.gates && <div className="text-xs text-cyan-300 mt-1">{data.gates.length} 级门禁</div>}
+    {data.gates ? <div className="text-xs text-cyan-300 mt-1">{(data.gates as unknown as Array<unknown>).length} 级门禁</div> : null}
     <Handle type="source" position={Position.Right} className="w-3 h-3 bg-cyan-500" />
   </div>
 );
 
-const RiskAssessNode = ({ data, selected }: any) => (
+const RiskAssessNode = ({ data, selected }: { data: GenericNodeData; selected: boolean }) => (
   <div className={defaultNodeStyle('amber', selected)}>
     <Handle type="target" position={Position.Left} className="w-3 h-3 bg-amber-500" />
     <div className="flex items-center gap-1"><AlertCircle className="w-4 h-4 text-amber-400" /><span className="font-semibold text-sm">{data.label || '风险评估'}</span></div>
@@ -252,7 +253,7 @@ const DecisionNode = ({ data, selected }: { data: GenericNodeData; selected: boo
   </div>
 );
 
-const KnowledgeNode = ({ data, selected }: any) => (
+const KnowledgeNode = ({ data, selected }: { data: GenericNodeData; selected: boolean }) => (
   <div className={defaultNodeStyle('emerald', selected)}>
     <Handle type="target" position={Position.Left} className="w-3 h-3 bg-emerald-500" />
     <div className="flex items-center gap-1"><Save className="w-4 h-4 text-emerald-400" /><span className="font-semibold text-sm">{data.label || '知识沉淀'}</span></div>
@@ -260,7 +261,7 @@ const KnowledgeNode = ({ data, selected }: any) => (
   </div>
 );
 
-const RollbackNode = ({ data, selected }: any) => (
+const RollbackNode = ({ data, selected }: { data: GenericNodeData; selected: boolean }) => (
   <div className={defaultNodeStyle('rose', selected)}>
     <Handle type="target" position={Position.Left} className="w-3 h-3 bg-rose-500" />
     <div className="flex items-center gap-1"><Undo className="w-4 h-4 text-rose-400" /><span className="font-semibold text-sm">{data.label || '回滚'}</span></div>
@@ -325,7 +326,7 @@ function WorkflowEditorContent() {
     queryKey: ['workflow-providers'],
     queryFn: async () => {
       const res = await api.get('/api/workflows/providers/list');
-      return (res.data.data || []) as { id: string; name: string; type: string; configSchema: any }[];
+      return (res.data.data || []) as { id: string; name: string; type: string; configSchema: Record<string, unknown> | null }[];
     },
   });
 
@@ -461,6 +462,7 @@ function WorkflowEditorContent() {
       if (!reactFlowWrapper.current) return;
 
       const nodeType = event.dataTransfer.getData('application/reactflow/nodeType');
+      if (!reactFlowInstance) return;
       const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
@@ -1118,7 +1120,7 @@ function WorkflowEditorContent() {
                                   />
                                 ) : schema.enum ? (
                                   <select
-                                    value={((selectedNode.data as ProviderNodeData)?.config)?.[key] || ''}
+                                    value={String(((selectedNode.data as ProviderNodeData)?.config)?.[key] || '')}
                                     onChange={(e) => {
                                       const newConfig = { ...((selectedNode.data as ProviderNodeData)?.config || {}), [key]: e.target.value };
                                       setNodes((nds) => nds.map((n) => n.id === selectedNode.id ? { ...n, data: { ...n.data, config: newConfig } } : n));
@@ -1134,7 +1136,7 @@ function WorkflowEditorContent() {
                                 ) : (
                                   <input
                                     type={schema.type === 'number' ? 'number' : 'text'}
-                                    value={((selectedNode.data as ProviderNodeData)?.config)?.[key] || ''}
+                                    value={String(((selectedNode.data as ProviderNodeData)?.config)?.[key] || '')}
                                     onChange={(e) => {
                                       const val = schema.type === 'number' ? Number(e.target.value) : e.target.value;
                                       const newConfig = { ...((selectedNode.data as ProviderNodeData)?.config || {}), [key]: val };

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,6 +21,40 @@ interface SnmpCredential {
   host?: string;
   created_at: string;
   updated_at: string;
+}
+
+type ApiError = { response?: { data?: { message?: string } }; message?: string };
+
+type SnmpQueryResult = {
+  type: 'system-info';
+  data: Record<string, unknown>;
+} | {
+  type: 'interfaces';
+  data: SnmpInterface[];
+} | {
+  type: 'error';
+  data: string;
+};
+
+interface SnmpInterface {
+  index: string;
+  name: string;
+  descr: string;
+  operStatus: string;
+  speed?: number;
+  physAddr?: string;
+}
+
+interface SnmpTrap {
+  received_at?: string;
+  timestamp?: string;
+  sourceIp?: string;
+  source?: string;
+  severity?: string;
+  message?: string;
+  description?: string;
+  data?: unknown;
+  oid?: string;
 }
 
 const VERDOR_OPTIONS = [
@@ -81,7 +114,7 @@ export default function SNMP() {
         setTestResult({ host: form.host, status: 'fail', msg: res.data.message || '连接失败' });
       }
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       setTestResult({ host: form.host, status: 'fail', msg: err.response?.data?.message || err.message });
     },
   });
@@ -136,7 +169,7 @@ export default function SNMP() {
       // 3秒后自动清除
       setTimeout(() => setCredTestResults(prev => { const n = { ...prev }; delete n[cred.id]; return n; }), 3000);
     },
-    onError: (err: any, cred) => {
+    onError: (err: ApiError, cred: SnmpCredential) => {
       setCredTestResults(prev => ({
         ...prev,
         [cred.id]: { status: 'fail', msg: err.response?.data?.message || err.message },
@@ -155,7 +188,7 @@ export default function SNMP() {
   const [queryHost, setQueryHost] = useState('');
   const [queryCommunity, setQueryCommunity] = useState('public');
   const [queryVersion, setQueryVersion] = useState('v2c');
-  const [queryResult, setQueryResult] = useState<any>(null);
+  const [queryResult, setQueryResult] = useState<SnmpQueryResult | null>(null);
   const [queryLoading, setQueryLoading] = useState(false);
 
   const fetchSystemInfo = async () => {
@@ -166,8 +199,9 @@ export default function SNMP() {
         host: queryHost, community: queryCommunity, version: queryVersion,
       });
       setQueryResult({ type: 'system-info', data: res.data.data });
-    } catch (err: any) {
-      setQueryResult({ type: 'error', data: err.response?.data?.message || err.message });
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      setQueryResult({ type: 'error', data: e.response?.data?.message || e.message || '请求失败' });
     }
     setQueryLoading(false);
   };
@@ -180,8 +214,9 @@ export default function SNMP() {
         host: queryHost, community: queryCommunity, version: queryVersion,
       });
       setQueryResult({ type: 'interfaces', data: res.data.data });
-    } catch (err: any) {
-      setQueryResult({ type: 'error', data: err.response?.data?.message || err.message });
+    } catch (err: unknown) {
+      const e = err as ApiError;
+      setQueryResult({ type: 'error', data: e.response?.data?.message || e.message || '请求失败' });
     }
     setQueryLoading(false);
   };
@@ -414,7 +449,7 @@ export default function SNMP() {
                   <p className="text-xs mt-1">点击"新增凭证"添加网络设备的 SNMP 配置</p>
                 </div>
               ) : (
-                credentials.filter((c: any) =>
+                credentials.filter((c: SnmpCredential) =>
                   !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   (c.snmp_user || '').toLowerCase().includes(searchQuery.toLowerCase())
                 ).map((cred: SnmpCredential) => (
@@ -573,7 +608,7 @@ export default function SNMP() {
                     <Monitor className="w-4 h-4 text-emerald-400" />
                     <h4 className="font-medium text-text-primary">系统信息 - {queryHost}</h4>
                   </div>
-                  {queryResult.data && Object.entries(queryResult.data).map(([key, val]: any) => (
+                  {queryResult.data && Object.entries(queryResult.data).map(([key, val]) => (
                     <div key={key} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
                       <span className="text-sm text-text-secondary min-w-[140px] font-mono">{key}</span>
                       <span className="text-sm text-text-primary">{String(val)}</span>
@@ -601,7 +636,7 @@ export default function SNMP() {
                           </tr>
                         </thead>
                         <tbody>
-                          {queryResult.data.map((iface: any, idx: number) => (
+                          {queryResult.data.map((iface: SnmpInterface, idx: number) => (
                             <tr key={idx} className="border-b border-border/50 hover:bg-background/50">
                               <td className="py-2 pr-4 font-mono text-text-tertiary">{iface.index}</td>
                               <td className="py-2 pr-4 text-text-primary">{iface.name}</td>
@@ -668,12 +703,12 @@ export default function SNMP() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {traps.map((trap: any, idx: number) => (
+                  {traps.map((trap: SnmpTrap, idx: number) => (
                     <div key={idx} className="bg-background rounded-lg p-3 border border-border/50">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono text-text-tertiary">
-                            {new Date(trap.received_at || trap.timestamp).toLocaleString()}
+                            {new Date((trap.received_at || trap.timestamp) ?? 0).toLocaleString()}
                           </span>
                           <span className="text-xs text-primary font-mono">{trap.sourceIp || trap.source}</span>
                         </div>

@@ -5,7 +5,9 @@ import type {
   AgentCapability,
   TaskContext,
   ExecutionResult,
-  SpecialistRegistryEntry} from './types';
+  SpecialistRegistryEntry,
+  ExecutionMetadata
+} from './types';
 
 /**
  * Specialist 基类
@@ -86,7 +88,7 @@ export abstract class SpecialistBase {
     output: string,
     options?: {
       error?: string;
-      metadata?: Record<string, unknown>;
+      metadata?: ExecutionMetadata;
       duration?: number;
       confidence?: number;
       nextActions?: string[];

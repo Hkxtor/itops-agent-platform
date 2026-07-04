@@ -2,6 +2,9 @@
  * analyticsRepository — 共享类型定义
  */
 
+/** 分析查询返回的动态行类型（SQL 动态列） */
+export type AnalyticsRow = Record<string, unknown>;
+
 export interface InspectionCenterCounts {
   total: number;
   inspections: number;
@@ -11,7 +14,7 @@ export interface InspectionCenterCounts {
 }
 
 export interface InspectionCenterResult {
-  results: Array<Record<string, unknown>>;
+  results: Array<AnalyticsRow>;
   counts: InspectionCenterCounts;
 }
 
@@ -29,13 +32,13 @@ export interface DeviceOverview {
   };
   alert_count: number;
   open_alert_count: number;
-  alerts: Array<Record<string, unknown>>;
+  alerts: Array<AnalyticsRow>;
   inspection_count: number;
-  inspections: Array<Record<string, unknown>>;
+  inspections: Array<AnalyticsRow>;
   analysis_count: number;
-  analyses: Array<Record<string, unknown>>;
+  analyses: Array<AnalyticsRow>;
   execution_count: number;
-  executions: Array<Record<string, unknown>>;
+  executions: Array<AnalyticsRow>;
 }
 
 export interface DashboardLinkageStats {
@@ -48,16 +51,16 @@ export interface DashboardLinkageStats {
 
 export interface InspectionHistoryTrend {
   days: number;
-  daily_inspections: Array<Record<string, unknown>>;
-  alert_trends: Array<Record<string, unknown>>;
-  remediation_trends: Array<Record<string, unknown>>;
+  daily_inspections: Array<AnalyticsRow>;
+  alert_trends: Array<AnalyticsRow>;
+  remediation_trends: Array<AnalyticsRow>;
 }
 
 export interface DeviceTrend {
   device_id: string;
   days: number;
   metric: string;
-  points: Array<Record<string, unknown>>;
+  points: Array<AnalyticsRow>;
 }
 
 export interface TrendSummary {
@@ -109,7 +112,6 @@ export interface AgentStatItem {
   success_count: number;
   error_count: number;
   successRate: number | null;
-  [key: string]: unknown;
 }
 
 export interface AgentStatsResult {
@@ -139,7 +141,7 @@ export interface RemediationStats {
     avg_duration_ms: number;
   };
   waiting_approval: number;
-  recent_executions: Array<Record<string, unknown>>;
+  recent_executions: Array<AnalyticsRow>;
 }
 
 export interface SlaStats {
@@ -174,22 +176,22 @@ export interface ServerMetricsDashboard {
 
 export interface FullDashboard {
   stats: DashboardStats;
-  recentTasks: Array<Record<string, unknown>>;
-  recentAlerts: Array<Record<string, unknown>>;
-  servers: Array<Record<string, unknown>>;
+  recentTasks: Array<AnalyticsRow>;
+  recentAlerts: Array<AnalyticsRow>;
+  servers: Array<AnalyticsRow>;
 }
 
 export interface AlertSourceStats {
-  source_stats: Array<Record<string, unknown>>;
-  webhook_logs_24h: Array<Record<string, unknown>>;
-  last_24h: Array<Record<string, unknown>>;
+  source_stats: Array<AnalyticsRow>;
+  webhook_logs_24h: Array<AnalyticsRow>;
+  last_24h: Array<AnalyticsRow>;
   total: number;
   active: number;
 }
 
 export interface ReportAnalytics {
-  alertTrends: Array<Record<string, unknown>>;
+  alertTrends: Array<AnalyticsRow>;
   analysisStats: { total: number; completed: number; failed: number };
   remediationStats: { total: number; success_count: number; failed_count: number; rolled_back: number };
-  topDiagnoses: Array<Record<string, unknown>>;
+  topDiagnoses: Array<AnalyticsRow>;
 }

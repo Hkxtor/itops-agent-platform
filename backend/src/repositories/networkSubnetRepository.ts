@@ -14,6 +14,7 @@
 
 import { randomUUID } from 'crypto';
 import db from '../models/database';
+import type { NetworkSubnet, NetworkIp } from './types/network';
 
 // ── network_subnets 类型 ──
 
@@ -31,7 +32,6 @@ export interface NetworkSubnetRecord {
   used_ips?: number | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 /** 子网列表行（含 used_ips 动态统计） */
@@ -75,7 +75,6 @@ export interface NetworkIpRecord {
   description?: string | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface NetworkIpUpdateInput {

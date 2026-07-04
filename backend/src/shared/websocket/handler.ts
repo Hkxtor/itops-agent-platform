@@ -9,6 +9,9 @@ import { containerMonitorService } from '../../modules/containers/services/conta
 import { containerLogService } from '../../modules/containers/services/containerLogService';
 import type { User } from '../../types';
 
+/** WebSocket 消息负载类型 */
+export type WSMessagePayload = Record<string, unknown>;
+
 interface SocketWithUser extends Socket {
   user?: User;
   terminalSessionIds?: Set<string>;
@@ -212,18 +215,18 @@ export function setupWebSocket(io: SocketIOServer) {
   // Graceful shutdown 由 app.ts 统一管理（调用 io.close() + shutdownAllServices）
 }
 
-export function emitToTask(io: SocketIOServer, taskId: string, event: string, data: Record<string, unknown>) {
+export function emitToTask(io: SocketIOServer, taskId: string, event: string, data: WSMessagePayload) {
   io.to(`task:${taskId}`).emit(event, { taskId, ...data });
 }
 
-export function emitToAlerts(io: SocketIOServer, event: string, data: Record<string, unknown>) {
+export function emitToAlerts(io: SocketIOServer, event: string, data: WSMessagePayload) {
   io.to('alerts').emit(event, data);
 }
 
-export function broadcast(io: SocketIOServer, event: string, data: Record<string, unknown>) {
+export function broadcast(io: SocketIOServer, event: string, data: WSMessagePayload) {
   io.emit(event, data);
 }
 
-export function emitToDC(io: SocketIOServer, event: string, data: Record<string, unknown>) {
+export function emitToDC(io: SocketIOServer, event: string, data: WSMessagePayload) {
   io.to('dc-room').emit(event, data);
 }

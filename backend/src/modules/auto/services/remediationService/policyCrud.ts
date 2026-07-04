@@ -139,7 +139,7 @@ export function listPolicies(
   if (filters.enabled !== undefined) repoFilters.enabled = filters.enabled ? 1 : 0;
   if (filters.alert_source) repoFilters.alert_source = filters.alert_source;
 
-  const policies = remediationPolicyRepository.list(repoFilters) as RemediationPolicy[];
+  const policies = remediationPolicyRepository.list(repoFilters) as unknown as RemediationPolicy[];
   const total = remediationPolicyRepository.countAll(repoFilters);
 
   return { policies, total };

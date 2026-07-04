@@ -131,7 +131,7 @@ router.put('/:id', requireRole('admin'), validateParams(sshKeyIdSchema), validat
       return res.status(404).json({ success: false, error: 'SSH key not found' });
     }
 
-    const { name, auth_type, username, password, private_key, description } = req.body as Record<string, unknown>;
+    const { name, auth_type, username, password, private_key, description } = req.body as Record<string, string>;
 
     if (name) {
       const existing = serverRepository.sshKeys.findByNameExcludeId(name as string, req.params.id);

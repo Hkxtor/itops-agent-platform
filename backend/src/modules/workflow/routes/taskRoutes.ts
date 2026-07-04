@@ -13,7 +13,7 @@ router.get('/', (req: Request, res: Response) => {
     const tasks = workflowRepository.tasks.list({
       status: status as string | undefined,
       limit: limit ? parseInt(limit as string) : undefined,
-    }) as Array<{ node_results?: string; logs?: string; metrics?: string; context?: string; execution_order?: string; [key: string]: unknown }>;
+    }) as any[];
     tasks.forEach((t) => {
       if (t.node_results) t.node_results = JSON.parse(t.node_results);
       if (t.logs) t.logs = JSON.parse(t.logs);
@@ -33,7 +33,7 @@ router.get('/:id', (req: Request, res: Response) => {
     if (!task) {
       return res.status(404).json({ success: false, error: 'Task not found' });
     }
-    const t = task as Record<string, unknown>;
+    const t = task as any;
     if (t.node_results) t.node_results = JSON.parse(t.node_results as string);
     if (t.logs) t.logs = JSON.parse(t.logs as string);
     if (t.metrics) t.metrics = JSON.parse(t.metrics as string);

@@ -12,23 +12,19 @@ export interface DcRackRecord {
   position_z?: number;
   created_at?: string;
   updated_at?: string;
-  [key: string]: unknown;
 }
 
 export interface DcDeviceRecord {
   id: string;
   name?: string;
-  [key: string]: unknown;
 }
 
 export interface DcPduRecord {
   id: string;
-  [key: string]: unknown;
 }
 
 export interface DcCableRecord {
   id: string;
-  [key: string]: unknown;
 }
 
 export interface DcRackCreateInput {
@@ -45,5 +41,4 @@ export interface DcRackCreateInput {
 export interface DcDeviceCreateInput {
   id: string;
   name?: string;
-  [key: string]: unknown;
 }

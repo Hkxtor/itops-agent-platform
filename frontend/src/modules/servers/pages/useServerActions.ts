@@ -32,6 +32,8 @@ interface ServerImportItem {
 interface ImportResult {
   success: number;
   failed: number;
+  skipped?: number;
+  details?: Array<{ name: string; error?: string }>;
   errors?: string[];
 }
 
@@ -476,7 +478,7 @@ export function useServerActions() {
       use_ssh_key: !!server.use_ssh_key,
       description: server.description || '',
       tags: server.tags ? server.tags.join(', ') : '',
-      os_type: server.os_type || 'linux',
+      os_type: (server.os_type === 'windows' ? 'windows' : 'linux'),
       vnc_port: server.vnc_port || 5900,
       vnc_password: '',
     });
@@ -710,7 +712,7 @@ ${serverInfo.disk_gb ? `磁盘大小：${serverInfo.disk_gb}GB` : ''}
         return;
       }
 
-      const result = await importServersMutation.mutateAsync({ servers, test_connection: true });
+      const result = await importServersMutation.mutateAsync({ servers: servers as ServerImportItem[], test_connection: true });
       setImportResult(result.data);
       toast.success(`导入成功: ${result.data.success} 成功, ${result.data.failed} 失败`);
     } catch (err) {

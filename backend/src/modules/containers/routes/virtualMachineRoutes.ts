@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { requireRole } from '../../../middleware/auth';
 import { vmManagementService } from '../services/vmManagement';
 import { getErrorMessage } from '../../../utils/errorHelpers';
+import type { VirtualMachine, VMDisk } from '../../../types/vmManagement';
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string; username: string };
@@ -94,7 +95,16 @@ router.get('/stats', async (req: Request, res: Response) => {
   try {
     // 聚合所有平台的 VM 统计
     const platforms = vmManagementService.listPlatformConfigs();
-    const platformStats: Array<Record<string, unknown>> = [];
+    interface PlatformStat {
+      platformId: string;
+      platformName: string;
+      total?: number;
+      running?: number;
+      stopped?: number;
+      suspended?: number;
+      error?: string;
+    }
+    const platformStats: PlatformStat[] = [];
 
     for (const p of platforms) {
       try {
@@ -103,9 +113,9 @@ router.get('/stats', async (req: Request, res: Response) => {
           platformId: p.id,
           platformName: p.name,
           total: vms.length,
-          running: vms.filter((v: Record<string, unknown>) => v.powerState === 'poweredOn').length,
-          stopped: vms.filter((v: Record<string, unknown>) => v.powerState === 'poweredOff').length,
-          suspended: vms.filter((v: Record<string, unknown>) => v.powerState === 'suspended').length,
+          running: vms.filter((v: VirtualMachine) => v.powerState === 'poweredOn').length,
+          stopped: vms.filter((v: VirtualMachine) => v.powerState === 'poweredOff').length,
+          suspended: vms.filter((v: VirtualMachine) => v.powerState === 'suspended').length,
         });
       } catch {
         platformStats.push({
@@ -524,7 +534,7 @@ router.post('/:id/clone', requireRole('admin', 'operator'), async (req: Request,
     }, userId, username);
 
     // 同步到 SQLite
-    const totalDiskGB = (cloned.disks || []).reduce((sum: number, d: Record<string, unknown>) => sum + ((d.sizeGB as number) || 0), 0);
+    const totalDiskGB = (cloned.disks || []).reduce((sum: number, d: VMDisk) => sum + (d.sizeGB || 0), 0);
     virtualMachineRepository.insertOrReplace({
       id: cloned.id,
       name: cloned.name,

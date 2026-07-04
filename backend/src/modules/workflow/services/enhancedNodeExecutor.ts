@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Phase 1: 增强节点执行器
  * 将 AARS 的 verification/risk_assess/decision/knowledge/rollback 能力
  * 移植为工作流标准节点执行逻辑
@@ -8,7 +8,7 @@ import { serversRepo, settingsRepository } from '../../../repositories';
 import { logger } from '../../../utils/logger';
 import { createAuditLog } from '../../infra/services/auditService';
 import { executeCommand } from '../../servers/services/sshService';
-import { knowledgeEngine } from '../../../core/KnowledgeEngine';
+import { knowledgeEngine } from '../../ai/services/KnowledgeEngine';
 import type { NodeResult, ExecutionContext } from '../../../types';
 import type {
   VerificationNodeConfig,
@@ -112,7 +112,7 @@ async function runGateCheck(stage: VerificationStage, serverId?: string): Promis
     return { passed: false, detail: '未指定服务器，无法执行验证' };
   }
 
-  const server = serversRepo.getById(serverId) as Record<string, unknown> | undefined;
+  const server = serversRepo.getById(serverId) as { id: string; hostname: string; port: number; username: string; use_ssh_key: number; private_key?: string; password?: string } | undefined;
   if (!server) {
     return { passed: false, detail: `服务器 ${serverId} 不存在` };
   }
@@ -138,7 +138,7 @@ async function runGateCheck(stage: VerificationStage, serverId?: string): Promis
   }
 }
 
-async function checkServiceHealth(server: Record<string, unknown>): Promise<{ passed: boolean; detail: string }> {
+async function checkServiceHealth(server: { id: string; hostname: string; port: number; username: string; use_ssh_key: number; private_key?: string; password?: string }): Promise<{ passed: boolean; detail: string }> {
   try {
     // 检查系统关键服务：sshd, cron, rsyslog/systemd-journald
     const result = await executeCommand(
@@ -160,7 +160,7 @@ async function checkServiceHealth(server: Record<string, unknown>): Promise<{ pa
   }
 }
 
-async function checkMetricRecovery(server: Record<string, unknown>): Promise<{ passed: boolean; detail: string }> {
+async function checkMetricRecovery(server: { id: string; hostname: string; port: number; username: string; use_ssh_key: number; private_key?: string; password?: string }): Promise<{ passed: boolean; detail: string }> {
   try {
     const result = await executeCommand(
       server.id as string,
@@ -191,7 +191,7 @@ async function checkMetricRecovery(server: Record<string, unknown>): Promise<{ p
   }
 }
 
-async function checkBaselineComparison(server: Record<string, unknown>): Promise<{ passed: boolean; detail: string }> {
+async function checkBaselineComparison(server: { id: string; hostname: string; port: number; username: string; use_ssh_key: number; private_key?: string; password?: string }): Promise<{ passed: boolean; detail: string }> {
   try {
     // 简单基线对比：获取当前负载和最近一次记录的负载
     const result = await executeCommand(
@@ -217,7 +217,7 @@ async function checkBaselineComparison(server: Record<string, unknown>): Promise
   }
 }
 
-async function checkImpactAssessment(server: Record<string, unknown>): Promise<{ passed: boolean; detail: string }> {
+async function checkImpactAssessment(server: { id: string; hostname: string; port: number; username: string; use_ssh_key: number; private_key?: string; password?: string }): Promise<{ passed: boolean; detail: string }> {
   try {
     // 检查关键进程和端口是否正常
     const result = await executeCommand(
@@ -390,7 +390,7 @@ export function executeDecisionNode(
   let riskLevel = 'medium';
 
   if (config.riskSourceNodeId && nodeResults[config.riskSourceNodeId]?.metadata) {
-    const meta = nodeResults[config.riskSourceNodeId].metadata as Record<string, unknown> || {};
+    const meta = nodeResults[config.riskSourceNodeId].metadata as Record<string, string | number | boolean> || {};
     riskScore = (meta.overallRiskScore as number) || 0.5;
     riskLevel = (meta.riskLevel as string) || 'medium';
   }
@@ -532,7 +532,7 @@ export async function executeRollbackNode(
     action: 'rollback_executed',
     resource_type: 'rollback',
     resource_id: serverId,
-    details: { commands: rollbackCommands, results: results.map((r: { command: string; success: boolean; output: string }) => ({ success: r.success })) },
+    details: { commands: JSON.stringify(rollbackCommands), results: JSON.stringify(results.map((r: { command: string; success: boolean; output: string }) => ({ success: r.success }))) },
   });
 
   return {

@@ -1,22 +1,9 @@
 import db from '../models/database';
-
-export interface K8sContextRow {
-  id: string;
-  name: string;
-  cluster_url: string;
-  namespace: string;
-  auth_type: string;
-  config: string;
-  status: string;
-  node_count: number;
-  pod_count: number;
-  created_at: string;
-  updated_at: string;
-}
+import type { K8sContext } from './types/kubernetes';
 
 export const k8sContextRepository = {
-  listActive(): K8sContextRow[] {
-    return db.prepare('SELECT * FROM k8s_contexts WHERE status = ?').all('active') as K8sContextRow[];
+  listActive(): K8sContext[] {
+    return db.prepare('SELECT * FROM k8s_contexts WHERE status = ?').all('active') as K8sContext[];
   },
 
   insert(input: {

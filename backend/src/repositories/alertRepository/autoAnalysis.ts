@@ -1,6 +1,7 @@
 // ── autoAnalysis 子 repository（alert_auto_analysis 表）──
 
 import db from '../../models/database';
+import type { AlertAutoAnalysis } from '../types/alert';
 
 /** alert_auto_analysis 表记录 */
 export interface AutoAnalysisRecord {
@@ -18,7 +19,6 @@ export interface AutoAnalysisRecord {
   error_message?: string | null;
   duration_ms: number;
   created_at: string;
-  [key: string]: unknown;
 }
 
 /** 持久化输入（commands_executed 为已 JSON 序列化的字符串） */

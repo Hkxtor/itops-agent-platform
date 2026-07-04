@@ -104,7 +104,7 @@ export const policyEngineMixin = {
   },
 
   getCatchAllPolicies(_source: string): RemediationPolicy[] {
-    return remediationPolicyRepository.findCatchAll() as RemediationPolicy[];
+    return remediationPolicyRepository.findCatchAll() as unknown as RemediationPolicy[];
   },
 
   isInCooldown(policy: RemediationPolicy, alert: { id: string }): boolean {

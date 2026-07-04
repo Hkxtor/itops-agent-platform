@@ -31,6 +31,11 @@ import {
 // Re-export types for convenience（barrel 也会 re-export，这里仅为本模块内部引用方便）
 export type { LLMTool, ToolCall, LLMResponse, ChatMessage };
 
+// ── 语义化类型别名 ──
+
+/** LLM API 请求体 */
+type LLMAPIRequest = Record<string, unknown>;
+
 // ── 通用 LLM API 调用（带工具） ──
 
 /**
@@ -79,7 +84,7 @@ export async function callLLMAPIWithTools(
       { role: 'user', content: userInput }
     ];
 
-    const requestBody: Record<string, unknown> = {
+    const requestBody: LLMAPIRequest = {
       model,
       messages,
       temperature,

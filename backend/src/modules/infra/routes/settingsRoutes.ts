@@ -333,8 +333,8 @@ router.put('/api-keys', requireRole('admin'), (req: Request, res: Response) => {
     }
 
     // Store local AI key if there's a way to provide it
-    if ((req.body as Record<string, unknown>).localAiApiKey !== undefined) {
-      const localAiApiKey = (req.body as Record<string, unknown>).localAiApiKey as string;
+    if ((req.body as { localAiApiKey?: string }).localAiApiKey !== undefined) {
+      const localAiApiKey = (req.body as { localAiApiKey?: string }).localAiApiKey as string;
       if (localAiApiKey === '') {
         credentialService.deleteCredential('local_ai');
       } else if (localAiApiKey) {

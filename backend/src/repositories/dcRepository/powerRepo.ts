@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DcPowerPanel, DcPowerFeed } from '../types/dc';
 
 export interface PowerPanelCreateInput {
   id: string;
@@ -72,32 +73,32 @@ export const powerRepo = {
   // ── 配电柜（power_panels）──
 
   /** 配电柜列表 + 机房名 + 馈线数（powerPanels.ts GET /） */
-  listPanels(): Array<Record<string, unknown>> {
+  listPanels(): DcPowerPanel[] {
     return db.prepare(`
       SELECT pp.*, r.name as room_name, r.label as room_label,
         (SELECT COUNT(*) FROM dc_power_feeds WHERE power_panel_id = pp.id) as feed_count
       FROM dc_power_panels pp
       JOIN dc_rooms r ON r.id = pp.room_id
       ORDER BY r.sort_order, pp.sort_order
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcPowerPanel[];
   },
 
   /** 单个配电柜 + 机房名（powerPanels.ts GET /:id） */
-  getPanelById(id: string): Record<string, unknown> | undefined {
+  getPanelById(id: string): DcPowerPanel | undefined {
     return db.prepare(`
       SELECT pp.*, r.name as room_name FROM dc_power_panels pp
       JOIN dc_rooms r ON r.id = pp.room_id WHERE pp.id = ?
-    `).get(id) as Record<string, unknown> | undefined;
+    `).get(id) as DcPowerPanel | undefined;
   },
 
   /** 配电柜下的馈线 + 机柜名（powerPanels.ts GET /:id 子查询） */
-  listFeedsByPanel(panelId: string): Array<Record<string, unknown>> {
+  listFeedsByPanel(panelId: string): DcPowerFeed[] {
     return db.prepare(`
       SELECT pf.*, r.name as rack_name
       FROM dc_power_feeds pf
       LEFT JOIN dc_racks r ON r.id = pf.rack_id
       WHERE pf.power_panel_id = ? ORDER BY pf.name
-    `).all(panelId) as Array<Record<string, unknown>>;
+    `).all(panelId) as DcPowerFeed[];
   },
 
   createPanel(input: PowerPanelCreateInput): void {
@@ -126,7 +127,7 @@ export const powerRepo = {
   // ── 馈线（power_feeds）──
 
   /** 馈线列表 + 配电柜名 + 机柜名（powerFeeds.ts GET /） */
-  listFeeds(filters: FeedListFilters = {}): Array<Record<string, unknown>> {
+  listFeeds(filters: FeedListFilters = {}): DcPowerFeed[] {
     let query = `
       SELECT pf.*, pp.name as panel_name, r.name as rack_name, r.label as rack_label
       FROM dc_power_feeds pf
@@ -141,21 +142,21 @@ export const powerRepo = {
     } else {
       query += ' ORDER BY pp.name, pf.name';
     }
-    return db.prepare(query).all(...params) as Array<Record<string, unknown>>;
+    return db.prepare(query).all(...params) as DcPowerFeed[];
   },
 
   /** 按机柜列出馈线（powerFeeds.ts GET /rack/:rackId） */
-  listFeedsByRack(rackId: string): Array<Record<string, unknown>> {
+  listFeedsByRack(rackId: string): DcPowerFeed[] {
     return db.prepare(`
       SELECT pf.*, pp.name as panel_name
       FROM dc_power_feeds pf
       JOIN dc_power_panels pp ON pp.id = pf.power_panel_id
       WHERE pf.rack_id = ? ORDER BY pf.feed_type, pf.name
-    `).all(rackId) as Array<Record<string, unknown>>;
+    `).all(rackId) as DcPowerFeed[];
   },
 
   /** 单条馈线 + 配电柜名 + 机柜名（powerFeeds.ts GET /:id） */
-  getFeedById(id: string): Record<string, unknown> | undefined {
+  getFeedById(id: string): DcPowerFeed | undefined {
     return db.prepare(`
       SELECT pf.*, pp.name as panel_name, pp.room_id,
         r.name as rack_name, r.label as rack_label
@@ -163,7 +164,7 @@ export const powerRepo = {
       JOIN dc_power_panels pp ON pp.id = pf.power_panel_id
       LEFT JOIN dc_racks r ON r.id = pf.rack_id
       WHERE pf.id = ?
-    `).get(id) as Record<string, unknown> | undefined;
+    `).get(id) as DcPowerFeed | undefined;
   },
 
   createFeed(input: PowerFeedCreateInput): void {

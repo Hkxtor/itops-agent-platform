@@ -10,7 +10,7 @@ export interface DependencyInput {
   dependency_type: string;
   protocol?: string;
   port?: number;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, string>;
 }
 
 export interface TopologyNode {
@@ -244,8 +244,14 @@ class TopologyService {
       throw new Error(`Alert ${alertId} not found`);
     }
 
-    const upstream = this.findUpstream(alert.server_id as string);
-    const downstream = this.findDownstream(alert.server_id as string);
+    const deviceAssoc = alertRepository.deviceAssociations.getByAlertId(alertId);
+    const serverId = deviceAssoc?.device_type === 'server' ? deviceAssoc.device_id : null;
+    if (!serverId) {
+      return { upstream: [], downstream: [] };
+    }
+
+    const upstream = this.findUpstream(serverId);
+    const downstream = this.findDownstream(serverId);
 
     return { upstream, downstream };
   }

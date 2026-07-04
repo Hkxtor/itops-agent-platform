@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { logger } from '../../../utils/logger';
 import { alertAutoResponseService } from './alertAutoResponse/alertAutoResponseService';
 import { remediationService } from '../../auto/services/remediationService';
-import { knowledgeEngine } from '../../../core/KnowledgeEngine';
+import { knowledgeEngine } from '../../ai/services/KnowledgeEngine';
 import { workflowsRepo, remediationPolicyRepository, processingRecordsRepo } from '../../../repositories';
 import type { RemediationPolicy } from '../../../types';
 import type { AlertProcessingRecord } from '../../../repositories/alertRepository/types';

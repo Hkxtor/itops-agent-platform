@@ -34,7 +34,6 @@ export interface SnmpCredentialRecord {
   host?: string | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 /** 凭证列表行（含联表 host） */
@@ -266,7 +265,6 @@ export interface InspectionHistoryRecord {
   summary: string;
   commands_executed: string;
   created_at: string;
-  [key: string]: unknown;
 }
 
 /** 接口指标记录（告警自动分析用） */
@@ -281,7 +279,6 @@ export interface InterfaceMetricRecord {
   if_in_errors: number;
   if_out_errors: number;
   sampled_at: string;
-  [key: string]: unknown;
 }
 
 export const snmpInspectionRepo = {

@@ -58,8 +58,8 @@ const ExternalServers: React.FC = () => {
       await startExternalServer(id);
       message.success('启动成功');
       loadServers();
-    } catch (err: any) {
-      message.error(err?.response?.data?.error || '启动失败');
+    } catch (err: unknown) {
+      message.error((err as { response?: { data?: { error?: string } } })?.response?.data?.error || '启动失败');
     }
   }
 
@@ -69,7 +69,7 @@ const ExternalServers: React.FC = () => {
       const ok = result.results.filter((r) => r.success).length;
       message.success(`${ok}/${result.results.length} 台服务器启动成功`);
       loadServers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       message.error('启动失败');
     }
   }
@@ -79,7 +79,7 @@ const ExternalServers: React.FC = () => {
       await stopExternalServer(id);
       message.success('已停止');
       loadServers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       message.error('停止失败');
     }
   }
@@ -89,7 +89,7 @@ const ExternalServers: React.FC = () => {
       await unregisterExternalServer(id);
       message.success('已注销');
       loadServers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       message.error('注销失败');
     }
   }
@@ -124,9 +124,9 @@ const ExternalServers: React.FC = () => {
       setAddOpen(false);
       form.resetFields();
       loadServers();
-    } catch (err: any) {
-      if (err?.errorFields) return;
-      message.error(err?.response?.data?.error || '注册失败');
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'errorFields' in err) return;
+      message.error('注册失败');
     } finally {
       setAddLoading(false);
     }
@@ -172,7 +172,7 @@ const ExternalServers: React.FC = () => {
       title: '操作',
       key: 'action',
       width: 200,
-      render: (_: any, record: ExternalServer) => (
+      render: (_: unknown, record: ExternalServer) => (
         <Space size="small">
           {record.state === 'connected' ? (
             <Popconfirm title="确定停止此服务器?" onConfirm={() => handleStop(record.id)}>

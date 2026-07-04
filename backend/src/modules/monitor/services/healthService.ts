@@ -312,7 +312,7 @@ export class HealthService {
     const services: SystemHealth['services'] = [];
     
     try {
-      const { backupService } = await import('../../infra/services/backupService');
+      const { backupService } = await import('../../backup/services');
       const backupStatus = backupService.getStatus();
       services.push({
         name: 'backup',

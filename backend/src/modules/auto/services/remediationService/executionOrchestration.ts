@@ -94,7 +94,7 @@ export async function executeWorkflow(service: RemediationServiceLike, execution
     }
 
     const taskId = uuidv4();
-    const params = resolveParams(policy.workflow_params, alert);
+    const params = resolveParams(policy.workflow_params ?? undefined, alert);
 
     // 始终将告警关键字段注入 context，确保 Agent 节点能获取告警数据
     const alertContext = {
@@ -179,7 +179,7 @@ export async function executeWorkflow(service: RemediationServiceLike, execution
   }
 }
 
-export function resolveParams(paramsJson: string | undefined, alert: Record<string, unknown>): Record<string, unknown> {
+export function resolveParams(paramsJson: string | undefined, alert: RemediationAlert): Record<string, unknown> {
   if (!paramsJson) return {};
 
   let params: Record<string, unknown>;
@@ -193,7 +193,7 @@ export function resolveParams(paramsJson: string | undefined, alert: Record<stri
   for (const [key, value] of Object.entries(params)) {
     if (typeof value === 'string') {
       resolved[key] = value.replace(/\{\{alert\.(\w+)\}\}/g, (_match, prop) => {
-        const val = alert[prop];
+        const val = (alert as unknown as Record<string, unknown>)[prop];
         return val !== undefined && val !== null ? String(val) : '';
       });
     } else {

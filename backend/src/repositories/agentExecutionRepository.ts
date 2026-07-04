@@ -6,6 +6,7 @@
  */
 
 import db from '../models/database';
+import type { AgentExecution } from './types/ai';
 
 export type AgentExecutionStatus = 'success' | 'failure' | 'error' | 'running' | string;
 
@@ -21,7 +22,6 @@ export interface AgentExecutionRecord {
   execution_time_ms: number | null;
   metadata: string | null;
   created_at: string;
-  [key: string]: unknown;
 }
 
 /** 创建执行记录的输入 */

@@ -5,6 +5,13 @@ import { dockerService } from '../../../containers/services/dockerService';
 import { serverInfoCollector } from '../../../servers/services/serverInfoCollector';
 import db from '../../../../models/database';
 
+// ── 语义化类型别名 ──
+
+/** 工具 JSON Schema 属性定义 */
+type ToolSchemaProperties = Record<string, unknown>;
+/** 工具执行输入参数 */
+type ToolInputArgs = Record<string, unknown>;
+
 /**
  * Agent 工具接口
  */
@@ -15,10 +22,10 @@ export interface AgentTool {
   category: 'ssh' | 'docker' | 'kubernetes' | 'system' | 'network' | 'database';
   schema: {
     type: 'object';
-    properties: Record<string, unknown>;
+    properties: ToolSchemaProperties;
     required?: string[];
   };
-  execute: (args: Record<string, unknown>) => Promise<string>;
+  execute: (args: ToolInputArgs) => Promise<string>;
 }
 
 /**

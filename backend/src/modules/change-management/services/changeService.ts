@@ -8,7 +8,7 @@ export interface ChangeInput {
   changed_by?: string;
   status?: string;
   related_alert_id?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, string>;
 }
 
 export interface ChangeFilters {
@@ -28,7 +28,7 @@ export interface ChangeRecord {
   status: string;
   related_alert_id: string | null;
   is_root_cause: boolean;
-  metadata: Record<string, unknown> | null;
+  metadata: Record<string, string> | null;
   created_at: string;
 }
 

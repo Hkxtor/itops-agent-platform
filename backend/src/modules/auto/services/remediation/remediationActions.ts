@@ -3,6 +3,7 @@ import db from '../../../../models/database';
 import { logger } from '../../../../utils/logger';
 import { executeCommand } from '../../../servers/services/sshService';
 import { rootCauseAnalysisService } from '../../../ai/services/rca/rootCauseAnalysisService';
+import type { RemediationAudit } from '../../../../repositories/types/auto';
 
 interface CreateAuditInput {
   rca_id: string;
@@ -10,6 +11,24 @@ interface CreateAuditInput {
   server_id: string;
   risk_level: string;
   recommendations?: string;
+}
+
+/** remediation_audits + root_cause_analyses + remediation_policies JOIN 查询结果 */
+interface RemediationAuditRow extends RemediationAudit {
+  rca_title?: string;
+  policy_name?: string;
+}
+
+interface VerificationResult {
+  allPassed?: boolean;
+  checks?: Array<{ name: string; success: boolean; output: string }>;
+  success?: boolean;
+  error?: string;
+}
+
+interface AuditListResult {
+  audits: RemediationAuditRow[];
+  total: number;
 }
 
 export const remediationActionsMixin = {
@@ -56,7 +75,7 @@ export const remediationActionsMixin = {
     return { valid: true };
   },
 
-  createAudit(input: CreateAuditInput): Record<string, unknown> {
+  createAudit(input: CreateAuditInput): RemediationAuditRow {
     const id = uuidv4();
     const now = new Date().toISOString();
 
@@ -81,13 +100,13 @@ export const remediationActionsMixin = {
       LEFT JOIN root_cause_analyses r ON a.rca_id = r.id
       LEFT JOIN remediation_policies p ON a.policy_id = p.id
       WHERE a.id = ?
-    `).get(id) as Record<string, unknown>;
+    `).get(id) as RemediationAuditRow;
 
-    return audit || {};
+    return audit || ({} as RemediationAuditRow);
   },
 
-  approveAudit(id: string, userId: string, action?: string, _comment?: string): Record<string, unknown> {
-    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  approveAudit(id: string, userId: string, action?: string, _comment?: string): RemediationAuditRow {
+    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as RemediationAuditRow | undefined;
     if (!audit) {
       throw new Error(`Audit not found: ${id}`);
     }
@@ -111,13 +130,13 @@ export const remediationActionsMixin = {
       LEFT JOIN root_cause_analyses r ON a.rca_id = r.id
       LEFT JOIN remediation_policies p ON a.policy_id = p.id
       WHERE a.id = ?
-    `).get(id) as Record<string, unknown>;
+    `).get(id) as RemediationAuditRow;
 
-    return updated || {};
+    return updated || ({} as RemediationAuditRow);
   },
 
-  async executeAudit(id: string): Promise<Record<string, unknown>> {
-    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  async executeAudit(id: string): Promise<RemediationAuditRow> {
+    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as RemediationAuditRow | undefined;
     if (!audit) {
       throw new Error(`Audit not found: ${id}`);
     }
@@ -211,13 +230,13 @@ export const remediationActionsMixin = {
       LEFT JOIN root_cause_analyses r ON a.rca_id = r.id
       LEFT JOIN remediation_policies p ON a.policy_id = p.id
       WHERE a.id = ?
-    `).get(id) as Record<string, unknown>;
+    `).get(id) as RemediationAuditRow;
 
-    return updated || {};
+    return updated || ({} as RemediationAuditRow);
   },
 
-  async verifyAudit(id: string): Promise<Record<string, unknown>> {
-    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  async verifyAudit(id: string): Promise<RemediationAuditRow> {
+    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as RemediationAuditRow | undefined;
     if (!audit) {
       throw new Error(`Audit not found: ${id}`);
     }
@@ -229,7 +248,7 @@ export const remediationActionsMixin = {
     const serverId = audit.server_id as string;
     const _rca = audit.rca_id ? rootCauseAnalysisService.get(audit.rca_id as string) : null;
 
-    let verificationResult: Record<string, unknown> = {};
+    let verificationResult: VerificationResult = {};
 
     try {
       const checks = [
@@ -268,13 +287,13 @@ export const remediationActionsMixin = {
       LEFT JOIN root_cause_analyses r ON a.rca_id = r.id
       LEFT JOIN remediation_policies p ON a.policy_id = p.id
       WHERE a.id = ?
-    `).get(id) as Record<string, unknown>;
+    `).get(id) as RemediationAuditRow;
 
-    return updated || {};
+    return updated || ({} as RemediationAuditRow);
   },
 
-  async rollbackAudit(id: string): Promise<Record<string, unknown>> {
-    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  async rollbackAudit(id: string): Promise<RemediationAuditRow> {
+    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(id) as RemediationAuditRow | undefined;
     if (!audit) {
       throw new Error(`Audit not found: ${id}`);
     }
@@ -352,13 +371,13 @@ export const remediationActionsMixin = {
       LEFT JOIN root_cause_analyses r ON a.rca_id = r.id
       LEFT JOIN remediation_policies p ON a.policy_id = p.id
       WHERE a.id = ?
-    `).get(id) as Record<string, unknown>;
+    `).get(id) as RemediationAuditRow;
 
-    return updated || {};
+    return updated || ({} as RemediationAuditRow);
   },
 
   async persistToKnowledge(auditId: string): Promise<void> {
-    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(auditId) as Record<string, unknown> | undefined;
+    const audit = db.prepare('SELECT * FROM remediation_audits WHERE id = ?').get(auditId) as RemediationAuditRow | undefined;
     if (!audit) {
       throw new Error(`Audit not found: ${auditId}`);
     }
@@ -390,7 +409,7 @@ export const remediationActionsMixin = {
     logger.info(`Persisted audit ${auditId} to knowledge base`);
   },
 
-  listAudits(filters: { status?: string; risk_level?: string; page?: number; limit?: number }): { audits: Array<Record<string, unknown>>; total: number } {
+  listAudits(filters: { status?: string; risk_level?: string; page?: number; limit?: number }): AuditListResult {
     let sql = `
       SELECT a.*, r.title as rca_title, p.name as policy_name
       FROM remediation_audits a
@@ -420,20 +439,20 @@ export const remediationActionsMixin = {
     const offset = (page - 1) * limit;
     sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
-    const audits = db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
+    const audits = db.prepare(sql).all(...params) as RemediationAuditRow[];
     const totalResult = db.prepare(countSql).get(...params) as { count: number };
 
     return { audits, total: totalResult.count };
   },
 
-  getAudit(id: string): Record<string, unknown> {
+  getAudit(id: string): RemediationAuditRow {
     const audit = db.prepare(`
       SELECT a.*, r.title as rca_title, p.name as policy_name
       FROM remediation_audits a
       LEFT JOIN root_cause_analyses r ON a.rca_id = r.id
       LEFT JOIN remediation_policies p ON a.policy_id = p.id
       WHERE a.id = ?
-    `).get(id) as Record<string, unknown> | undefined;
+    `).get(id) as RemediationAuditRow | undefined;
 
     if (!audit) {
       throw new Error(`Audit not found: ${id}`);

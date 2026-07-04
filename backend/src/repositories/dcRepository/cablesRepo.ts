@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DcCable } from '../types/dc';
 
 export interface CableCreateInput {
   id: string;
@@ -36,7 +37,7 @@ export const cablesRepo = {
   },
 
   /** 线缆列表 + 双端设备名（多表 JOIN，cables.ts GET /） */
-  list(filters: CableListFilters = {}): Array<Record<string, unknown>> {
+  list(filters: CableListFilters = {}): DcCable[] {
     let query = `
       SELECT c.*,
         COALESCE(s.name, nd.name, vm.name, pf.name, c.a_device_id) as a_device_name,
@@ -62,11 +63,11 @@ export const cablesRepo = {
       params.push(filters.status);
     }
     query += ' ORDER BY c.created_at DESC';
-    return db.prepare(query).all(...params) as Array<Record<string, unknown>>;
+    return db.prepare(query).all(...params) as DcCable[];
   },
 
   /** 3D 场景用：仅 JOIN servers/network_devices，不含 power_feeds */
-  listForScene(): Array<Record<string, unknown>> {
+  listForScene(): DcCable[] {
     return db.prepare(`
       SELECT c.*,
         COALESCE(s1.name, nd1.name, '') as a_device_name,
@@ -77,11 +78,11 @@ export const cablesRepo = {
       LEFT JOIN network_devices nd1 ON c.a_device_type='network_device' AND c.a_device_id = nd1.id
       LEFT JOIN network_devices nd2 ON c.b_device_type='network_device' AND c.b_device_id = nd2.id
       ORDER BY c.created_at DESC
-    `).all() as Array<Record<string, unknown>>;
+    `).all() as DcCable[];
   },
 
   /** 按设备 ID 列表查询已连接的线缆（topology 用） */
-  listConnectedByDeviceIds(deviceIds: string[]): Array<Record<string, unknown>> {
+  listConnectedByDeviceIds(deviceIds: string[]): DcCable[] {
     if (deviceIds.length === 0) return [];
     const placeholders = deviceIds.map(() => '?').join(',');
     return db.prepare(`
@@ -89,7 +90,7 @@ export const cablesRepo = {
       WHERE (c.a_device_id IN (${placeholders}) OR c.b_device_id IN (${placeholders}))
         AND c.status = 'connected'
       ORDER BY c.name
-    `).all(...deviceIds, ...deviceIds) as Array<Record<string, unknown>>;
+    `).all(...deviceIds, ...deviceIds) as DcCable[];
   },
 
   create(input: CableCreateInput): void {

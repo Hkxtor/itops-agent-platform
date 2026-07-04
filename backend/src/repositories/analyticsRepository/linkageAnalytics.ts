@@ -5,6 +5,7 @@
 
 import db from '../../models/database';
 import type {
+  AnalyticsRow,
   InspectionCenterResult,
   DeviceOverview,
   DashboardLinkageStats,
@@ -36,7 +37,7 @@ export function getInspectionCenter(
     if (assoc) deviceId = assoc.device_id;
   }
 
-  const results: Array<Record<string, unknown>> = [];
+  const results: Array<AnalyticsRow> = [];
 
   // 1. SNMP 巡检 + SSH 巡检（来自 network_inspection_history）
   let historyFilter = '';
@@ -208,7 +209,7 @@ export function getDeviceOverview(deviceId: string): DeviceOverview | undefined 
        ORDER BY a.created_at DESC
        LIMIT 10`
     )
-    .all(deviceId) as Array<Record<string, unknown>>;
+    .all(deviceId) as Array<AnalyticsRow>;
 
   // 最近巡检
   const inspections = db
@@ -219,7 +220,7 @@ export function getDeviceOverview(deviceId: string): DeviceOverview | undefined 
        ORDER BY created_at DESC
        LIMIT 10`
     )
-    .all(deviceId) as Array<Record<string, unknown>>;
+    .all(deviceId) as Array<AnalyticsRow>;
 
   // 最近 AI 分析
   const analyses = db
@@ -230,7 +231,7 @@ export function getDeviceOverview(deviceId: string): DeviceOverview | undefined 
        ORDER BY created_at DESC
        LIMIT 10`
     )
-    .all(deviceId) as Array<Record<string, unknown>>;
+    .all(deviceId) as Array<AnalyticsRow>;
 
   // 最近修复执行
   const executions = db
@@ -242,7 +243,7 @@ export function getDeviceOverview(deviceId: string): DeviceOverview | undefined 
        ORDER BY re.started_at DESC
        LIMIT 10`
     )
-    .all(`%${deviceId}%`) as Array<Record<string, unknown>>;
+    .all(`%${deviceId}%`) as Array<AnalyticsRow>;
 
   return {
     device: {

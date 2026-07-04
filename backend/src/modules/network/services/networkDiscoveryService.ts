@@ -19,6 +19,7 @@ import { promisify } from 'util';
 import { decrypt } from '../../auth/services/encryptionService';
 import { getErrorMessage } from '../../../utils/errorHelpers';
 import { networkDeviceRepository, snmpCredentialsRepo } from '../../../repositories';
+import type { SnmpCredentialRecord } from '../../../repositories/snmpRepository';
 
 const execAsync = promisify(exec);
 const isWindows = process.platform === 'win32';
@@ -154,7 +155,7 @@ class NetworkDiscoveryService {
         snmp_auth_key: cred.snmp_auth_key ? decrypt(cred.snmp_auth_key) : null,
         snmp_priv_key: cred.snmp_priv_key ? decrypt(cred.snmp_priv_key) : null,
       };
-    }).filter(Boolean);
+    }).filter(Boolean) as SnmpCredentialRecord[];
 
     logger.info(`📡 Starting scan job ${jobId}: ${ips.length} hosts, ${credentials.length} credentials`);
 
@@ -198,7 +199,7 @@ class NetworkDiscoveryService {
   /**
    * Ping IP 并尝试 SNMP 发现
    */
-  private async pingAndDiscover(jobId: string, ip: string, credentials: any[], signal: AbortSignal): Promise<boolean> {
+  private async pingAndDiscover(jobId: string, ip: string, credentials: SnmpCredentialRecord[], signal: AbortSignal): Promise<boolean> {
     if (signal.aborted) return false;
 
     const startTime = Date.now();
@@ -263,7 +264,7 @@ class NetworkDiscoveryService {
   /**
    * 尝试 SNMP 连接并获取设备信息
    */
-  private async trySnmpConnect(ip: string, cred: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  private async trySnmpConnect(ip: string, cred: SnmpCredentialRecord): Promise<Record<string, any> | null> {
     // 使用内置的 snmp 测试逻辑
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const snmp = require('net-snmp');
@@ -305,7 +306,7 @@ class NetworkDiscoveryService {
         '1.3.6.1.2.1.2.1.0',   // ifNumber
       ];
 
-      session.get(oids, (error: Error | null, varbinds: unknown[]) => {
+      session.get(oids, (error: Error | null, varbinds: any[]) => {
         session.close();
 
         if (error) {

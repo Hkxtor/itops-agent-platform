@@ -14,6 +14,7 @@
  */
 
 import db from '../models/database';
+import type { RemediationPolicy, RemediationExecution, RemediationHistory } from './types/auto';
 
 // ── 类型定义 ──
 
@@ -42,7 +43,6 @@ export interface RemediationPolicyRecord {
   created_by?: string | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface RemediationPolicyListFilters {

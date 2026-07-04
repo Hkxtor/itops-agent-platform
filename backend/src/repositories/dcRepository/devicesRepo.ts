@@ -1,4 +1,5 @@
 import db from '../../models/database';
+import type { DeviceManufacturer, DeviceType, DcDeviceLifecycle, DeviceTypeSlotDefinition } from '../types/dc';
 
 export interface DeviceTypeCreateInput {
   id: string;
@@ -55,17 +56,17 @@ export interface UnallocatedQueryFilters {
 export const devicesRepo = {
   // ── 制造商 ──
 
-  listManufacturers(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM device_manufacturers ORDER BY name').all() as Array<Record<string, unknown>>;
+  listManufacturers(): DeviceManufacturer[] {
+    return db.prepare('SELECT * FROM device_manufacturers ORDER BY name').all() as DeviceManufacturer[];
   },
 
   /** 按 sort_order, name 排序（manufacturers.ts 用） */
-  listManufacturersOrdered(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM device_manufacturers ORDER BY sort_order, name').all() as Array<Record<string, unknown>>;
+  listManufacturersOrdered(): DeviceManufacturer[] {
+    return db.prepare('SELECT * FROM device_manufacturers ORDER BY sort_order, name').all() as DeviceManufacturer[];
   },
 
-  getManufacturerById(id: string): Record<string, unknown> | undefined {
-    return db.prepare('SELECT * FROM device_manufacturers WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  getManufacturerById(id: string): DeviceManufacturer | undefined {
+    return db.prepare('SELECT * FROM device_manufacturers WHERE id = ?').get(id) as DeviceManufacturer | undefined;
   },
 
   createManufacturer(input: ManufacturerCreateInput): void {
@@ -95,12 +96,12 @@ export const devicesRepo = {
 
   // ── 设备型号 ──
 
-  listDeviceTypes(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM device_types ORDER BY name').all() as Array<Record<string, unknown>>;
+  listDeviceTypes(): DeviceType[] {
+    return db.prepare('SELECT * FROM device_types ORDER BY name').all() as DeviceType[];
   },
 
   /** 设备型号列表 + 制造商名称（deviceTypes.ts GET /） */
-  listDeviceTypesWithManufacturer(filters: { manufacturerId?: string } = {}): Array<Record<string, unknown>> {
+  listDeviceTypesWithManufacturer(filters: { manufacturerId?: string } = {}): DeviceType[] {
     const params: unknown[] = [];
     let query = `
       SELECT dt.*, dm.name as manufacturer_name, dm.slug as manufacturer_slug
@@ -112,24 +113,24 @@ export const devicesRepo = {
       params.push(filters.manufacturerId);
     }
     query += ' ORDER BY dm.name, dt.model';
-    return db.prepare(query).all(...params) as Array<Record<string, unknown>>;
+    return db.prepare(query).all(...params) as DeviceType[];
   },
 
   /** 单个设备型号 + 制造商信息（deviceTypes.ts GET /:id） */
-  getDeviceTypeById(id: string): Record<string, unknown> | undefined {
+  getDeviceTypeById(id: string): DeviceType | undefined {
     return db.prepare(`
       SELECT dt.*, dm.name as manufacturer_name, dm.slug as manufacturer_slug
       FROM device_types dt
       JOIN device_manufacturers dm ON dm.id = dt.manufacturer_id
       WHERE dt.id = ?
-    `).get(id) as Record<string, unknown> | undefined;
+    `).get(id) as DeviceType | undefined;
   },
 
   /** 设备型号的槽位定义（device_type_slot_definitions 表） */
-  listSlotDefinitions(deviceTypeId: string): Array<Record<string, unknown>> {
+  listSlotDefinitions(deviceTypeId: string): DeviceTypeSlotDefinition[] {
     return db.prepare(
       'SELECT * FROM device_type_slot_definitions WHERE device_type_id = ? ORDER BY slot_type, slot_name'
-    ).all(deviceTypeId) as Array<Record<string, unknown>>;
+    ).all(deviceTypeId) as DeviceTypeSlotDefinition[];
   },
 
   getDeviceTypeUHeight(id: string): number | undefined {
@@ -171,12 +172,12 @@ export const devicesRepo = {
 
   // ── 生命周期 ──
 
-  listLifecycle(): Array<Record<string, unknown>> {
-    return db.prepare('SELECT * FROM dc_device_lifecycle').all() as Array<Record<string, unknown>>;
+  listLifecycle(): DcDeviceLifecycle[] {
+    return db.prepare('SELECT * FROM dc_device_lifecycle').all() as DcDeviceLifecycle[];
   },
 
   /** 生命周期列表（带过滤 + 分页，lifecycle.ts GET /） */
-  listLifecycleFiltered(filters: LifecycleListFilters = {}): Array<Record<string, unknown>> {
+  listLifecycleFiltered(filters: LifecycleListFilters = {}): DcDeviceLifecycle[] {
     let query = 'SELECT * FROM dc_device_lifecycle';
     const params: unknown[] = [];
     if (filters.action) {
@@ -185,7 +186,7 @@ export const devicesRepo = {
     }
     query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(filters.limit ?? 500);
-    return db.prepare(query).all(...params) as Array<Record<string, unknown>>;
+    return db.prepare(query).all(...params) as DcDeviceLifecycle[];
   },
 
   /** 记录生命周期事件（mounted/moved/unmounted） */

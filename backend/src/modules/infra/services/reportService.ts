@@ -34,7 +34,7 @@ export interface GeneratedReport {
   type: 'incident' | 'inspection' | 'change';
   content: string;
   format: 'markdown' | 'pdf' | 'word';
-  metadata: Record<string, unknown>;
+  metadata: Record<string, string | Record<string, string>>;
   created_at: string;
 }
 

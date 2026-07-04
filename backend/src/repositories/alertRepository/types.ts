@@ -19,7 +19,6 @@ export interface AlertRecord {
   related_task_id?: string | null;
   created_at: string;
   updated_at?: string;
-  [key: string]: unknown;
 }
 
 /** alert_provider_configs 表原始行 */
@@ -31,7 +30,6 @@ export interface AlertProviderConfigRecord {
   enabled: number;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 // ── alert_device_associations 表类型 ──
@@ -43,7 +41,6 @@ export interface AlertDeviceAssociationRecord {
   match_method: 'exact_hostname' | 'fuzzy_hostname' | 'ip_address' | 'title_keyword' | 'manual';
   confidence: number;
   created_at: string;
-  [key: string]: unknown;
 }
 
 export interface AlertDeviceAssociationInput {
@@ -68,7 +65,6 @@ export interface AlertCorrelationGroupRecord {
   root_cause?: string | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface AlertCorrelationGroupCreateInput {
@@ -96,7 +92,6 @@ export interface AlertCorrelationMemberRecord {
   alert_id: string;
   is_root: number;
   created_at: string;
-  [key: string]: unknown;
 }
 
 export interface AlertCorrelationMemberInput {
@@ -125,7 +120,6 @@ export interface AarsResponseLogRecord {
   started_at: string;
   completed_at?: string | null;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface AarsResponseLogInput {
@@ -157,7 +151,6 @@ export interface AlertNoiseReductionRecord {
   is_suppressed: number;
   suppression_reason?: string | null;
   suppression_until?: string | null;
-  [key: string]: unknown;
 }
 
 export interface AlertNoiseReductionCreateInput {
@@ -179,7 +172,6 @@ export interface AlertWorkflowMappingRecord {
   workflow_id: string;
   enabled: number;
   created_at: string;
-  [key: string]: unknown;
 }
 
 export interface AlertWorkflowMappingCreateInput {
@@ -225,7 +217,6 @@ export interface AlertWebhookLogRecord {
   user_agent?: string | null;
   processing_time_ms?: number | null;
   created_at: string;
-  [key: string]: unknown;
 }
 
 // ── alert_processing_records 表类型 ──
@@ -243,7 +234,6 @@ export interface AlertProcessingRecord {
   error_message?: string | null;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 // ── alert_configs 表类型 ──
@@ -259,7 +249,6 @@ export interface AlertConfigRecord {
   rate_limit_minutes: number;
   created_at: string;
   updated_at: string;
-  [key: string]: unknown;
 }
 
 export interface AlertConfigCreateInput {
@@ -291,7 +280,6 @@ export interface AlertNotificationRecord {
   channels: string;
   status: string;
   triggered_at: string;
-  [key: string]: unknown;
 }
 
 export interface AlertNotificationInsertInput {

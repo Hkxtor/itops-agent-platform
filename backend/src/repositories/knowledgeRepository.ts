@@ -16,6 +16,7 @@
  */
 
 import db from '../models/database';
+import type { KnowledgeEntry } from './types/ai';
 
 // ── 类型定义 ──
 
@@ -37,7 +38,6 @@ export interface KnowledgeRecord {
   created_at: string;
   updated_at: string;
   related_alerts?: string | null;
-  [key: string]: unknown;
 }
 
 /** 列表过滤条件 */

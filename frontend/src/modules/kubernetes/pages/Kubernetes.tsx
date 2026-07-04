@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -277,8 +276,8 @@ export default function Kubernetes() {
       setTestResult(null);
       toast.success('集群已导入');
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.error || err.response?.data?.message || '导入集群失败');
+    onError: (err: unknown) => {
+      toast.error('导入集群失败');
     },
   });
 
@@ -296,10 +295,11 @@ export default function Kubernetes() {
         success: res.data.data?.success ?? false,
         message: res.data.data?.message || (res.data.data?.success ? '连接成功' : '连接失败'),
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string; message?: string } }; message?: string };
       setTestResult({
         success: false,
-        message: err.response?.data?.error || err.response?.data?.message || '测试连接失败',
+        message: e.response?.data?.error || e.response?.data?.message || '测试连接失败',
       });
     } finally {
       setTestingConfig(false);
@@ -319,8 +319,9 @@ export default function Kubernetes() {
       setDeleteContextTarget(null);
       toast.success('集群已删除');
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.error || err.response?.data?.message || '删除集群失败');
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string; message?: string } }; message?: string };
+      toast.error(e.response?.data?.error || e.response?.data?.message || '删除集群失败');
     },
   });
 
@@ -337,8 +338,9 @@ export default function Kubernetes() {
       setDeletePodTarget(null);
       toast.success('Pod 已删除');
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.error || err.response?.data?.message || '删除 Pod 失败');
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string; message?: string } }; message?: string };
+      toast.error(e.response?.data?.error || e.response?.data?.message || '删除 Pod 失败');
     },
   });
 
@@ -357,8 +359,9 @@ export default function Kubernetes() {
       setScaleTarget(null);
       toast.success('扩缩容成功');
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.error || err.response?.data?.message || '扩缩容失败');
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string; message?: string } }; message?: string };
+      toast.error(e.response?.data?.error || e.response?.data?.message || '扩缩容失败');
     },
   });
 
@@ -382,8 +385,9 @@ export default function Kubernetes() {
     onSuccess: () => {
       toast.success('重启指令已下发');
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.error || err.response?.data?.message || '重启失败');
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string; message?: string } }; message?: string };
+      toast.error(e.response?.data?.error || e.response?.data?.message || '重启失败');
     },
   });
 
