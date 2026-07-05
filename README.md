@@ -52,11 +52,7 @@
   <img src="https://img.shields.io/badge/Docker-🐳-2496ED?logo=docker" alt="Docker">
   <br/>
   <a href="https://www.star-history.com/?repos=qinshihu%2Fitops-agent-platform&type=date&legend=top-left">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=qinshihu/itops-agent-platform&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=qinshihu/itops-agent-platform&type=date&legend=top-left" />
-      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=qinshihu/itops-agent-platform&type=date&legend=top-left" />
-    </picture>
+    <img src="https://api.star-history.com/svg?repos=qinshihu/itops-agent-platform&type=Date" alt="Star History Chart" width="480" />
   </a>
 </p>
 
